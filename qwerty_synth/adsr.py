@@ -4,10 +4,10 @@ import numpy as np
 
 # ADSR envelope parameters
 adsr = {
-    'attack': 0.05,
-    'decay': 0.1,
-    'sustain': 0.7,
-    'release': 0.3
+    'attack': 0.1,
+    'decay': 0.05,
+    'sustain': 0.8,
+    'release': 0.5,
 }
 
 # Pre-calculated ADSR curve for visualization
@@ -39,10 +39,10 @@ def update_adsr_curve():
 def get_adsr_parameter_steps():
     """Return the step size for each ADSR parameter."""
     return {
-        'attack': 0.01,
-        'decay': 0.1,
-        'sustain': 0.1,
-        'release': 0.1
+        'attack': 0.005,
+        'decay': 0.05,
+        'sustain': 0.05,
+        'release': 0.05,
     }
 
 
