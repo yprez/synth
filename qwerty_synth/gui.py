@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.animation as animation
 
 from qwerty_synth import config
 from qwerty_synth import adsr
@@ -22,14 +23,21 @@ class SynthGUI:
         """Initialize the GUI with the root Tkinter window."""
         self.root = root
         self.root.title("QWERTY Synth")
-        self.root.geometry("800x600")
+        self.root.geometry("900x700")  # Increased size to accommodate all plots
         self.root.resizable(True, True)
+
+        # Animation control variables
+        self.animation_running = True
+        self.ani = None  # Will hold the animation object
 
         self.setup_ui()
         self.running = True
 
         # Handle window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Start animation after UI is set up
+        self.start_animation()
 
     def setup_ui(self):
         """Set up the user interface components."""
@@ -56,6 +64,50 @@ class SynthGUI:
                 variable=self.waveform_var,
                 command=self.update_waveform
             ).grid(row=0, column=i, padx=20)
+
+        # Create visualization frames
+        # A container for waveform and spectrum visualization
+        viz_container = ttk.Frame(main_frame)
+        viz_container.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        # Waveform visualization
+        wave_viz_frame = ttk.LabelFrame(viz_container, text="Waveform Display", padding="10")
+        wave_viz_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        self.wave_fig = Figure(figsize=(4, 3), dpi=100)
+        self.wave_ax = self.wave_fig.add_subplot(111)
+        self.wave_canvas = FigureCanvasTkAgg(self.wave_fig, master=wave_viz_frame)
+        self.wave_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Initialize waveform plot
+        self.window_size = 512
+        self.wave_line, = self.wave_ax.plot(np.zeros(self.window_size))
+        self.wave_ax.set_ylim(-1, 1)
+        self.wave_ax.set_xlim(0, self.window_size)
+        self.wave_ax.set_title('Synth Output Waveform')
+        self.wave_ax.set_xlabel('Samples')
+        self.wave_ax.set_ylabel('Amplitude')
+        self.wave_ax.grid(True, linestyle='--', alpha=0.7)
+
+        # Spectrum visualization
+        spec_viz_frame = ttk.LabelFrame(viz_container, text="Frequency Spectrum", padding="10")
+        spec_viz_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        self.spec_fig = Figure(figsize=(4, 3), dpi=100)
+        self.spec_ax = self.spec_fig.add_subplot(111)
+        self.spec_canvas = FigureCanvasTkAgg(self.spec_fig, master=spec_viz_frame)
+        self.spec_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Initialize spectrum plot
+        self.fft_size = 2048
+        self.freqs = np.fft.rfftfreq(self.fft_size, d=1 / config.sample_rate)
+        self.spec_line, = self.spec_ax.semilogx(self.freqs, np.zeros_like(self.freqs))
+        self.spec_ax.set_xlim(20, config.sample_rate / 2)
+        self.spec_ax.set_ylim(0, 1)
+        self.spec_ax.set_title('Frequency Spectrum')
+        self.spec_ax.set_xlabel('Frequency (Hz)')
+        self.spec_ax.set_ylabel('Magnitude')
+        self.spec_ax.grid(True, linestyle='--', alpha=0.7)
 
         # Create a frame to hold ADSR controls and visualization side by side
         adsr_container = ttk.Frame(main_frame)
@@ -153,6 +205,60 @@ class SynthGUI:
         )
         ttk.Label(main_frame, text=instruction_text).pack(anchor=tk.W, pady=10)
 
+    def start_animation(self):
+        """Start the animation for waveform and spectrum plots."""
+        self.ani = animation.FuncAnimation(
+            self.wave_fig,
+            self.update_plots,
+            interval=30,
+            blit=True,
+            cache_frame_data=False
+        )
+
+    def update_plots(self, _):
+        """Update function for waveform and spectrum plots animation."""
+        if not self.animation_running:
+            return self.wave_line, self.spec_line
+
+        # Get current audio buffer data
+        with config.buffer_lock:
+            data = config.waveform_buffer.copy()
+
+        if len(data) == 0:
+            return self.wave_line, self.spec_line
+
+        # Update waveform plot
+        # Find zero crossing for clean waveform display
+        for i in range(len(data) - 1):
+            if data[i] < 0 <= data[i + 1]:
+                start = i
+                break
+        else:
+            start = 0
+
+        end = start + self.window_size
+        if end > len(data):
+            start = max(0, len(data) - self.window_size)
+            end = len(data)
+
+        segment = data[start:end]
+        if len(segment) < self.window_size:
+            segment = np.pad(segment, (0, self.window_size - len(segment)))
+
+        self.wave_line.set_ydata(segment)
+
+        # Update spectrum plot
+        fft_data = data[-self.fft_size:] if len(data) >= self.fft_size else np.pad(data, (0, self.fft_size - len(data)))
+        fft_data = fft_data * np.hanning(self.fft_size)
+        spectrum = np.abs(np.fft.rfft(fft_data)) / self.fft_size
+        self.spec_line.set_ydata(spectrum)
+
+        # Draw canvases
+        self.wave_canvas.draw_idle()
+        self.spec_canvas.draw_idle()
+
+        return self.wave_line, self.spec_line
+
     def plot_adsr_curve(self):
         """Plot the ADSR curve in the matplotlib figure."""
         self.ax.clear()
@@ -190,6 +296,9 @@ class SynthGUI:
 
     def on_closing(self):
         """Handle window close event."""
+        self.animation_running = False  # Stop the animation
+        if self.ani is not None:
+            self.ani.event_source.stop()  # Stop the animation event source
         self.running = False
         self.root.destroy()
 
