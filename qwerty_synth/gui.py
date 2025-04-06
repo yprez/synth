@@ -4,6 +4,10 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 import time
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 from qwerty_synth import config
 from qwerty_synth import adsr
@@ -18,7 +22,7 @@ class SynthGUI:
         """Initialize the GUI with the root Tkinter window."""
         self.root = root
         self.root.title("QWERTY Synth")
-        self.root.geometry("600x400")
+        self.root.geometry("800x600")
         self.root.resizable(True, True)
 
         self.setup_ui()
@@ -53,9 +57,13 @@ class SynthGUI:
                 command=self.update_waveform
             ).grid(row=0, column=i, padx=20)
 
+        # Create a frame to hold ADSR controls and visualization side by side
+        adsr_container = ttk.Frame(main_frame)
+        adsr_container.pack(fill=tk.BOTH, expand=True, pady=10)
+
         # ADSR controls
-        adsr_frame = ttk.LabelFrame(main_frame, text="ADSR Envelope", padding="10")
-        adsr_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        adsr_frame = ttk.LabelFrame(adsr_container, text="ADSR Envelope", padding="10")
+        adsr_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         # Attack slider
         ttk.Label(adsr_frame, text="Attack").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
@@ -115,6 +123,19 @@ class SynthGUI:
 
         adsr_frame.columnconfigure(1, weight=1)
 
+        # ADSR visualization
+        viz_frame = ttk.LabelFrame(adsr_container, text="ADSR Curve", padding="10")
+        viz_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Create the matplotlib figure and canvas
+        self.fig = Figure(figsize=(4, 3), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=viz_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Initial ADSR curve plot
+        self.plot_adsr_curve()
+
         # Exit button
         exit_frame = ttk.Frame(main_frame)
         exit_frame.pack(fill=tk.X, pady=10)
@@ -132,6 +153,19 @@ class SynthGUI:
         )
         ttk.Label(main_frame, text=instruction_text).pack(anchor=tk.W, pady=10)
 
+    def plot_adsr_curve(self):
+        """Plot the ADSR curve in the matplotlib figure."""
+        self.ax.clear()
+        x = np.arange(len(adsr.adsr_curve))
+        self.ax.plot(x, adsr.adsr_curve, 'b-')
+        self.ax.set_ylim(0, 1.1)
+        self.ax.set_xlim(0, len(adsr.adsr_curve))
+        self.ax.set_xlabel('Time (normalized)')
+        self.ax.set_ylabel('Amplitude')
+        self.ax.grid(True, linestyle='--', alpha=0.7)
+        self.fig.tight_layout()
+        self.canvas.draw()
+
     def update_waveform(self):
         """Update the waveform type in the config."""
         config.waveform_type = self.waveform_var.get()
@@ -140,6 +174,9 @@ class SynthGUI:
         """Update the specified ADSR parameter."""
         adsr.adsr[param] = value
         adsr.update_adsr_curve()
+
+        # Update the ADSR curve visualization
+        self.plot_adsr_curve()
 
         # Update label
         if param == 'attack':
