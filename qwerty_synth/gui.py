@@ -30,6 +30,9 @@ class SynthGUI:
         self.animation_running = True
         self.ani = None  # Will hold the animation object
 
+        # Keep track of the last GUI update time
+        self.last_update_time = time.time()
+
         self.setup_ui()
         self.running = True
 
@@ -201,7 +204,9 @@ class SynthGUI:
         # Instructions
         instruction_text = (
             "Play notes using your keyboard (A-K, W,E,T,Y,U,O,P).\n"
-            "Z/X: Change octave down/up."
+            "Z/X: Change octave down/up.\n"
+            "1-4: Change waveform (sine, square, triangle, sawtooth).\n"
+            "5-0, -, =: Adjust ADSR parameters."
         )
         ttk.Label(main_frame, text=instruction_text).pack(anchor=tk.W, pady=10)
 
@@ -219,6 +224,36 @@ class SynthGUI:
         """Update function for waveform and spectrum plots animation."""
         if not self.animation_running:
             return self.wave_line, self.spec_line
+
+        # Check if waveform type has changed and update GUI if needed
+        if self.waveform_var.get() != config.waveform_type:
+            self.waveform_var.set(config.waveform_type)
+
+        # Check if ADSR parameters have changed and update GUI if needed
+        adsr_changed = False
+        if self.attack_var.get() != adsr.adsr['attack']:
+            self.attack_var.set(adsr.adsr['attack'])
+            self.attack_label.config(text=f"{adsr.adsr['attack']:.2f} s")
+            adsr_changed = True
+
+        if self.decay_var.get() != adsr.adsr['decay']:
+            self.decay_var.set(adsr.adsr['decay'])
+            self.decay_label.config(text=f"{adsr.adsr['decay']:.2f} s")
+            adsr_changed = True
+
+        if self.sustain_var.get() != adsr.adsr['sustain']:
+            self.sustain_var.set(adsr.adsr['sustain'])
+            self.sustain_label.config(text=f"{adsr.adsr['sustain']:.2f}")
+            adsr_changed = True
+
+        if self.release_var.get() != adsr.adsr['release']:
+            self.release_var.set(adsr.adsr['release'])
+            self.release_label.config(text=f"{adsr.adsr['release']:.2f} s")
+            adsr_changed = True
+
+        # Update ADSR curve if any parameters changed
+        if adsr_changed:
+            self.plot_adsr_curve()
 
         # Get current audio buffer data
         with config.buffer_lock:
