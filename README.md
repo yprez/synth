@@ -3,10 +3,11 @@
 A minimalist real-time synthesizer built in Python using your QWERTY keyboard as a piano. It includes:
 
 - Polyphony (multiple notes at once)
- Waveform switching (sine, square, triangle, sawtooth)
+- Waveform switching (sine, square, triangle, sawtooth)
 - Octave shifting
 - ADSR envelope control (with live tweaking)
 - Live waveform, frequency spectrum, and ADSR curve visualization
+- Volume control
 
 ## Features
 
@@ -22,6 +23,9 @@ A minimalist real-time synthesizer built in Python using your QWERTY keyboard as
   - `7` / `8`: Decay increase/decrease
   - `9` / `0`: Sustain increase/decrease
   - `-` / `=`: Release increase/decrease
+- Volume control:
+  - `[`: Decrease volume
+  - `]`: Increase volume
 - Real-time plots:
   - Waveform view
   - Frequency spectrum
