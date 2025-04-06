@@ -70,6 +70,14 @@ def on_press(key):
             adsr.adsr['release'] = max(0.01, adsr.adsr['release'] - step['release'])
             print(f"Release: {adsr.adsr['release']:.2f}s")
 
+        # Volume control
+        elif k == '[':
+            config.volume = max(0.0, config.volume - 0.05)
+            print(f"Volume: {config.volume:.2f}")
+        elif k == ']':
+            config.volume = min(1.0, config.volume + 0.05)
+            print(f"Volume: {config.volume:.2f}")
+
         adsr.update_adsr_curve()
 
     except AttributeError:

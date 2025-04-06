@@ -23,7 +23,7 @@ class SynthGUI:
         """Initialize the GUI with the root Tkinter window."""
         self.root = root
         self.root.title("QWERTY Synth")
-        self.root.geometry("900x700")  # Increased size to accommodate all plots
+        self.root.geometry("1200x800")  # Increased size to accommodate all plots
         self.root.resizable(True, True)
 
         # Animation control variables
@@ -47,9 +47,13 @@ class SynthGUI:
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Waveform selection and Volume control in the same row
+        control_frame = ttk.Frame(main_frame)
+        control_frame.pack(fill=tk.X, pady=10)
+
         # Waveform selection
-        wave_frame = ttk.LabelFrame(main_frame, text="Waveform", padding="10")
-        wave_frame.pack(fill=tk.X, pady=10)
+        wave_frame = ttk.LabelFrame(control_frame, text="Waveform", padding="10")
+        wave_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
         self.waveform_var = tk.StringVar(value=config.waveform_type)
         waveforms = [
@@ -67,6 +71,25 @@ class SynthGUI:
                 variable=self.waveform_var,
                 command=self.update_waveform
             ).grid(row=0, column=i, padx=20)
+
+        # Volume Control
+        volume_frame = ttk.LabelFrame(control_frame, text="Volume Control", padding="10")
+        volume_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
+
+        ttk.Label(volume_frame, text="Volume").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.volume_var = tk.DoubleVar(value=config.volume)
+        volume_slider = ttk.Scale(
+            volume_frame,
+            from_=0.0,
+            to=1.0,
+            orient=tk.HORIZONTAL,
+            variable=self.volume_var,
+            command=self.update_volume
+        )
+        volume_slider.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        volume_frame.columnconfigure(1, weight=1)
+        self.volume_label = ttk.Label(volume_frame, text=f"{config.volume:.2f}")
+        self.volume_label.grid(row=0, column=2, padx=5, pady=5)
 
         # Create visualization frames
         # A container for waveform and spectrum visualization
@@ -206,7 +229,8 @@ class SynthGUI:
             "Play notes using your keyboard (A-K, W,E,T,Y,U,O,P).\n"
             "Z/X: Change octave down/up.\n"
             "1-4: Change waveform (sine, square, triangle, sawtooth).\n"
-            "5-0, -, =: Adjust ADSR parameters."
+            "5-0, -, =: Adjust ADSR parameters.\n"
+            "[/]: Decrease/Increase volume."
         )
         ttk.Label(main_frame, text=instruction_text).pack(anchor=tk.W, pady=10)
 
@@ -250,6 +274,11 @@ class SynthGUI:
             self.release_var.set(adsr.adsr['release'])
             self.release_label.config(text=f"{adsr.adsr['release']:.2f} s")
             adsr_changed = True
+
+        # Check if volume has changed
+        if self.volume_var.get() != config.volume:
+            self.volume_var.set(config.volume)
+            self.volume_label.config(text=f"{config.volume:.2f}")
 
         # Update ADSR curve if any parameters changed
         if adsr_changed:
@@ -328,6 +357,12 @@ class SynthGUI:
             self.sustain_label.config(text=f"{value:.2f}")
         elif param == 'release':
             self.release_label.config(text=f"{value:.2f} s")
+
+    def update_volume(self, value):
+        """Update the master volume."""
+        volume = float(value)
+        config.volume = volume
+        self.volume_label.config(text=f"{volume:.2f}")
 
     def on_closing(self):
         """Handle window close event."""
