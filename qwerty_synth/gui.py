@@ -378,25 +378,24 @@ def start_gui():
     root = tk.Tk()
     app = SynthGUI(root)
 
+    # Share the GUI instance with the input module
+    kb_input.gui_instance = app
+
     # Create and start audio stream
     stream = synth.create_audio_stream()
     stream.start()
 
     # Start keyboard input handling in a separate thread
-    input_thread = threading.Thread(target=kb_input.start_keyboard_input)
-    input_thread.daemon = True
-    input_thread.start()
+    input_thread = kb_input.start_keyboard_input()
 
     # Start Tkinter event loop
     try:
         root.mainloop()
     except KeyboardInterrupt:
-        pass
+        # Handle Ctrl+C by properly closing the GUI
+        print("Keyboard interrupt detected, exiting...")
+        app.on_closing()
     finally:
         # Clean up
         stream.stop()
         stream.close()
-
-
-if __name__ == "__main__":
-    start_gui()

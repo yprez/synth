@@ -3,12 +3,13 @@
 import threading
 from pynput import keyboard
 import sounddevice as sd
-import matplotlib.pyplot as plt
 
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import synth
 
+# Add a reference to store the GUI instance
+gui_instance = None
 
 def on_press(key):
     """Handle key press events."""
@@ -84,7 +85,12 @@ def on_press(key):
         if key == keyboard.Key.esc:
             print('Exiting...')
             sd.stop()
-            plt.close('all')
+
+            # Close the GUI if it exists
+            global gui_instance
+            if gui_instance is not None:
+                gui_instance.on_closing()
+
             return False
 
 
