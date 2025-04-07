@@ -2,10 +2,8 @@
 
 import tkinter as tk
 from tkinter import ttk
-import threading
 import time
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
@@ -386,7 +384,7 @@ def start_gui():
     stream.start()
 
     # Start keyboard input handling in a separate thread
-    input_thread = kb_input.start_keyboard_input()
+    kb_input.start_keyboard_input()
 
     # Start Tkinter event loop
     try:

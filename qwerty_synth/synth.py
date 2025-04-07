@@ -25,7 +25,7 @@ class Oscillator:
         if self.done:
             return np.zeros(frames)
 
-        t = np.arange(frames) / config.sample_rate
+        np.arange(frames) / config.sample_rate
         phase_increment = 2 * np.pi * self.freq / config.sample_rate
         phase_array = self.phase + phase_increment * np.arange(frames)
         self.phase = (phase_array[-1] + phase_increment) % (2 * np.pi)
