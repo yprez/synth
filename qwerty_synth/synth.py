@@ -5,6 +5,7 @@ import sounddevice as sd
 
 from qwerty_synth import config
 from qwerty_synth import adsr
+from qwerty_synth import filter
 
 
 class Oscillator:
@@ -61,6 +62,9 @@ class Oscillator:
 
         self.env_time += frames / config.sample_rate
         self.last_env_level = env[-1]
+
+        wave = filter.apply_filter(wave)
+
         wave *= env
 
         return wave

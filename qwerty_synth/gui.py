@@ -12,6 +12,7 @@ from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import synth
 from qwerty_synth import input as kb_input
+from qwerty_synth import filter
 
 
 class SynthGUI:
@@ -88,6 +89,25 @@ class SynthGUI:
         volume_frame.columnconfigure(1, weight=1)
         self.volume_label = ttk.Label(volume_frame, text=f"{config.volume:.2f}")
         self.volume_label.grid(row=0, column=2, padx=5, pady=5)
+
+        # Filter Control
+        filter_frame = ttk.LabelFrame(main_frame, text="Filter Control", padding="10")
+        filter_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Label(filter_frame, text="Cutoff Frequency").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.cutoff_var = tk.DoubleVar(value=filter.cutoff)
+        cutoff_slider = ttk.Scale(
+            filter_frame,
+            from_=100.0,
+            to=config.sample_rate / 2,
+            orient=tk.HORIZONTAL,
+            variable=self.cutoff_var,
+            command=self.update_filter_cutoff
+        )
+        cutoff_slider.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        filter_frame.columnconfigure(1, weight=1)
+        self.cutoff_label = ttk.Label(filter_frame, text=f"{filter.cutoff:.0f} Hz")
+        self.cutoff_label.grid(row=0, column=2, padx=5, pady=5)
 
         # Create visualization frames
         # A container for waveform and spectrum visualization
@@ -251,6 +271,11 @@ class SynthGUI:
         if self.waveform_var.get() != config.waveform_type:
             self.waveform_var.set(config.waveform_type)
 
+        # Check if filter cutoff has changed and update GUI if needed
+        if self.cutoff_var.get() != filter.cutoff:
+            self.cutoff_var.set(filter.cutoff)
+            self.cutoff_label.config(text=f"{filter.cutoff:.0f} Hz")
+
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
         if self.attack_var.get() != adsr.adsr['attack']:
@@ -361,6 +386,12 @@ class SynthGUI:
         volume = float(value)
         config.volume = volume
         self.volume_label.config(text=f"{volume:.2f}")
+
+    def update_filter_cutoff(self, value):
+        """Update the low-pass filter cutoff frequency."""
+        cutoff = float(value)
+        filter.cutoff = cutoff
+        self.cutoff_label.config(text=f"{cutoff:.0f} Hz")
 
     def on_closing(self):
         """Handle window close event."""
