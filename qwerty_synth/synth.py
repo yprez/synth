@@ -24,7 +24,7 @@ class Oscillator:
     def generate(self, frames):
         """Generate audio samples with the current oscillator settings."""
         if self.done:
-            return np.zeros(frames)
+            return np.zeros(frames), np.zeros(frames)
 
         np.arange(frames) / config.sample_rate
         phase_increment = 2 * np.pi * self.freq / config.sample_rate
@@ -63,23 +63,28 @@ class Oscillator:
         self.env_time += frames / config.sample_rate
         self.last_env_level = env[-1]
 
-        wave = filter.apply_filter(wave)
+        # Keep a copy of unfiltered wave with envelope applied
+        unfiltered = wave * env
 
-        wave *= env
+        # Apply filter to the wave
+        filtered_wave = filter.apply_filter(wave)
+        filtered_wave *= env
 
-        return wave
+        return filtered_wave, unfiltered
 
 
 def audio_callback(outdata, frames, time_info, status):
     """Audio callback function for the sounddevice output stream."""
     buffer = np.zeros(frames)
+    unfiltered_buffer = np.zeros(frames)
 
     with config.notes_lock:
         finished_keys = []
 
         for key, osc in config.active_notes.items():
-            wave = osc.generate(frames)
+            wave, unfiltered = osc.generate(frames)
             buffer += wave
+            unfiltered_buffer += unfiltered
             if osc.done:
                 finished_keys.append(key)
 
@@ -88,12 +93,15 @@ def audio_callback(outdata, frames, time_info, status):
 
     if len(config.active_notes) > 0:
         buffer /= len(config.active_notes)
+        unfiltered_buffer /= len(config.active_notes)
 
     outdata[:] = (config.volume * buffer).reshape(-1, 1)
 
     with config.buffer_lock:
         config.waveform_buffer = np.roll(config.waveform_buffer, -frames)
         config.waveform_buffer[-frames:] = buffer
+        config.unfiltered_buffer = np.roll(config.unfiltered_buffer, -frames)
+        config.unfiltered_buffer[-frames:] = unfiltered_buffer
 
 
 def create_audio_stream():

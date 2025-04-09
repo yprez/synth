@@ -11,6 +11,7 @@ fade_duration = 0.01
 # Visual settings
 visual_buffer_size = int(sample_rate * 0.1)
 waveform_buffer = np.zeros(visual_buffer_size)
+unfiltered_buffer = np.zeros(visual_buffer_size)  # Buffer for storing unfiltered waveform
 buffer_lock = threading.Lock()
 
 # Note mapping

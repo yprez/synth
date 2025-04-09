@@ -125,13 +125,15 @@ class SynthGUI:
 
         # Initialize waveform plot
         self.window_size = 512
-        self.wave_line, = self.wave_ax.plot(np.zeros(self.window_size))
+        self.wave_line, = self.wave_ax.plot(np.zeros(self.window_size), 'b-', label='Filtered')
+        self.unfiltered_line, = self.wave_ax.plot(np.zeros(self.window_size), 'r--', label='Unfiltered')
         self.wave_ax.set_ylim(-1, 1)
         self.wave_ax.set_xlim(0, self.window_size)
         self.wave_ax.set_title('Synth Output Waveform')
         self.wave_ax.set_xlabel('Samples')
         self.wave_ax.set_ylabel('Amplitude')
         self.wave_ax.grid(True, linestyle='--', alpha=0.7)
+        self.wave_ax.legend(loc='upper right')
 
         # Spectrum visualization
         spec_viz_frame = ttk.LabelFrame(viz_container, text="Frequency Spectrum", padding="10")
@@ -265,7 +267,7 @@ class SynthGUI:
     def update_plots(self, _):
         """Update function for waveform and spectrum plots animation."""
         if not self.animation_running:
-            return self.wave_line, self.spec_line
+            return self.wave_line, self.spec_line, self.unfiltered_line
 
         # Check if waveform type has changed and update GUI if needed
         if self.waveform_var.get() != config.waveform_type:
@@ -309,33 +311,39 @@ class SynthGUI:
 
         # Get current audio buffer data
         with config.buffer_lock:
-            data = config.waveform_buffer.copy()
+            filtered_data = config.waveform_buffer.copy()
+            unfiltered_data = config.unfiltered_buffer.copy()
 
-        if len(data) == 0:
-            return self.wave_line, self.spec_line
+        if len(filtered_data) == 0:
+            return self.wave_line, self.spec_line, self.unfiltered_line
 
         # Update waveform plot
         # Find zero crossing for clean waveform display
-        for i in range(len(data) - 1):
-            if data[i] < 0 <= data[i + 1]:
+        for i in range(len(filtered_data) - 1):
+            if filtered_data[i] < 0 <= filtered_data[i + 1]:
                 start = i
                 break
         else:
             start = 0
 
         end = start + self.window_size
-        if end > len(data):
-            start = max(0, len(data) - self.window_size)
-            end = len(data)
+        if end > len(filtered_data):
+            start = max(0, len(filtered_data) - self.window_size)
+            end = len(filtered_data)
 
-        segment = data[start:end]
-        if len(segment) < self.window_size:
-            segment = np.pad(segment, (0, self.window_size - len(segment)))
+        filtered_segment = filtered_data[start:end]
+        if len(filtered_segment) < self.window_size:
+            filtered_segment = np.pad(filtered_segment, (0, self.window_size - len(filtered_segment)))
 
-        self.wave_line.set_ydata(segment)
+        unfiltered_segment = unfiltered_data[start:end]
+        if len(unfiltered_segment) < self.window_size:
+            unfiltered_segment = np.pad(unfiltered_segment, (0, self.window_size - len(unfiltered_segment)))
+
+        self.wave_line.set_ydata(filtered_segment)
+        self.unfiltered_line.set_ydata(unfiltered_segment)
 
         # Update spectrum plot
-        fft_data = data[-self.fft_size:] if len(data) >= self.fft_size else np.pad(data, (0, self.fft_size - len(data)))
+        fft_data = filtered_data[-self.fft_size:] if len(filtered_data) >= self.fft_size else np.pad(filtered_data, (0, self.fft_size - len(filtered_data)))
         fft_data = fft_data * np.hanning(self.fft_size)
         spectrum = np.abs(np.fft.rfft(fft_data)) / self.fft_size
         self.spec_line.set_ydata(spectrum)
@@ -344,7 +352,7 @@ class SynthGUI:
         self.wave_canvas.draw_idle()
         self.spec_canvas.draw_idle()
 
-        return self.wave_line, self.spec_line
+        return self.wave_line, self.spec_line, self.unfiltered_line
 
     def plot_adsr_curve(self):
         """Plot the ADSR curve in the matplotlib figure."""
