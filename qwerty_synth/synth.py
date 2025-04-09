@@ -92,8 +92,12 @@ def audio_callback(outdata, frames, time_info, status):
             del config.active_notes[key]
 
     if len(config.active_notes) > 0:
-        buffer /= len(config.active_notes)
-        unfiltered_buffer /= len(config.active_notes)
+        # Soft limiting/compression to prevent clipping while maintaining volume
+        max_amplitude = np.max(np.abs(buffer))
+        if max_amplitude > 0.95:  # Only compress if we're close to clipping
+            compression_factor = 0.95 / max_amplitude
+            buffer *= compression_factor
+            unfiltered_buffer *= compression_factor
 
     outdata[:] = (config.volume * buffer).reshape(-1, 1)
 
