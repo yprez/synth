@@ -436,3 +436,7 @@ def start_gui():
         # Clean up
         stream.stop()
         stream.close()
+
+
+if __name__ == "__main__":
+    start_gui()
