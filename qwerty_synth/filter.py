@@ -20,8 +20,9 @@ def apply_filter(samples):
     if cutoff >= sample_rate / 2:
         return samples  # No filtering if cutoff is too high
 
-    alpha = 2 * np.pi * cutoff / sample_rate
-    alpha = min(alpha, 1.0)
+    rc = 1.0 / (2 * np.pi * cutoff)
+    dt = 1.0 / sample_rate
+    alpha = dt / (rc + dt)
 
     filtered = np.zeros_like(samples)
     for i, x in enumerate(samples):
