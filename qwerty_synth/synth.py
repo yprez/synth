@@ -63,14 +63,10 @@ class Oscillator:
         self.env_time += frames / config.sample_rate
         self.last_env_level = env[-1]
 
-        # Keep a copy of unfiltered wave with envelope applied
-        unfiltered = wave * env
+        # Apply envelope to the wave (but don't filter individual oscillators)
+        output = wave * env
 
-        # Apply filter to the wave
-        filtered_wave = filter.apply_filter(wave)
-        filtered_wave *= env
-
-        return filtered_wave, unfiltered
+        return output
 
 
 def audio_callback(outdata, frames, time_info, status):
@@ -82,22 +78,28 @@ def audio_callback(outdata, frames, time_info, status):
         finished_keys = []
 
         for key, osc in config.active_notes.items():
-            wave, unfiltered = osc.generate(frames)
+            wave = osc.generate(frames)
             buffer += wave
-            unfiltered_buffer += unfiltered
+            unfiltered_buffer += wave
             if osc.done:
                 finished_keys.append(key)
 
         for key in finished_keys:
             del config.active_notes[key]
 
+    # Store a copy of the unfiltered buffer before filtering
+    unfiltered_buffer_copy = buffer.copy()
+
+    # Apply filter to the mixed signal (only if there are active notes)
     if len(config.active_notes) > 0:
+        buffer = filter.apply_filter(buffer)
+
         # Soft limiting/compression to prevent clipping while maintaining volume
         max_amplitude = np.max(np.abs(buffer))
         if max_amplitude > 0.95:  # Only compress if we're close to clipping
             compression_factor = 0.95 / max_amplitude
             buffer *= compression_factor
-            unfiltered_buffer *= compression_factor
+            unfiltered_buffer_copy *= compression_factor
 
     outdata[:] = (config.volume * buffer).reshape(-1, 1)
 
@@ -105,7 +107,7 @@ def audio_callback(outdata, frames, time_info, status):
         config.waveform_buffer = np.roll(config.waveform_buffer, -frames)
         config.waveform_buffer[-frames:] = buffer
         config.unfiltered_buffer = np.roll(config.unfiltered_buffer, -frames)
-        config.unfiltered_buffer[-frames:] = unfiltered_buffer
+        config.unfiltered_buffer[-frames:] = unfiltered_buffer_copy
 
 
 def create_audio_stream():
