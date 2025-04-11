@@ -127,6 +127,10 @@ class SynthGUI(QMainWindow):
 
         # Initialize waveform plot
         self.window_size = 512
+
+        # Add legend before creating plot items
+        self.wave_plot.addLegend()
+
         self.wave_curve = self.wave_plot.plot(
             np.zeros(self.window_size),
             pen=pg.mkPen('b', width=2),
@@ -138,10 +142,7 @@ class SynthGUI(QMainWindow):
             name='Unfiltered'
         )
         self.wave_plot.setYRange(-1, 1)
-        self.wave_plot.setXRange(0, self.window_size)
-
-        # Add legend
-        self.wave_plot.addLegend()
+        self.wave_plot.setXRange(0, 500)
 
         # Spectrum visualization
         spec_viz_group = QGroupBox("Frequency Spectrum")
