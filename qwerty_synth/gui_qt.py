@@ -100,7 +100,7 @@ class SynthGUI(QMainWindow):
         filter_layout.addWidget(QLabel("Cutoff Frequency"))
 
         self.cutoff_slider = QSlider(Qt.Horizontal)
-        self.cutoff_slider.setRange(100, int(config.sample_rate / 2))
+        self.cutoff_slider.setRange(100, 10000)
         self.cutoff_slider.setValue(int(filter.cutoff))
         self.cutoff_slider.valueChanged.connect(self.update_filter_cutoff)
         filter_layout.addWidget(self.cutoff_slider, stretch=1)
