@@ -2,6 +2,7 @@
 
 import sys
 import time
+import signal
 import numpy as np
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
@@ -16,6 +17,8 @@ from qwerty_synth import synth
 from qwerty_synth import input as kb_input
 from qwerty_synth import filter
 
+# Global variable to hold reference to the GUI instance
+gui_instance = None
 
 class SynthGUI(QMainWindow):
     """GUI for controlling QWERTY Synth parameters using PyQt."""
@@ -412,11 +415,22 @@ class SynthGUI(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event."""
-        self.animation_running = False
-        if self.timer is not None:
-            self.timer.stop()
-        self.running = False
-        event.accept()
+        try:
+            # Set animation state to stopped
+            self.animation_running = False
+
+            # Stop the animation timer if it exists
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.stop()
+
+            # Set running flag to False
+            self.running = False
+
+            # Accept the close event
+            if event is not None:
+                event.accept()
+        except Exception as e:
+            print(f"Error during close: {e}")
 
 
 def start_gui():
@@ -429,6 +443,25 @@ def start_gui():
 
     # Create GUI
     gui = SynthGUI()
+
+    # Store global reference to GUI for signal handling
+    global gui_instance
+    gui_instance = gui
+
+    # Set up signal handler for Ctrl+C
+    def signal_handler(sig, frame):
+        print("\nKeyboard interrupt detected, exiting...")
+        if gui_instance is not None:
+            gui_instance.close()
+        app.quit()
+
+    # Register signal handler for SIGINT (Ctrl+C)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Install event filter to process signals during Qt event loop
+    timer = QTimer()
+    timer.start(500)  # Check for signals every 500ms
+    timer.timeout.connect(lambda: None)  # Wake up Python interpreter regularly
 
     # Share the GUI instance with the input module
     kb_input.gui_instance = gui
@@ -444,7 +477,7 @@ def start_gui():
     try:
         sys.exit(app.exec_())
     except KeyboardInterrupt:
-        # Handle Ctrl+C by properly closing the GUI
+        # This might still catch some KeyboardInterrupts
         print("Keyboard interrupt detected, exiting...")
         gui.close()
     finally:

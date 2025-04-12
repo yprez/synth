@@ -89,7 +89,7 @@ def on_press(key):
             # Close the GUI if it exists
             global gui_instance
             if gui_instance is not None:
-                gui_instance.on_closing()
+                gui_instance.close()
 
             return False
 
