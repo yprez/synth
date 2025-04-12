@@ -155,7 +155,7 @@ class SynthGUI(QMainWindow):
         self.spec_plot.setLabel('bottom', 'Frequency (Hz)')
         self.spec_plot.setTitle('Frequency Spectrum')
         self.spec_plot.showGrid(x=True, y=True, alpha=0.3)
-        self.spec_plot.setLogMode(x=True, y=False)
+        self.spec_plot.setLogMode(x=False, y=False)
         spec_viz_layout.addWidget(self.spec_plot)
 
         # Initialize spectrum plot
@@ -166,8 +166,8 @@ class SynthGUI(QMainWindow):
             np.zeros_like(self.freqs),
             pen=pg.mkPen('g', width=2)
         )
-        self.spec_plot.setXRange(20, config.sample_rate / 2)
-        self.spec_plot.setYRange(0, 1)
+        self.spec_plot.setXRange(50, 5000)
+        self.spec_plot.setYRange(0, 0.25)
 
         # Create a frame to hold ADSR controls and visualization side by side
         adsr_layout = QHBoxLayout()
