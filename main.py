@@ -1,6 +1,6 @@
 """QWERTY Synth - A simple software synthesizer controlled by your keyboard."""
 
-from qwerty_synth import gui
+from qwerty_synth import gui_qt as gui
 
 
 def main():
