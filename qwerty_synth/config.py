@@ -44,3 +44,4 @@ mono_pressed_keys = []  # to track currently pressed keys in mono mode
 lfo_rate = 5.0  # Hz
 lfo_depth = 0.0  # modulation intensity (0.0-1.0)
 lfo_target = 'pitch'  # options: 'pitch', 'volume', 'cutoff'
+lfo_attack_time = 0.2  # seconds - time for LFO to reach full intensity

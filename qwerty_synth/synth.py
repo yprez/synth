@@ -18,6 +18,7 @@ class Oscillator:
         self.waveform = waveform
         self.phase = 0.0
         self.lfo_phase = 0.0  # Phase for the LFO
+        self.lfo_env_time = 0.0  # Time tracker for LFO attack envelope - reset for each new note
         self.done = False
         self.env_time = 0.0
         self.filter_env_time = 0.0  # Time tracker for filter envelope
@@ -34,8 +35,19 @@ class Oscillator:
         # Generate time array for LFO
         t = np.arange(frames) / config.sample_rate + self.lfo_phase
 
-        # Generate LFO signal
-        lfo = config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
+        # Compute LFO attack envelope
+        if config.lfo_attack_time > 0:
+            lfo_env = np.clip(self.lfo_env_time / config.lfo_attack_time, 0, 1.0)
+        else:
+            lfo_env = 1.0
+
+        lfo_env_array = np.full(frames, lfo_env)
+
+        # Generate LFO signal with attack envelope
+        lfo = lfo_env_array * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
+
+        # Increment LFO envelope time
+        self.lfo_env_time += frames / config.sample_rate
 
         # Implement glide effect if target frequency differs from current frequency
         if self.freq != self.target_freq:

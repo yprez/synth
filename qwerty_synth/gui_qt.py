@@ -427,13 +427,22 @@ class SynthGUI(QMainWindow):
         self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
         lfo_layout.addWidget(self.lfo_depth_label, 0, 4)
 
+        # LFO Attack Time
+        lfo_layout.addWidget(QLabel("Attack (s)"), 1, 0)
+        self.lfo_attack_spin = QDoubleSpinBox()
+        self.lfo_attack_spin.setRange(0.0, 5.0)
+        self.lfo_attack_spin.setSingleStep(0.1)
+        self.lfo_attack_spin.setValue(config.lfo_attack_time)
+        self.lfo_attack_spin.valueChanged.connect(self.update_lfo_attack_time)
+        lfo_layout.addWidget(self.lfo_attack_spin, 1, 1)
+
         # LFO Target
-        lfo_layout.addWidget(QLabel("Target"), 1, 0)
+        lfo_layout.addWidget(QLabel("Target"), 1, 2)
         self.lfo_target_combo = QComboBox()
         self.lfo_target_combo.addItems(["pitch", "volume", "cutoff"])
         self.lfo_target_combo.setCurrentText(config.lfo_target)
         self.lfo_target_combo.currentTextChanged.connect(self.update_lfo_target)
-        lfo_layout.addWidget(self.lfo_target_combo, 1, 1, 1, 4)
+        lfo_layout.addWidget(self.lfo_target_combo, 1, 3, 1, 2)
 
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
@@ -486,6 +495,10 @@ class SynthGUI(QMainWindow):
         if self.filter_env_amount_slider.value() != adsr.filter_env_amount:
             self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
             self.filter_env_amount_label.setText(f"{adsr.filter_env_amount:.0f} Hz")
+
+        # Check if LFO attack time has changed and update GUI if needed
+        if self.lfo_attack_spin.value() != config.lfo_attack_time:
+            self.lfo_attack_spin.setValue(config.lfo_attack_time)
 
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
@@ -694,6 +707,10 @@ class SynthGUI(QMainWindow):
     def update_lfo_target(self, value):
         """Update the LFO target setting."""
         config.lfo_target = value
+
+    def update_lfo_attack_time(self, value):
+        """Update the LFO attack time setting."""
+        config.lfo_attack_time = value
 
     def decrease_octave(self):
         """Decrease the octave by one."""
