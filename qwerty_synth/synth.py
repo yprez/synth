@@ -20,14 +20,16 @@ class Oscillator:
         self.lfo_phase = 0.0  # Phase for the LFO
         self.done = False
         self.env_time = 0.0
+        self.filter_env_time = 0.0  # Time tracker for filter envelope
         self.released = False
         self.last_env_level = 0.0
+        self.last_filter_env_level = 0.0  # Last filter envelope level
         self.key = None  # Store the key used to activate this oscillator
 
     def generate(self, frames):
         """Generate audio samples with the current oscillator settings."""
         if self.done:
-            return np.zeros(frames)
+            return np.zeros(frames), np.zeros(frames)  # Return both amp and filter envs
 
         # Generate time array for LFO
         t = np.arange(frames) / config.sample_rate + self.lfo_phase
@@ -100,6 +102,7 @@ class Oscillator:
         else:
             wave = np.sin(phase_array)
 
+        # Generate amplitude envelope
         env = np.zeros(frames)
         for i in range(frames):
             time = self.env_time + i / config.sample_rate
@@ -118,8 +121,30 @@ class Oscillator:
                     env[i] = 0.0
                     self.done = True
 
+        # Generate filter envelope
+        filter_env = np.zeros(frames)
+        for i in range(frames):
+            time = self.filter_env_time + i / config.sample_rate
+            if not self.released:
+                if time < adsr.filter_adsr['attack']:
+                    filter_env[i] = (time / adsr.filter_adsr['attack'])
+                elif time < adsr.filter_adsr['attack'] + adsr.filter_adsr['decay']:
+                    dt = time - adsr.filter_adsr['attack']
+                    filter_env[i] = 1 - (1 - adsr.filter_adsr['sustain']) * (dt / adsr.filter_adsr['decay'])
+                else:
+                    filter_env[i] = adsr.filter_adsr['sustain']
+            else:
+                if time < adsr.filter_adsr['release']:
+                    filter_env[i] = self.last_filter_env_level * (1 - time / adsr.filter_adsr['release'])
+                else:
+                    filter_env[i] = 0.0
+                    # Note: we don't set self.done here as amplitude envelope controls that
+
+        # Update envelope trackers
         self.env_time += frames / config.sample_rate
         self.last_env_level = env[-1]
+        self.filter_env_time += frames / config.sample_rate
+        self.last_filter_env_level = filter_env[-1]
 
         # Apply LFO modulation to volume if target is 'volume'
         if config.lfo_target == 'volume':
@@ -135,13 +160,14 @@ class Oscillator:
         # Update LFO phase for next buffer
         self.lfo_phase += frames / config.sample_rate
 
-        return output
+        return output, filter_env
 
 
 def audio_callback(outdata, frames, time_info, status):
     """Audio callback function for the sounddevice output stream."""
     buffer = np.zeros(frames)
     unfiltered_buffer = np.zeros(frames)
+    filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values
 
     # If LFO is targeting filter cutoff, generate global LFO signal
     lfo_cutoff = None
@@ -155,9 +181,10 @@ def audio_callback(outdata, frames, time_info, status):
         finished_keys = []
 
         for key, osc in config.active_notes.items():
-            wave = osc.generate(frames)
+            wave, osc_filter_env = osc.generate(frames)
             buffer += wave
             unfiltered_buffer += wave
+            filter_env_buffer += osc_filter_env  # Add this oscillator's filter env to buffer
             if osc.done:
                 finished_keys.append(key)
 
@@ -169,7 +196,12 @@ def audio_callback(outdata, frames, time_info, status):
 
     # Apply filter to the mixed signal (only if there are active notes)
     if len(config.active_notes) > 0:
-        buffer = filter.apply_filter(buffer, lfo_cutoff)
+        # Normalize filter envelope if active notes > 0
+        if len(config.active_notes) > 0:
+            filter_env_buffer = filter_env_buffer / len(config.active_notes)
+
+        # Apply filter with envelope modulation
+        buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
 
         # Soft limiting/compression to prevent clipping while maintaining volume
         max_amplitude = np.max(np.abs(buffer))

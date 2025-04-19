@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox, QDoubleSpinBox, QComboBox
+    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget
 )
 import pyqtgraph as pg
 
@@ -134,6 +134,17 @@ class SynthGUI(QMainWindow):
         self.cutoff_label = QLabel(f"{filter.cutoff:.0f} Hz")
         filter_layout.addWidget(self.cutoff_label)
 
+        # Add filter envelope amount control
+        filter_layout.addWidget(QLabel("Envelope Amount"))
+        self.filter_env_amount_slider = QSlider(Qt.Horizontal)
+        self.filter_env_amount_slider.setRange(0, 10000)
+        self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
+        self.filter_env_amount_slider.valueChanged.connect(self.update_filter_env_amount)
+        filter_layout.addWidget(self.filter_env_amount_slider, stretch=1)
+
+        self.filter_env_amount_label = QLabel(f"{adsr.filter_env_amount:.0f} Hz")
+        filter_layout.addWidget(self.filter_env_amount_label)
+
         # Create a layout for visualization frames
         viz_layout = QHBoxLayout()
         main_layout.addLayout(viz_layout, stretch=1)
@@ -195,14 +206,24 @@ class SynthGUI(QMainWindow):
         self.spec_plot.setXRange(50, 5000)
         self.spec_plot.setYRange(0, 0.25)
 
-        # Create a frame to hold ADSR controls and visualization side by side
-        adsr_layout = QHBoxLayout()
-        main_layout.addLayout(adsr_layout, stretch=1)
+        # Create a tabbed widget for amp ADSR and filter ADSR
+        envelope_tabs = QTabWidget()
+        main_layout.addWidget(envelope_tabs, stretch=1)
 
-        # ADSR controls
+        # Create the amplitude ADSR tab
+        amp_env_widget = QWidget()
+        amp_env_layout = QHBoxLayout(amp_env_widget)
+        envelope_tabs.addTab(amp_env_widget, "Amplitude Envelope")
+
+        # Create the filter ADSR tab
+        filter_env_widget = QWidget()
+        filter_env_layout = QHBoxLayout(filter_env_widget)
+        envelope_tabs.addTab(filter_env_widget, "Filter Envelope")
+
+        # ADSR controls for amplitude
         adsr_group = QGroupBox("ADSR Envelope")
         adsr_controls = QGridLayout(adsr_group)
-        adsr_layout.addWidget(adsr_group)
+        amp_env_layout.addWidget(adsr_group)
 
         # Attack slider
         adsr_controls.addWidget(QLabel("Attack"), 0, 0)
@@ -252,10 +273,10 @@ class SynthGUI(QMainWindow):
         self.release_label = QLabel(f"{adsr.adsr['release']:.2f} s")
         adsr_controls.addWidget(self.release_label, 3, 2)
 
-        # ADSR visualization
+        # ADSR visualization for amplitude
         adsr_viz_group = QGroupBox("ADSR Curve")
         adsr_viz_layout = QVBoxLayout(adsr_viz_group)
-        adsr_layout.addWidget(adsr_viz_group)
+        amp_env_layout.addWidget(adsr_viz_group)
 
         # Set up pyqtgraph plot for ADSR curve
         self.adsr_plot = pg.PlotWidget()
@@ -272,6 +293,80 @@ class SynthGUI(QMainWindow):
         )
         self.adsr_plot.setYRange(0, 1.1)
         self.adsr_plot.setXRange(0, len(adsr.adsr_curve))
+
+        # ADSR controls for filter envelope
+        filter_adsr_group = QGroupBox("Filter ADSR Envelope")
+        filter_adsr_controls = QGridLayout(filter_adsr_group)
+        filter_env_layout.addWidget(filter_adsr_group)
+
+        # Filter Attack slider
+        filter_adsr_controls.addWidget(QLabel("Attack"), 0, 0)
+        self.filter_attack_slider = QSlider(Qt.Horizontal)
+        self.filter_attack_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.filter_attack_slider.setValue(int(adsr.filter_adsr['attack'] * 100))
+        self.filter_attack_slider.valueChanged.connect(
+            lambda v: self.update_filter_adsr('attack', v/100.0)
+        )
+        filter_adsr_controls.addWidget(self.filter_attack_slider, 0, 1)
+        self.filter_attack_label = QLabel(f"{adsr.filter_adsr['attack']:.2f} s")
+        filter_adsr_controls.addWidget(self.filter_attack_label, 0, 2)
+
+        # Filter Decay slider
+        filter_adsr_controls.addWidget(QLabel("Decay"), 1, 0)
+        self.filter_decay_slider = QSlider(Qt.Horizontal)
+        self.filter_decay_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.filter_decay_slider.setValue(int(adsr.filter_adsr['decay'] * 100))
+        self.filter_decay_slider.valueChanged.connect(
+            lambda v: self.update_filter_adsr('decay', v/100.0)
+        )
+        filter_adsr_controls.addWidget(self.filter_decay_slider, 1, 1)
+        self.filter_decay_label = QLabel(f"{adsr.filter_adsr['decay']:.2f} s")
+        filter_adsr_controls.addWidget(self.filter_decay_label, 1, 2)
+
+        # Filter Sustain slider
+        filter_adsr_controls.addWidget(QLabel("Sustain"), 2, 0)
+        self.filter_sustain_slider = QSlider(Qt.Horizontal)
+        self.filter_sustain_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.filter_sustain_slider.setValue(int(adsr.filter_adsr['sustain'] * 100))
+        self.filter_sustain_slider.valueChanged.connect(
+            lambda v: self.update_filter_adsr('sustain', v/100.0)
+        )
+        filter_adsr_controls.addWidget(self.filter_sustain_slider, 2, 1)
+        self.filter_sustain_label = QLabel(f"{adsr.filter_adsr['sustain']:.2f}")
+        filter_adsr_controls.addWidget(self.filter_sustain_label, 2, 2)
+
+        # Filter Release slider
+        filter_adsr_controls.addWidget(QLabel("Release"), 3, 0)
+        self.filter_release_slider = QSlider(Qt.Horizontal)
+        self.filter_release_slider.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
+        self.filter_release_slider.setValue(int(adsr.filter_adsr['release'] * 100))
+        self.filter_release_slider.valueChanged.connect(
+            lambda v: self.update_filter_adsr('release', v/100.0)
+        )
+        filter_adsr_controls.addWidget(self.filter_release_slider, 3, 1)
+        self.filter_release_label = QLabel(f"{adsr.filter_adsr['release']:.2f} s")
+        filter_adsr_controls.addWidget(self.filter_release_label, 3, 2)
+
+        # Filter ADSR visualization
+        filter_adsr_viz_group = QGroupBox("Filter ADSR Curve")
+        filter_adsr_viz_layout = QVBoxLayout(filter_adsr_viz_group)
+        filter_env_layout.addWidget(filter_adsr_viz_group)
+
+        # Set up pyqtgraph plot for filter ADSR curve
+        self.filter_adsr_plot = pg.PlotWidget()
+        self.filter_adsr_plot.setLabel('left', 'Amplitude')
+        self.filter_adsr_plot.setLabel('bottom', 'Time (normalized)')
+        self.filter_adsr_plot.showGrid(x=True, y=True, alpha=0.3)
+        filter_adsr_viz_layout.addWidget(self.filter_adsr_plot)
+
+        # Initialize filter ADSR curve plot
+        self.filter_adsr_curve = self.filter_adsr_plot.plot(
+            np.arange(len(adsr.filter_adsr_curve)),
+            adsr.filter_adsr_curve,
+            pen=pg.mkPen('r', width=2)
+        )
+        self.filter_adsr_plot.setYRange(0, 1.1)
+        self.filter_adsr_plot.setXRange(0, len(adsr.filter_adsr_curve))
 
         # LFO Control - moved to bottom
         lfo_group = QGroupBox("LFO Control")
@@ -347,6 +442,11 @@ class SynthGUI(QMainWindow):
             self.cutoff_slider.setValue(int(filter.cutoff))
             self.cutoff_label.setText(f"{filter.cutoff:.0f} Hz")
 
+        # Check if filter envelope amount has changed and update GUI
+        if self.filter_env_amount_slider.value() != adsr.filter_env_amount:
+            self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
+            self.filter_env_amount_label.setText(f"{adsr.filter_env_amount:.0f} Hz")
+
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
 
@@ -370,14 +470,40 @@ class SynthGUI(QMainWindow):
             self.release_label.setText(f"{adsr.adsr['release']:.2f} s")
             adsr_changed = True
 
+        # Check if filter ADSR parameters have changed
+        filter_adsr_changed = False
+
+        if self.filter_attack_slider.value() != int(adsr.filter_adsr['attack'] * 100):
+            self.filter_attack_slider.setValue(int(adsr.filter_adsr['attack'] * 100))
+            self.filter_attack_label.setText(f"{adsr.filter_adsr['attack']:.2f} s")
+            filter_adsr_changed = True
+
+        if self.filter_decay_slider.value() != int(adsr.filter_adsr['decay'] * 100):
+            self.filter_decay_slider.setValue(int(adsr.filter_adsr['decay'] * 100))
+            self.filter_decay_label.setText(f"{adsr.filter_adsr['decay']:.2f} s")
+            filter_adsr_changed = True
+
+        if self.filter_sustain_slider.value() != int(adsr.filter_adsr['sustain'] * 100):
+            self.filter_sustain_slider.setValue(int(adsr.filter_adsr['sustain'] * 100))
+            self.filter_sustain_label.setText(f"{adsr.filter_adsr['sustain']:.2f}")
+            filter_adsr_changed = True
+
+        if self.filter_release_slider.value() != int(adsr.filter_adsr['release'] * 100):
+            self.filter_release_slider.setValue(int(adsr.filter_adsr['release'] * 100))
+            self.filter_release_label.setText(f"{adsr.filter_adsr['release']:.2f} s")
+            filter_adsr_changed = True
+
         # Check if volume has changed
         if self.volume_slider.value() != int(config.volume * 100):
             self.volume_slider.setValue(int(config.volume * 100))
             self.volume_label.setText(f"{config.volume:.2f}")
 
-        # Update ADSR curve if any parameters changed
+        # Update ADSR curves if parameters changed
         if adsr_changed:
             self.plot_adsr_curve()
+
+        if filter_adsr_changed:
+            self.plot_filter_adsr_curve()
 
         # Get current audio buffer data
         with config.buffer_lock:
@@ -430,6 +556,13 @@ class SynthGUI(QMainWindow):
             adsr.adsr_curve
         )
 
+    def plot_filter_adsr_curve(self):
+        """Update the filter ADSR curve in the plot."""
+        self.filter_adsr_curve.setData(
+            np.arange(len(adsr.filter_adsr_curve)),
+            adsr.filter_adsr_curve
+        )
+
     def update_waveform(self):
         """Update the waveform type in the config."""
         # Find which radio button is checked
@@ -456,6 +589,24 @@ class SynthGUI(QMainWindow):
         elif param == 'release':
             self.release_label.setText(f"{value:.2f} s")
 
+    def update_filter_adsr(self, param, value):
+        """Update the specified filter ADSR parameter."""
+        adsr.filter_adsr[param] = value
+        adsr.update_filter_adsr_curve()
+
+        # Update the filter ADSR curve visualization
+        self.plot_filter_adsr_curve()
+
+        # Update label
+        if param == 'attack':
+            self.filter_attack_label.setText(f"{value:.2f} s")
+        elif param == 'decay':
+            self.filter_decay_label.setText(f"{value:.2f} s")
+        elif param == 'sustain':
+            self.filter_sustain_label.setText(f"{value:.2f}")
+        elif param == 'release':
+            self.filter_release_label.setText(f"{value:.2f} s")
+
     def update_volume(self, value):
         """Update the master volume."""
         volume = value / 100.0
@@ -467,6 +618,12 @@ class SynthGUI(QMainWindow):
         cutoff = float(value)
         filter.cutoff = cutoff
         self.cutoff_label.setText(f"{cutoff:.0f} Hz")
+
+    def update_filter_env_amount(self, value):
+        """Update the filter envelope amount."""
+        amount = float(value)
+        adsr.filter_env_amount = amount
+        self.filter_env_amount_label.setText(f"{amount:.0f} Hz")
 
     def update_mono_mode(self, state):
         """Update the mono mode setting."""

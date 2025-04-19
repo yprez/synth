@@ -2,7 +2,7 @@
 
 import numpy as np
 
-# ADSR envelope parameters
+# ADSR envelope parameters for amplitude
 adsr = {
     'attack': 0.1,
     'decay': 0.05,
@@ -10,12 +10,24 @@ adsr = {
     'release': 0.5,
 }
 
-# Pre-calculated ADSR curve for visualization
+# ADSR envelope parameters for filter cutoff
+filter_adsr = {
+    'attack': 0.2,  # Slightly slower attack for filter
+    'decay': 0.3,   # Longer decay for filter movement
+    'sustain': 0.3, # Lower sustain for more dynamic filter effect
+    'release': 0.8, # Longer release for filter
+}
+
+# Filter envelope amount (how much the envelope affects the cutoff)
+filter_env_amount = 5000  # Hz
+
+# Pre-calculated ADSR curves for visualization
 adsr_curve = np.zeros(512)
+filter_adsr_curve = np.zeros(512)
 
 
 def update_adsr_curve():
-    """Update the ADSR curve based on current ADSR settings."""
+    """Update the amplitude ADSR curve based on current ADSR settings."""
     global adsr_curve
     total_time = adsr['attack'] + adsr['decay'] + adsr['release']
     t = np.linspace(0, total_time, len(adsr_curve))
@@ -36,6 +48,28 @@ def update_adsr_curve():
     adsr_curve = curve
 
 
+def update_filter_adsr_curve():
+    """Update the filter ADSR curve based on current filter ADSR settings."""
+    global filter_adsr_curve
+    total_time = filter_adsr['attack'] + filter_adsr['decay'] + filter_adsr['release']
+    t = np.linspace(0, total_time, len(filter_adsr_curve))
+    curve = np.zeros_like(t)
+
+    for i, time in enumerate(t):
+        if time < filter_adsr['attack']:
+            curve[i] = time / filter_adsr['attack']
+        elif time < filter_adsr['attack'] + filter_adsr['decay']:
+            dt = time - filter_adsr['attack']
+            curve[i] = 1 - (1 - filter_adsr['sustain']) * (dt / filter_adsr['decay'])
+        elif time < total_time:
+            rt = time - (filter_adsr['attack'] + filter_adsr['decay'])
+            curve[i] = filter_adsr['sustain'] * (1 - rt / filter_adsr['release'])
+        else:
+            curve[i] = 0
+
+    filter_adsr_curve = curve
+
+
 def get_adsr_parameter_steps():
     """Return the step size for each ADSR parameter."""
     return {
@@ -46,5 +80,6 @@ def get_adsr_parameter_steps():
     }
 
 
-# Initialize the ADSR curve
+# Initialize the ADSR curves
 update_adsr_curve()
+update_filter_adsr_curve()

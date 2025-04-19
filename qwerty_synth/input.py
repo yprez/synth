@@ -45,8 +45,7 @@ def on_press(key):
                         config.active_notes['mono'] = osc
                 else:
                     # Polyphonic mode - normal behavior
-                    if k not in config.active_notes or (k in config.active_notes and config.active_notes[k].released):
-                        # If key isn't in active notes, or if it is but was released, create new oscillator
+                    if k not in config.active_notes:
                         osc = synth.Oscillator(freq, config.waveform_type)
                         osc.key = k
                         config.active_notes[k] = osc
