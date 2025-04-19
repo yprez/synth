@@ -35,15 +35,21 @@ class Oscillator:
         # Generate time array for LFO
         t = np.arange(frames) / config.sample_rate + self.lfo_phase
 
-        # Compute LFO attack envelope
-        if config.lfo_attack_time > 0:
-            lfo_env = np.clip(self.lfo_env_time / config.lfo_attack_time, 0, 1.0)
+        # Compute LFO envelope with delay
+        if self.lfo_env_time < config.lfo_delay_time:
+            # In delay phase - no LFO
+            lfo_env = 0.0
+        elif config.lfo_attack_time > 0:
+            # In attack phase - apply attack envelope after delay
+            attack_time = self.lfo_env_time - config.lfo_delay_time
+            lfo_env = np.clip(attack_time / config.lfo_attack_time, 0, 1.0)
         else:
+            # No attack time - full envelope after delay
             lfo_env = 1.0
 
         lfo_env_array = np.full(frames, lfo_env)
 
-        # Generate LFO signal with attack envelope
+        # Generate LFO signal with delay and attack envelope
         lfo = lfo_env_array * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
 
         # Increment LFO envelope time

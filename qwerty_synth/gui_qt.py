@@ -441,6 +441,15 @@ class SynthGUI(QMainWindow):
         self.lfo_attack_spin.valueChanged.connect(self.update_lfo_attack_time)
         lfo_layout.addWidget(self.lfo_attack_spin, 1, 1)
 
+        # LFO Delay Time
+        lfo_layout.addWidget(QLabel("Delay (s)"), 2, 0)
+        self.lfo_delay_spin = QDoubleSpinBox()
+        self.lfo_delay_spin.setRange(0.0, 5.0)
+        self.lfo_delay_spin.setSingleStep(0.1)
+        self.lfo_delay_spin.setValue(config.lfo_delay_time)
+        self.lfo_delay_spin.valueChanged.connect(self.update_lfo_delay_time)
+        lfo_layout.addWidget(self.lfo_delay_spin, 2, 1)
+
         # LFO Target
         lfo_layout.addWidget(QLabel("Target"), 1, 2)
         self.lfo_target_combo = QComboBox()
@@ -504,6 +513,10 @@ class SynthGUI(QMainWindow):
         # Check if LFO attack time has changed and update GUI if needed
         if self.lfo_attack_spin.value() != config.lfo_attack_time:
             self.lfo_attack_spin.setValue(config.lfo_attack_time)
+
+        # Check if LFO delay time has changed and update GUI if needed
+        if self.lfo_delay_spin.value() != config.lfo_delay_time:
+            self.lfo_delay_spin.setValue(config.lfo_delay_time)
 
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
@@ -716,6 +729,10 @@ class SynthGUI(QMainWindow):
     def update_lfo_attack_time(self, value):
         """Update the LFO attack time setting."""
         config.lfo_attack_time = value
+
+    def update_lfo_delay_time(self, value):
+        """Update the LFO delay time setting."""
+        config.lfo_delay_time = value
 
     def decrease_octave(self):
         """Decrease the octave by one."""

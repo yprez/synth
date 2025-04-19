@@ -40,6 +40,7 @@ def on_press(key):
                         if osc.released:
                             osc.released = False
                             osc.env_time = 0.0  # Reset envelope time to restart attack
+                            osc.lfo_env_time = 0.0  # Reset LFO envelope time to restart delay/attack
                     else:
                         # Create a new oscillator for the mono voice
                         osc = synth.Oscillator(freq, config.waveform_type)
@@ -163,6 +164,7 @@ def on_release(key):
                     if k in config.active_notes:
                         config.active_notes[k].released = True
                         config.active_notes[k].env_time = 0.0
+                        config.active_notes[k].lfo_env_time = 0.0  # Reset LFO envelope time
                 else:
                     # Mono mode - handle differently
                     if not config.mono_pressed_keys:
@@ -170,6 +172,7 @@ def on_release(key):
                         if 'mono' in config.active_notes:
                             config.active_notes['mono'].released = True
                             config.active_notes['mono'].env_time = 0.0
+                            config.active_notes['mono'].lfo_env_time = 0.0  # Reset LFO envelope time
                     elif 'mono' in config.active_notes:
                         # Some keys still pressed - switch to the last pressed key
                         last_key = config.mono_pressed_keys[-1]
