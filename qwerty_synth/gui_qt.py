@@ -96,6 +96,41 @@ class SynthGUI(QMainWindow):
         self.volume_label = QLabel(f"{config.volume:.2f}")
         volume_layout.addWidget(self.volume_label)
 
+        # Octave Control
+        octave_group = QGroupBox("Octave Control")
+        octave_layout = QVBoxLayout(octave_group)
+        control_layout.addWidget(octave_group, stretch=1)
+
+        # Buttons and display in a horizontal layout
+        octave_btn_layout = QHBoxLayout()
+        octave_layout.addLayout(octave_btn_layout)
+
+        # Decrease octave button
+        self.octave_down_btn = QPushButton("−")  # Unicode minus sign
+        self.octave_down_btn.setToolTip("Decrease octave (Z key)")
+        self.octave_down_btn.clicked.connect(self.decrease_octave)
+        octave_btn_layout.addWidget(self.octave_down_btn)
+
+        # Octave display
+        self.octave_label = QLabel(f"{config.octave_offset // 12:+d}")
+        self.octave_label.setAlignment(Qt.AlignCenter)
+        octave_btn_layout.addWidget(self.octave_label, stretch=1)
+
+        # Increase octave button
+        self.octave_up_btn = QPushButton("+")
+        self.octave_up_btn.setToolTip("Increase octave (X key)")
+        self.octave_up_btn.clicked.connect(self.increase_octave)
+        octave_btn_layout.addWidget(self.octave_up_btn)
+
+        # Octave slider in a second row
+        self.octave_slider = QSlider(Qt.Horizontal)
+        self.octave_slider.setRange(config.octave_min, config.octave_max)
+        self.octave_slider.setValue(config.octave_offset // 12)
+        self.octave_slider.setTickPosition(QSlider.TicksBelow)
+        self.octave_slider.setTickInterval(1)
+        self.octave_slider.valueChanged.connect(self.update_octave)
+        octave_layout.addWidget(self.octave_slider)
+
         # Mono Mode and Portamento Controls
         mono_group = QGroupBox("Mono Mode")
         mono_layout = QHBoxLayout(mono_group)
@@ -437,6 +472,11 @@ class SynthGUI(QMainWindow):
                 button.setChecked(True)
                 break
 
+        # Check if octave has changed and update GUI if needed
+        current_octave_text = f"{config.octave_offset // 12:+d}"
+        if self.octave_label.text() != current_octave_text:
+            self.octave_label.setText(current_octave_text)
+
         # Check if filter cutoff has changed and update GUI if needed
         if self.cutoff_slider.value() != filter.cutoff:
             self.cutoff_slider.setValue(int(filter.cutoff))
@@ -654,6 +694,32 @@ class SynthGUI(QMainWindow):
     def update_lfo_target(self, value):
         """Update the LFO target setting."""
         config.lfo_target = value
+
+    def decrease_octave(self):
+        """Decrease the octave by one."""
+        if config.octave_offset > 12 * config.octave_min:
+            config.octave_offset -= 12
+            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+            # Update slider without triggering the signal
+            self.octave_slider.blockSignals(True)
+            self.octave_slider.setValue(config.octave_offset // 12)
+            self.octave_slider.blockSignals(False)
+
+    def increase_octave(self):
+        """Increase the octave by one."""
+        if config.octave_offset < 12 * config.octave_max:
+            config.octave_offset += 12
+            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+            # Update slider without triggering the signal
+            self.octave_slider.blockSignals(True)
+            self.octave_slider.setValue(config.octave_offset // 12)
+            self.octave_slider.blockSignals(False)
+
+    def update_octave(self, value):
+        """Update the octave from slider value."""
+        # Convert slider value to offset (x12 semitones per octave)
+        config.octave_offset = value * 12
+        self.octave_label.setText(f"{value:+d}")
 
     def closeEvent(self, event):
         """Handle window close event."""

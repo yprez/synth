@@ -55,9 +55,23 @@ def on_press(key):
         elif k == 'z' and config.octave_offset > 12 * config.octave_min:
             config.octave_offset -= 12
             print(f'Octave down: {config.octave_offset // 12:+}')
+            # Update the GUI octave display if GUI instance exists
+            if gui_instance is not None and gui_instance.running:
+                gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
+                # Update slider without triggering signals
+                gui_instance.octave_slider.blockSignals(True)
+                gui_instance.octave_slider.setValue(config.octave_offset // 12)
+                gui_instance.octave_slider.blockSignals(False)
         elif k == 'x' and config.octave_offset < 12 * config.octave_max:
             config.octave_offset += 12
             print(f'Octave up: {config.octave_offset // 12:+}')
+            # Update the GUI octave display if GUI instance exists
+            if gui_instance is not None and gui_instance.running:
+                gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
+                # Update slider without triggering signals
+                gui_instance.octave_slider.blockSignals(True)
+                gui_instance.octave_slider.setValue(config.octave_offset // 12)
+                gui_instance.octave_slider.blockSignals(False)
 
         elif k == '1':
             config.waveform_type = 'sine'
