@@ -14,6 +14,8 @@ gui_instance = None
 
 def on_press(key):
     """Handle key press events."""
+    global gui_instance
+
     try:
         k = key.char.lower()
 
@@ -113,6 +115,10 @@ def on_press(key):
                 config.active_notes.clear()  # Clear notes to prevent stuck notes
                 config.mono_pressed_keys.clear()  # Clear pressed keys
 
+            # Update the GUI checkbox if GUI instance exists
+            if gui_instance is not None and gui_instance.running:
+                gui_instance.mono_checkbox.setChecked(config.mono_mode)
+
         adsr.update_adsr_curve()
 
     except AttributeError:
@@ -121,7 +127,6 @@ def on_press(key):
             sd.stop()
 
             # Close the GUI if it exists
-            global gui_instance
             if gui_instance is not None:
                 gui_instance.close()
 
