@@ -34,3 +34,8 @@ octave_max = 3
 
 # Waveform settings
 waveform_type = 'sine'
+
+# Mono mode and portamento settings
+mono_mode = True  # default to mono
+glide_time = 0.05  # in seconds, default 50 ms
+mono_pressed_keys = []  # to track currently pressed keys in mono mode

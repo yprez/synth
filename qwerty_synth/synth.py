@@ -14,22 +14,64 @@ class Oscillator:
     def __init__(self, freq, waveform):
         """Initialize oscillator with frequency and waveform type."""
         self.freq = freq
+        self.target_freq = freq  # Target frequency for glide
         self.waveform = waveform
         self.phase = 0.0
         self.done = False
         self.env_time = 0.0
         self.released = False
         self.last_env_level = 0.0
+        self.key = None  # Store the key used to activate this oscillator
 
     def generate(self, frames):
         """Generate audio samples with the current oscillator settings."""
         if self.done:
-            return np.zeros(frames), np.zeros(frames)
+            return np.zeros(frames)
 
-        np.arange(frames) / config.sample_rate
-        phase_increment = 2 * np.pi * self.freq / config.sample_rate
-        phase_array = self.phase + phase_increment * np.arange(frames)
-        self.phase = (phase_array[-1] + phase_increment) % (2 * np.pi)
+        # Implement glide effect if target frequency differs from current frequency
+        if self.freq != self.target_freq:
+            # Ensure glide_time is at least 0.001 seconds (1ms) to avoid division by zero
+            safe_glide_time = max(0.001, config.glide_time)
+
+            # Calculate step size based on glide time
+            freq_step = (self.target_freq - self.freq) / (safe_glide_time * config.sample_rate)
+            # Calculate how many frames we need for the glide
+            glide_frames = min(frames, int(safe_glide_time * config.sample_rate))
+
+            if glide_frames > 0:
+                # Create a frequency array that smoothly transitions from current to target
+                freq_array = np.zeros(frames)
+
+                # Linear interpolation for the glide portion
+                for i in range(glide_frames):
+                    freq_array[i] = self.freq + freq_step * i
+
+                # Fill the rest with the target frequency
+                if glide_frames < frames:
+                    freq_array[glide_frames:] = self.target_freq
+
+                # Update current frequency to where we ended
+                self.freq = freq_array[-1]
+            else:
+                # If glide_time is zero, jump immediately to target frequency
+                self.freq = self.target_freq
+                freq_array = np.full(frames, self.target_freq)
+        else:
+            # No glide needed, use constant frequency
+            freq_array = np.full(frames, self.freq)
+
+        # Calculate phase increments based on frequency
+        phase_increments = 2 * np.pi * freq_array / config.sample_rate
+
+        # Accumulate phase
+        phase_array = np.zeros(frames)
+        current_phase = self.phase
+
+        for i in range(frames):
+            phase_array[i] = current_phase
+            current_phase = (current_phase + phase_increments[i]) % (2 * np.pi)
+
+        self.phase = current_phase
 
         if self.waveform == 'sine':
             wave = np.sin(phase_array)

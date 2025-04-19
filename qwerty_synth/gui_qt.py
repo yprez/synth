@@ -7,7 +7,8 @@ import numpy as np
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout
+    QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
+    QCheckBox
 )
 import pyqtgraph as pg
 
@@ -94,6 +95,28 @@ class SynthGUI(QMainWindow):
 
         self.volume_label = QLabel(f"{config.volume:.2f}")
         volume_layout.addWidget(self.volume_label)
+
+        # Mono Mode and Portamento Controls
+        mono_group = QGroupBox("Mono Mode")
+        mono_layout = QHBoxLayout(mono_group)
+        control_layout.addWidget(mono_group, stretch=1)
+
+        # Mono mode checkbox
+        self.mono_checkbox = QCheckBox("Mono Mode")
+        self.mono_checkbox.setChecked(config.mono_mode)
+        self.mono_checkbox.stateChanged.connect(self.update_mono_mode)
+        mono_layout.addWidget(self.mono_checkbox)
+
+        # Glide time slider
+        mono_layout.addWidget(QLabel("Glide"))
+        self.glide_slider = QSlider(Qt.Horizontal)
+        self.glide_slider.setRange(1, 500)  # 1ms to 500ms (was 0-500)
+        self.glide_slider.setValue(int(max(1, config.glide_time * 1000)))
+        self.glide_slider.valueChanged.connect(self.update_glide_time)
+        mono_layout.addWidget(self.glide_slider, stretch=1)
+
+        self.glide_label = QLabel(f"{config.glide_time*1000:.0f} ms")
+        mono_layout.addWidget(self.glide_label)
 
         # Filter Control
         filter_group = QGroupBox("Filter Control")
@@ -412,6 +435,22 @@ class SynthGUI(QMainWindow):
         cutoff = float(value)
         filter.cutoff = cutoff
         self.cutoff_label.setText(f"{cutoff:.0f} Hz")
+
+    def update_mono_mode(self, state):
+        """Update the mono mode setting."""
+        config.mono_mode = (state == Qt.Checked)
+        # Clear active notes to prevent stuck notes when switching modes
+        with config.notes_lock:
+            config.active_notes.clear()
+            config.mono_pressed_keys.clear()
+
+    def update_glide_time(self, value):
+        """Update the glide time setting."""
+        # Ensure minimum value of 1ms to avoid division by zero
+        glide_ms = max(1, value)
+        glide_time = glide_ms / 1000.0  # Convert from ms to seconds
+        config.glide_time = glide_time
+        self.glide_label.setText(f"{glide_ms:.0f} ms")
 
     def closeEvent(self, event):
         """Handle window close event."""

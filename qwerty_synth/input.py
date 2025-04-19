@@ -11,6 +11,7 @@ from qwerty_synth import synth
 # Add a reference to store the GUI instance
 gui_instance = None
 
+
 def on_press(key):
     """Handle key press events."""
     try:
@@ -19,10 +20,35 @@ def on_press(key):
         if k in config.key_note_map:
             base_freq = config.key_note_map[k]
             freq = base_freq * (2 ** (config.octave_offset / 12))
+
             with config.notes_lock:
-                if k not in config.active_notes:
-                    osc = synth.Oscillator(freq, config.waveform_type)
-                    config.active_notes[k] = osc
+                # Track the key press for mono mode
+                if k not in config.mono_pressed_keys:
+                    config.mono_pressed_keys.append(k)
+
+                if config.mono_mode:
+                    # In mono mode, we only keep one oscillator
+                    if 'mono' in config.active_notes:
+                        # Update existing oscillator's target frequency for glide
+                        osc = config.active_notes['mono']
+                        osc.target_freq = freq
+                        osc.key = k
+
+                        # If oscillator was released, un-release it
+                        if osc.released:
+                            osc.released = False
+                            osc.env_time = 0.0  # Reset envelope time to restart attack
+                    else:
+                        # Create a new oscillator for the mono voice
+                        osc = synth.Oscillator(freq, config.waveform_type)
+                        osc.key = k
+                        config.active_notes['mono'] = osc
+                else:
+                    # Polyphonic mode - normal behavior
+                    if k not in config.active_notes:
+                        osc = synth.Oscillator(freq, config.waveform_type)
+                        osc.key = k
+                        config.active_notes[k] = osc
 
         elif k == 'z' and config.octave_offset > 12 * config.octave_min:
             config.octave_offset -= 12
@@ -79,6 +105,14 @@ def on_press(key):
             config.volume = min(1.0, config.volume + 0.05)
             print(f"Volume: {config.volume:.2f}")
 
+        # Toggle mono mode
+        elif k == 'm':
+            config.mono_mode = not config.mono_mode
+            print(f"Mono mode: {'ON' if config.mono_mode else 'OFF'}")
+            with config.notes_lock:
+                config.active_notes.clear()  # Clear notes to prevent stuck notes
+                config.mono_pressed_keys.clear()  # Clear pressed keys
+
         adsr.update_adsr_curve()
 
     except AttributeError:
@@ -98,10 +132,36 @@ def on_release(key):
     """Handle key release events."""
     try:
         k = key.char.lower()
+
         with config.notes_lock:
-            if k in config.active_notes:
-                config.active_notes[k].released = True
-                config.active_notes[k].env_time = 0.0
+            # Remove key from mono_pressed_keys list if it exists
+            if k in config.mono_pressed_keys:
+                config.mono_pressed_keys.remove(k)
+
+            if k in config.active_notes or (config.mono_mode and 'mono' in config.active_notes):
+                if not config.mono_mode:
+                    # Regular polyphonic mode - release the specific note
+                    if k in config.active_notes:
+                        config.active_notes[k].released = True
+                        config.active_notes[k].env_time = 0.0
+                else:
+                    # Mono mode - handle differently
+                    if not config.mono_pressed_keys:
+                        # No keys pressed - release the mono oscillator
+                        if 'mono' in config.active_notes:
+                            config.active_notes['mono'].released = True
+                            config.active_notes['mono'].env_time = 0.0
+                    elif 'mono' in config.active_notes:
+                        # Some keys still pressed - switch to the last pressed key
+                        last_key = config.mono_pressed_keys[-1]
+                        base_freq = config.key_note_map[last_key]
+                        freq = base_freq * (2 ** (config.octave_offset / 12))
+
+                        # Update oscillator target frequency for glide to new note
+                        osc = config.active_notes['mono']
+                        osc.target_freq = freq
+                        osc.key = last_key
+
     except AttributeError:
         pass
 
