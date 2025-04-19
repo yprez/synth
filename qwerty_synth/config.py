@@ -39,3 +39,8 @@ waveform_type = 'sine'
 mono_mode = True  # default to mono
 glide_time = 0.05  # in seconds, default 50 ms
 mono_pressed_keys = []  # to track currently pressed keys in mono mode
+
+# LFO settings
+lfo_rate = 5.0  # Hz
+lfo_depth = 0.0  # modulation intensity (0.0-1.0)
+lfo_target = 'pitch'  # options: 'pitch', 'volume', 'cutoff'

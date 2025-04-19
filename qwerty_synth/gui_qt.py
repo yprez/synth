@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox
+    QCheckBox, QDoubleSpinBox, QComboBox
 )
 import pyqtgraph as pg
 
@@ -273,6 +273,38 @@ class SynthGUI(QMainWindow):
         self.adsr_plot.setYRange(0, 1.1)
         self.adsr_plot.setXRange(0, len(adsr.adsr_curve))
 
+        # LFO Control - moved to bottom
+        lfo_group = QGroupBox("LFO Control")
+        lfo_layout = QGridLayout(lfo_group)
+        main_layout.addWidget(lfo_group)
+
+        # LFO Rate
+        lfo_layout.addWidget(QLabel("Rate (Hz)"), 0, 0)
+        self.lfo_rate_spin = QDoubleSpinBox()
+        self.lfo_rate_spin.setRange(0.1, 20.0)
+        self.lfo_rate_spin.setSingleStep(0.1)
+        self.lfo_rate_spin.setValue(config.lfo_rate)
+        self.lfo_rate_spin.valueChanged.connect(self.update_lfo_rate)
+        lfo_layout.addWidget(self.lfo_rate_spin, 0, 1)
+
+        # LFO Depth
+        lfo_layout.addWidget(QLabel("Depth"), 0, 2)
+        self.lfo_depth_slider = QSlider(Qt.Horizontal)
+        self.lfo_depth_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
+        self.lfo_depth_slider.valueChanged.connect(self.update_lfo_depth)
+        lfo_layout.addWidget(self.lfo_depth_slider, 0, 3)
+        self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
+        lfo_layout.addWidget(self.lfo_depth_label, 0, 4)
+
+        # LFO Target
+        lfo_layout.addWidget(QLabel("Target"), 1, 0)
+        self.lfo_target_combo = QComboBox()
+        self.lfo_target_combo.addItems(["pitch", "volume", "cutoff"])
+        self.lfo_target_combo.setCurrentText(config.lfo_target)
+        self.lfo_target_combo.currentTextChanged.connect(self.update_lfo_target)
+        lfo_layout.addWidget(self.lfo_target_combo, 1, 1, 1, 4)
+
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
         main_layout.addLayout(bottom_layout)
@@ -451,6 +483,20 @@ class SynthGUI(QMainWindow):
         glide_time = glide_ms / 1000.0  # Convert from ms to seconds
         config.glide_time = glide_time
         self.glide_label.setText(f"{glide_ms:.0f} ms")
+
+    def update_lfo_rate(self, value):
+        """Update the LFO rate setting."""
+        config.lfo_rate = value
+
+    def update_lfo_depth(self, value):
+        """Update the LFO depth setting."""
+        depth = value / 100.0
+        config.lfo_depth = depth
+        self.lfo_depth_label.setText(f"{depth:.2f}")
+
+    def update_lfo_target(self, value):
+        """Update the LFO target setting."""
+        config.lfo_target = value
 
     def closeEvent(self, event):
         """Handle window close event."""
