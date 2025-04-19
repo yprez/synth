@@ -255,6 +255,11 @@ class SynthGUI(QMainWindow):
         filter_env_layout = QHBoxLayout(filter_env_widget)
         envelope_tabs.addTab(filter_env_widget, "Filter Envelope")
 
+        # Create the LFO tab
+        lfo_tab_widget = QWidget()
+        lfo_tab_layout = QHBoxLayout(lfo_tab_widget)
+        envelope_tabs.addTab(lfo_tab_widget, "LFO Control")
+
         # ADSR controls for amplitude
         adsr_group = QGroupBox("ADSR Envelope")
         adsr_controls = QGridLayout(adsr_group)
@@ -403,10 +408,10 @@ class SynthGUI(QMainWindow):
         self.filter_adsr_plot.setYRange(0, 1.1)
         self.filter_adsr_plot.setXRange(0, len(adsr.filter_adsr_curve))
 
-        # LFO Control - moved to bottom
-        lfo_group = QGroupBox("LFO Control")
+        # LFO Controls
+        lfo_group = QGroupBox("LFO Parameters")
         lfo_layout = QGridLayout(lfo_group)
-        main_layout.addWidget(lfo_group)
+        lfo_tab_layout.addWidget(lfo_group)
 
         # LFO Rate
         lfo_layout.addWidget(QLabel("Rate (Hz)"), 0, 0)
