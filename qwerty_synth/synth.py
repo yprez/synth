@@ -183,6 +183,9 @@ class Oscillator:
 
 def audio_callback(outdata, frames, time_info, status):
     """Audio callback function for the sounddevice output stream."""
+    if status:
+        print(f"Audio callback status: {status}")
+
     buffer = np.zeros(frames)
     unfiltered_buffer = np.zeros(frames)
     filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values
@@ -210,13 +213,12 @@ def audio_callback(outdata, frames, time_info, status):
             del config.active_notes[key]
 
     # Store a copy of the unfiltered buffer before filtering
-    unfiltered_buffer_copy = buffer.copy()
+    unfiltered_buffer_copy = buffer.copy() if len(config.active_notes) > 0 else np.zeros(frames)
 
     # Apply filter to the mixed signal (only if there are active notes)
     if len(config.active_notes) > 0:
         # Normalize filter envelope if active notes > 0
-        if len(config.active_notes) > 0:
-            filter_env_buffer = filter_env_buffer / len(config.active_notes)
+        filter_env_buffer = filter_env_buffer / len(config.active_notes)
 
         # Apply filter with envelope modulation
         buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
@@ -243,6 +245,7 @@ def create_audio_stream():
         samplerate=config.sample_rate,
         channels=1,
         callback=audio_callback,
-        blocksize=1024
+        blocksize=2048,
+        latency='high'  # Use 'high' for more stability
     )
     return stream
