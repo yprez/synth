@@ -183,6 +183,7 @@ def on_release(key):
                         osc = config.active_notes['mono']
                         osc.target_freq = freq
                         osc.key = last_key
+                        osc.lfo_env_time = 0.0  # Reset LFO envelope time when switching notes in mono mode
 
     except AttributeError:
         pass
