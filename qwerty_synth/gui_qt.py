@@ -413,24 +413,25 @@ class SynthGUI(QMainWindow):
         lfo_layout = QGridLayout(lfo_group)
         lfo_tab_layout.addWidget(lfo_group)
 
-        # LFO Rate
+        # LFO Rate - changed from QDoubleSpinBox to QSlider
         lfo_layout.addWidget(QLabel("Rate (Hz)"), 0, 0)
-        self.lfo_rate_spin = QDoubleSpinBox()
-        self.lfo_rate_spin.setRange(0.1, 20.0)
-        self.lfo_rate_spin.setSingleStep(0.1)
-        self.lfo_rate_spin.setValue(config.lfo_rate)
-        self.lfo_rate_spin.valueChanged.connect(self.update_lfo_rate)
-        lfo_layout.addWidget(self.lfo_rate_spin, 0, 1)
+        self.lfo_rate_slider = QSlider(Qt.Horizontal)
+        self.lfo_rate_slider.setRange(1, 200)  # 0.1 to 20.0 Hz (x10)
+        self.lfo_rate_slider.setValue(int(config.lfo_rate * 10))
+        self.lfo_rate_slider.valueChanged.connect(self.update_lfo_rate)
+        lfo_layout.addWidget(self.lfo_rate_slider, 0, 1)
+        self.lfo_rate_label = QLabel(f"{config.lfo_rate:.1f} Hz")
+        lfo_layout.addWidget(self.lfo_rate_label, 0, 2)
 
         # LFO Depth
-        lfo_layout.addWidget(QLabel("Depth"), 0, 2)
+        lfo_layout.addWidget(QLabel("Depth"), 0, 3)
         self.lfo_depth_slider = QSlider(Qt.Horizontal)
         self.lfo_depth_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
         self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
         self.lfo_depth_slider.valueChanged.connect(self.update_lfo_depth)
-        lfo_layout.addWidget(self.lfo_depth_slider, 0, 3)
+        lfo_layout.addWidget(self.lfo_depth_slider, 0, 4)
         self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
-        lfo_layout.addWidget(self.lfo_depth_label, 0, 4)
+        lfo_layout.addWidget(self.lfo_depth_label, 0, 5)
 
         # LFO Attack Time
         lfo_layout.addWidget(QLabel("Attack (s)"), 1, 0)
@@ -514,9 +515,19 @@ class SynthGUI(QMainWindow):
         if self.lfo_attack_spin.value() != config.lfo_attack_time:
             self.lfo_attack_spin.setValue(config.lfo_attack_time)
 
+        # Check if LFO rate has changed and update GUI if needed
+        if self.lfo_rate_slider.value() != int(config.lfo_rate * 10):
+            self.lfo_rate_slider.setValue(int(config.lfo_rate * 10))
+            self.lfo_rate_label.setText(f"{config.lfo_rate:.1f} Hz")
+
         # Check if LFO delay time has changed and update GUI if needed
         if self.lfo_delay_spin.value() != config.lfo_delay_time:
             self.lfo_delay_spin.setValue(config.lfo_delay_time)
+
+        # Check if LFO depth has changed and update GUI if needed
+        if self.lfo_depth_slider.value() != int(config.lfo_depth * 100):
+            self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
+            self.lfo_depth_label.setText(f"{config.lfo_depth:.2f}")
 
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
@@ -714,7 +725,8 @@ class SynthGUI(QMainWindow):
 
     def update_lfo_rate(self, value):
         """Update the LFO rate setting."""
-        config.lfo_rate = value
+        config.lfo_rate = value / 10.0
+        self.lfo_rate_label.setText(f"{config.lfo_rate:.1f} Hz")
 
     def update_lfo_depth(self, value):
         """Update the LFO depth setting."""
