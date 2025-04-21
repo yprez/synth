@@ -4,18 +4,18 @@ import numpy as np
 
 # ADSR envelope parameters for amplitude
 adsr = {
-    'attack': 0.1,
-    'decay': 0.05,
-    'sustain': 0.8,
-    'release': 0.5,
+    'attack': 0.02,
+    'decay': 0.03,
+    'sustain': 0.6,
+    'release': 0.2,
 }
 
 # ADSR envelope parameters for filter cutoff
 filter_adsr = {
-    'attack': 0.2,  # Slightly slower attack for filter
-    'decay': 0.3,   # Longer decay for filter movement
-    'sustain': 0.3, # Lower sustain for more dynamic filter effect
-    'release': 0.8, # Longer release for filter
+    'attack': 0.05,
+    'decay': 0.1,
+    'sustain': 0.4,
+    'release': 0.3,
 }
 
 # Filter envelope amount (how much the envelope affects the cutoff)
