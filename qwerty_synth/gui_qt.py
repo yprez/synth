@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget
+    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox
 )
 import pyqtgraph as pg
 
@@ -17,6 +17,7 @@ from qwerty_synth import adsr
 from qwerty_synth import synth
 from qwerty_synth import input as kb_input
 from qwerty_synth import filter
+from qwerty_synth.step_sequencer import StepSequencer
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
@@ -29,13 +30,16 @@ class SynthGUI(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("QWERTY Synth")
-        self.setGeometry(100, 100, 1200, 800)  # x, y, width, height
+        self.setGeometry(100, 100, 1200, 900)  # x, y, width, height - increased height for sequencer
 
         # Animation control variables
         self.animation_running = True
 
         # Keep track of the last GUI update time
         self.last_update_time = time.time()
+
+        # Create sequencer instance
+        self.sequencer = None  # Will be initialized in setup_ui
 
         # Set up the user interface
         self.setup_ui()
@@ -259,6 +263,10 @@ class SynthGUI(QMainWindow):
         lfo_tab_widget = QWidget()
         lfo_tab_layout = QHBoxLayout(lfo_tab_widget)
         envelope_tabs.addTab(lfo_tab_widget, "LFO Control")
+
+        # Create the sequencer tab
+        self.sequencer = StepSequencer()
+        envelope_tabs.addTab(self.sequencer, "Step Sequencer")
 
         # ADSR controls for amplitude
         adsr_group = QGroupBox("ADSR Envelope")
@@ -773,23 +781,16 @@ class SynthGUI(QMainWindow):
         self.octave_label.setText(f"{value:+d}")
 
     def closeEvent(self, event):
-        """Handle window close event."""
-        try:
-            # Set animation state to stopped
-            self.animation_running = False
+        """Clean up when window is closed."""
+        self.animation_running = False
+        if hasattr(self, 'timer'):
+            self.timer.stop()
 
-            # Stop the animation timer if it exists
-            if hasattr(self, 'timer') and self.timer is not None:
-                self.timer.stop()
+        # Stop sequencer if running
+        if self.sequencer:
+            self.sequencer.stop()
 
-            # Set running flag to False
-            self.running = False
-
-            # Accept the close event
-            if event is not None:
-                event.accept()
-        except Exception as e:
-            print(f"Error during close: {e}")
+        event.accept()
 
 
 def start_gui():
