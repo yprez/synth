@@ -7,6 +7,7 @@ import threading
 sample_rate = 44100
 volume = 0.5
 fade_duration = 0.01
+max_active_notes = 12  # Maximum number of simultaneous notes before oldest are released
 
 # Visual settings
 visual_buffer_size = int(sample_rate * 0.1)

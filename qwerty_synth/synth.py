@@ -28,6 +28,14 @@ class Oscillator:
         self.key = None  # Store the key used to activate this oscillator
         self.velocity = 1.0  # Default velocity (volume multiplier)
 
+        # Precompute wave generation functions for performance
+        self._wave_funcs = {
+            'sine': lambda phase: np.sin(phase),
+            'square': lambda phase: np.sign(np.sin(phase)),
+            'triangle': lambda phase: 2 * np.abs(2 * ((phase / (2 * np.pi)) % 1) - 1) - 1,
+            'sawtooth': lambda phase: 2 * ((phase / (2 * np.pi)) % 1) - 1
+        }
+
     def generate(self, frames):
         """Generate audio samples with the current oscillator settings."""
         if self.done:
@@ -110,16 +118,9 @@ class Oscillator:
 
         self.phase = current_phase
 
-        if self.waveform == 'sine':
-            wave = np.sin(phase_array)
-        elif self.waveform == 'square':
-            wave = np.sign(np.sin(phase_array))
-        elif self.waveform == 'triangle':
-            wave = 2 * np.abs(2 * ((phase_array / (2 * np.pi)) % 1) - 1) - 1
-        elif self.waveform == 'sawtooth':
-            wave = 2 * ((phase_array / (2 * np.pi)) % 1) - 1
-        else:
-            wave = np.sin(phase_array)
+        # Generate waveform using precomputed function
+        wave_func = self._wave_funcs.get(self.waveform, self._wave_funcs['sine'])
+        wave = wave_func(phase_array)
 
         # Generate amplitude envelope
         env = np.zeros(frames)
@@ -203,7 +204,22 @@ def audio_callback(outdata, frames, time_info, status):
     with config.notes_lock:
         finished_keys = []
 
-        for key, osc in config.active_notes.items():
+        # Limit the number of active notes to prevent CPU overload
+        active_note_items = list(config.active_notes.items())
+
+        # Sort notes by newest (highest env_time means oldest)
+        # We want to keep newer notes and release older ones if over the limit
+        sorted_notes = sorted(active_note_items, key=lambda x: x[1].env_time)
+
+        # If we have more notes than our limit, release the oldest ones
+        if len(sorted_notes) > config.max_active_notes:
+            for key, osc in sorted_notes[config.max_active_notes:]:
+                if not osc.released:
+                    osc.released = True
+                    osc.last_env_level = osc.last_env_level  # Preserve the current envelope level
+
+        # Process only the active notes up to our limit
+        for key, osc in active_note_items:
             wave, osc_filter_env = osc.generate(frames)
             buffer += wave
             unfiltered_buffer += wave
@@ -216,32 +232,31 @@ def audio_callback(outdata, frames, time_info, status):
         for key in finished_keys:
             del config.active_notes[key]
 
-    # Store a copy of the unfiltered buffer before filtering
-    unfiltered_buffer_copy = buffer.copy() if num_active_notes > 0 else np.zeros(frames)
-
-    # Apply polyphonic normalization - scale down the combined signal based on number of active notes
-    # Only apply in polyphonic mode and when there's more than one note
-    if not config.mono_mode and num_active_notes > 1:
-        # Apply a smoother scaling factor for better dynamics
-        # Using a square root scaling provides a more musical balance
-        scaling_factor = 1.0 / np.sqrt(num_active_notes)
-        buffer *= scaling_factor
-        unfiltered_buffer_copy *= scaling_factor
-
-    # Apply filter to the mixed signal (only if there are active notes)
+    # Apply normalization to prevent clipping with multiple notes
     if num_active_notes > 0:
+        # Calculate RMS value of the buffer
+        rms = np.sqrt(np.mean(buffer ** 2))
+
+        # Apply dynamic scaling only if our signal is too loud
+        # This is more efficient than normalizing all the time
+        if rms > 0.3:  # If RMS is above threshold
+            scaling_factor = 0.3 / rms
+            buffer *= scaling_factor
+            unfiltered_buffer *= scaling_factor
+
+        # Store a copy of the unfiltered buffer for visualization
+        unfiltered_buffer_copy = buffer.copy()
+
+        # Apply filter only if needed (more efficient)
         # Normalize filter envelope if active notes > 0
         filter_env_buffer = filter_env_buffer / num_active_notes
 
         # Apply filter with envelope modulation
-        buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
-
-        # Soft limiting/compression to prevent clipping while maintaining volume
-        max_amplitude = np.max(np.abs(buffer))
-        if max_amplitude > 0.95:  # Only compress if we're close to clipping
-            compression_factor = 0.95 / max_amplitude
-            buffer *= compression_factor
-            unfiltered_buffer_copy *= compression_factor
+        # Only apply if we have a valid cutoff (below Nyquist)
+        if filter.cutoff < config.sample_rate / 2:
+            buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
+    else:
+        unfiltered_buffer_copy = np.zeros(frames)
 
     outdata[:] = (config.volume * buffer).reshape(-1, 1)
 
@@ -258,7 +273,7 @@ def create_audio_stream():
         samplerate=config.sample_rate,
         channels=1,
         callback=audio_callback,
-        blocksize=2048,
+        blocksize=4096,
         latency='high'  # Use 'high' for more stability
     )
     return stream
