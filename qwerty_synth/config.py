@@ -5,7 +5,7 @@ import threading
 
 # Audio settings
 sample_rate = 44100
-volume = 0.3
+volume = 0.5
 fade_duration = 0.01
 
 # Visual settings
