@@ -48,21 +48,12 @@ def play_note(freq, duration=0.5, velocity=1.0):
             osc = Oscillator(freq, config.waveform_type)
             osc.key = k
 
-            # Handle velocity by scaling the output (only for this specific note)
-            # We need a better way to handle per-note velocity in the future
-            original_volume = config.volume
-            temp_volume = min(1.0, original_volume * velocity)
-            # Temporarily adjust volume for this note
-            config.volume = temp_volume
+            # Store velocity with the oscillator for per-note volume control
+            # This will be implemented in Oscillator.generate() in the future
+            osc.velocity = velocity
 
             # Add the note to active notes
             config.active_notes[k] = osc
-
-            # Restore original volume after a tiny delay
-            if velocity != 1.0:
-                def restore_volume():
-                    config.volume = original_volume
-                threading.Timer(0.001, restore_volume).start()
 
     def release():
         with config.notes_lock:

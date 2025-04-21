@@ -26,6 +26,7 @@ class Oscillator:
         self.last_env_level = 0.0
         self.last_filter_env_level = 0.0  # Last filter envelope level
         self.key = None  # Store the key used to activate this oscillator
+        self.velocity = 1.0  # Default velocity (volume multiplier)
 
     def generate(self, frames):
         """Generate audio samples with the current oscillator settings."""
@@ -172,8 +173,8 @@ class Oscillator:
             # Clip to avoid extreme values
             np.clip(env, 0.0, 1.0, out=env)
 
-        # Apply envelope to the wave (but don't filter individual oscillators)
-        output = wave * env
+        # Apply envelope and velocity to the wave
+        output = wave * env * self.velocity
 
         # Update LFO phase for next buffer
         self.lfo_phase += frames / config.sample_rate
@@ -198,6 +199,7 @@ def audio_callback(outdata, frames, time_info, status):
         # Map LFO to a range suitable for cutoff modulation (e.g., +/- 50% of current cutoff)
         lfo_cutoff = lfo
 
+    num_active_notes = 0
     with config.notes_lock:
         finished_keys = []
 
@@ -208,17 +210,28 @@ def audio_callback(outdata, frames, time_info, status):
             filter_env_buffer += osc_filter_env  # Add this oscillator's filter env to buffer
             if osc.done:
                 finished_keys.append(key)
+            else:
+                num_active_notes += 1
 
         for key in finished_keys:
             del config.active_notes[key]
 
     # Store a copy of the unfiltered buffer before filtering
-    unfiltered_buffer_copy = buffer.copy() if len(config.active_notes) > 0 else np.zeros(frames)
+    unfiltered_buffer_copy = buffer.copy() if num_active_notes > 0 else np.zeros(frames)
+
+    # Apply polyphonic normalization - scale down the combined signal based on number of active notes
+    # Only apply in polyphonic mode and when there's more than one note
+    if not config.mono_mode and num_active_notes > 1:
+        # Apply a smoother scaling factor for better dynamics
+        # Using a square root scaling provides a more musical balance
+        scaling_factor = 1.0 / np.sqrt(num_active_notes)
+        buffer *= scaling_factor
+        unfiltered_buffer_copy *= scaling_factor
 
     # Apply filter to the mixed signal (only if there are active notes)
-    if len(config.active_notes) > 0:
+    if num_active_notes > 0:
         # Normalize filter envelope if active notes > 0
-        filter_env_buffer = filter_env_buffer / len(config.active_notes)
+        filter_env_buffer = filter_env_buffer / num_active_notes
 
         # Apply filter with envelope modulation
         buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
