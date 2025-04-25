@@ -421,51 +421,59 @@ class SynthGUI(QMainWindow):
         lfo_layout = QGridLayout(lfo_group)
         lfo_tab_layout.addWidget(lfo_group)
 
+        # LFO Enable checkbox
+        self.lfo_enable_checkbox = QCheckBox("Enable LFO")
+        self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
+        self.lfo_enable_checkbox.stateChanged.connect(self.update_lfo_enabled)
+        lfo_layout.addWidget(self.lfo_enable_checkbox, 0, 0, 1, 1)
+
         # LFO Rate - changed from QDoubleSpinBox to QSlider
-        lfo_layout.addWidget(QLabel("Rate (Hz)"), 0, 0)
+        lfo_layout.addWidget(QLabel("Rate (Hz)"), 1, 0)
         self.lfo_rate_slider = QSlider(Qt.Horizontal)
         self.lfo_rate_slider.setRange(1, 200)  # 0.1 to 20.0 Hz (x10)
         self.lfo_rate_slider.setValue(int(config.lfo_rate * 10))
         self.lfo_rate_slider.valueChanged.connect(self.update_lfo_rate)
-        lfo_layout.addWidget(self.lfo_rate_slider, 0, 1)
+        lfo_layout.addWidget(self.lfo_rate_slider, 1, 1)
         self.lfo_rate_label = QLabel(f"{config.lfo_rate:.1f} Hz")
-        lfo_layout.addWidget(self.lfo_rate_label, 0, 2)
+        lfo_layout.addWidget(self.lfo_rate_label, 1, 2)
 
         # LFO Depth
-        lfo_layout.addWidget(QLabel("Depth"), 0, 3)
+        lfo_layout.addWidget(QLabel("Depth"), 1, 3)
         self.lfo_depth_slider = QSlider(Qt.Horizontal)
         self.lfo_depth_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
         self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
         self.lfo_depth_slider.valueChanged.connect(self.update_lfo_depth)
-        lfo_layout.addWidget(self.lfo_depth_slider, 0, 4)
+        lfo_layout.addWidget(self.lfo_depth_slider, 1, 4)
         self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
-        lfo_layout.addWidget(self.lfo_depth_label, 0, 5)
+        lfo_layout.addWidget(self.lfo_depth_label, 1, 5)
 
         # LFO Attack Time
-        lfo_layout.addWidget(QLabel("Attack (s)"), 1, 0)
-        self.lfo_attack_spin = QDoubleSpinBox()
-        self.lfo_attack_spin.setRange(0.0, 5.0)
-        self.lfo_attack_spin.setSingleStep(0.1)
-        self.lfo_attack_spin.setValue(config.lfo_attack_time)
-        self.lfo_attack_spin.valueChanged.connect(self.update_lfo_attack_time)
-        lfo_layout.addWidget(self.lfo_attack_spin, 1, 1)
+        lfo_layout.addWidget(QLabel("Attack (s)"), 2, 0)
+        self.lfo_attack_slider = QSlider(Qt.Horizontal)
+        self.lfo_attack_slider.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
+        self.lfo_attack_slider.setValue(int(config.lfo_attack_time * 10))
+        self.lfo_attack_slider.valueChanged.connect(self.update_lfo_attack_time)
+        lfo_layout.addWidget(self.lfo_attack_slider, 2, 1)
+        self.lfo_attack_label = QLabel(f"{config.lfo_attack_time:.1f} s")
+        lfo_layout.addWidget(self.lfo_attack_label, 2, 2)
 
         # LFO Delay Time
-        lfo_layout.addWidget(QLabel("Delay (s)"), 2, 0)
-        self.lfo_delay_spin = QDoubleSpinBox()
-        self.lfo_delay_spin.setRange(0.0, 5.0)
-        self.lfo_delay_spin.setSingleStep(0.1)
-        self.lfo_delay_spin.setValue(config.lfo_delay_time)
-        self.lfo_delay_spin.valueChanged.connect(self.update_lfo_delay_time)
-        lfo_layout.addWidget(self.lfo_delay_spin, 2, 1)
+        lfo_layout.addWidget(QLabel("Delay (s)"), 3, 0)
+        self.lfo_delay_slider = QSlider(Qt.Horizontal)
+        self.lfo_delay_slider.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
+        self.lfo_delay_slider.setValue(int(config.lfo_delay_time * 10))
+        self.lfo_delay_slider.valueChanged.connect(self.update_lfo_delay_time)
+        lfo_layout.addWidget(self.lfo_delay_slider, 3, 1)
+        self.lfo_delay_label = QLabel(f"{config.lfo_delay_time:.1f} s")
+        lfo_layout.addWidget(self.lfo_delay_label, 3, 2)
 
         # LFO Target
-        lfo_layout.addWidget(QLabel("Target"), 1, 2)
+        lfo_layout.addWidget(QLabel("Target"), 2, 3)
         self.lfo_target_combo = QComboBox()
         self.lfo_target_combo.addItems(["pitch", "volume", "cutoff"])
         self.lfo_target_combo.setCurrentText(config.lfo_target)
         self.lfo_target_combo.currentTextChanged.connect(self.update_lfo_target)
-        lfo_layout.addWidget(self.lfo_target_combo, 1, 3, 1, 2)
+        lfo_layout.addWidget(self.lfo_target_combo, 2, 3, 1, 3)
 
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
@@ -520,8 +528,9 @@ class SynthGUI(QMainWindow):
             self.filter_env_amount_label.setText(f"{adsr.filter_env_amount:.0f} Hz")
 
         # Check if LFO attack time has changed and update GUI if needed
-        if self.lfo_attack_spin.value() != config.lfo_attack_time:
-            self.lfo_attack_spin.setValue(config.lfo_attack_time)
+        if self.lfo_attack_slider.value() != int(config.lfo_attack_time * 10):
+            self.lfo_attack_slider.setValue(int(config.lfo_attack_time * 10))
+            self.lfo_attack_label.setText(f"{config.lfo_attack_time:.1f} s")
 
         # Check if LFO rate has changed and update GUI if needed
         if self.lfo_rate_slider.value() != int(config.lfo_rate * 10):
@@ -529,13 +538,18 @@ class SynthGUI(QMainWindow):
             self.lfo_rate_label.setText(f"{config.lfo_rate:.1f} Hz")
 
         # Check if LFO delay time has changed and update GUI if needed
-        if self.lfo_delay_spin.value() != config.lfo_delay_time:
-            self.lfo_delay_spin.setValue(config.lfo_delay_time)
+        if self.lfo_delay_slider.value() != int(config.lfo_delay_time * 10):
+            self.lfo_delay_slider.setValue(int(config.lfo_delay_time * 10))
+            self.lfo_delay_label.setText(f"{config.lfo_delay_time:.1f} s")
 
         # Check if LFO depth has changed and update GUI if needed
         if self.lfo_depth_slider.value() != int(config.lfo_depth * 100):
             self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
             self.lfo_depth_label.setText(f"{config.lfo_depth:.2f}")
+
+        # Check if LFO enabled status has changed and update GUI if needed
+        if self.lfo_enable_checkbox.isChecked() != config.lfo_enabled:
+            self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
 
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
@@ -748,11 +762,17 @@ class SynthGUI(QMainWindow):
 
     def update_lfo_attack_time(self, value):
         """Update the LFO attack time setting."""
-        config.lfo_attack_time = value
+        config.lfo_attack_time = value / 10.0
+        self.lfo_attack_label.setText(f"{config.lfo_attack_time:.1f} s")
 
     def update_lfo_delay_time(self, value):
         """Update the LFO delay time setting."""
-        config.lfo_delay_time = value
+        config.lfo_delay_time = value / 10.0
+        self.lfo_delay_label.setText(f"{config.lfo_delay_time:.1f} s")
+
+    def update_lfo_enabled(self, state):
+        """Update the LFO enabled setting."""
+        config.lfo_enabled = (state == Qt.Checked)
 
     def decrease_octave(self):
         """Decrease the octave by one."""
