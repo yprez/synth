@@ -6,7 +6,7 @@ import numpy as np
 adsr = {
     'attack': 0.02,
     'decay': 0.03,
-    'sustain': 0.6,
+    'sustain': 0.2,
     'release': 0.2,
 }
 

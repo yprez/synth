@@ -1,7 +1,7 @@
 """Step sequencer module for QWERTY Synth."""
 
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QSpinBox, QComboBox, QFrame
