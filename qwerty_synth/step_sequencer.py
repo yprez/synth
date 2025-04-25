@@ -403,8 +403,8 @@ class StepSequencer(QWidget):
         # 60000 ms / BPM = milliseconds per beat
         # We want 16th notes so divide by 4
         step_interval = int(60000 / bpm / 4)
-        # Calculate step duration
-        self.step_duration = step_interval / 1000
+        # Calculate step duration - use a slightly shorter duration to prevent overlap
+        self.step_duration = (step_interval / 1000) * 0.8  # 80% of step interval
 
         if self.sequencer_running:
             # Update timer if running
@@ -507,10 +507,11 @@ class StepSequencer(QWidget):
                 button.setStyleSheet("QPushButton { background-color: #a0a0a0; }")
 
         # Play notes for the current step
+        note_release_buffer = 0.01  # Small buffer to prevent notes from overlapping
         for row in range(self.num_rows):
             if self.sequencer_steps[row][self.current_step]:
                 midi_note = self.sequencer_notes[row]
-                play_midi_note(midi_note, self.step_duration, 0.8)
+                play_midi_note(midi_note, self.step_duration - note_release_buffer, 0.8)
 
     def clear_sequencer(self):
         """Clear all steps in the sequencer."""
