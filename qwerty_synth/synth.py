@@ -6,6 +6,7 @@ import sounddevice as sd
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import filter
+from qwerty_synth.lfo import LFO
 
 
 class Oscillator:
@@ -17,8 +18,7 @@ class Oscillator:
         self.target_freq = freq  # Target frequency for glide
         self.waveform = waveform
         self.phase = 0.0
-        self.lfo_phase = 0.0  # Phase for the LFO
-        self.lfo_env_time = 0.0  # Time tracker for LFO attack envelope - reset for each new note
+        self.lfo = LFO()
         self.done = False
         self.env_time = 0.0
         self.filter_env_time = 0.0  # Time tracker for filter envelope
@@ -41,34 +41,8 @@ class Oscillator:
         if self.done:
             return np.zeros(frames), np.zeros(frames)  # Return both amp and filter envs
 
-        # Generate time array for LFO
-        t = np.arange(frames) / config.sample_rate + self.lfo_phase
-
-        # Initialize lfo to zeros if LFO is disabled
-        if not config.lfo_enabled:
-            lfo = np.zeros(frames)
-            # Still increment LFO phase even when disabled to maintain continuity if re-enabled
-            self.lfo_env_time += frames / config.sample_rate
-        else:
-            # Compute LFO envelope with delay
-            if self.lfo_env_time < config.lfo_delay_time:
-                # In delay phase - no LFO
-                lfo_env = 0.0
-            elif config.lfo_attack_time > 0:
-                # In attack phase - apply attack envelope after delay
-                attack_time = self.lfo_env_time - config.lfo_delay_time
-                lfo_env = np.clip(attack_time / config.lfo_attack_time, 0, 1.0)
-            else:
-                # No attack time - full envelope after delay
-                lfo_env = 1.0
-
-            lfo_env_array = np.full(frames, lfo_env)
-
-            # Generate LFO signal with delay and attack envelope
-            lfo = lfo_env_array * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
-
-            # Increment LFO envelope time
-            self.lfo_env_time += frames / config.sample_rate
+        # Generate LFO signal
+        lfo = self.lfo.generate(frames)
 
         # Implement glide effect if target frequency differs from current frequency
         if self.freq != self.target_freq:
@@ -102,14 +76,8 @@ class Oscillator:
             # No glide needed, use constant frequency
             freq_array = np.full(frames, self.freq)
 
-        # Apply LFO modulation to pitch if target is 'pitch'
-        if config.lfo_target == 'pitch':
-            # Modulate frequency using LFO (vibrato effect)
-            # The exponential formula converts semitones to frequency ratio
-            # We divide by 12 to convert LFO range to semitones
-            mod_freq_array = freq_array * (2 ** (lfo / 12))
-        else:
-            mod_freq_array = freq_array
+        # Apply LFO modulation to pitch
+        mod_freq_array = self.lfo.apply_pitch_modulation(freq_array, lfo)
 
         # Calculate phase increments based on modulated frequency
         phase_increments = 2 * np.pi * mod_freq_array / config.sample_rate
@@ -172,19 +140,11 @@ class Oscillator:
         self.filter_env_time += frames / config.sample_rate
         self.last_filter_env_level = filter_env[-1]
 
-        # Apply LFO modulation to volume if target is 'volume'
-        if config.lfo_target == 'volume':
-            # Modulate amplitude using LFO (tremolo effect)
-            # Ensure values stay positive
-            env = env * (1.0 + lfo)
-            # Clip to avoid extreme values
-            np.clip(env, 0.0, 1.0, out=env)
+        # Apply LFO modulation to volume
+        env = self.lfo.apply_amplitude_modulation(env, lfo)
 
         # Apply envelope and velocity to the wave
         output = wave * env * self.velocity
-
-        # Update LFO phase for next buffer
-        self.lfo_phase += frames / config.sample_rate
 
         return output, filter_env
 
@@ -199,12 +159,9 @@ def audio_callback(outdata, frames, time_info, status):
     filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values
 
     # If LFO is targeting filter cutoff, generate global LFO signal
-    lfo_cutoff = None
-    if config.lfo_target == 'cutoff' and config.lfo_enabled:
-        t = np.arange(frames) / config.sample_rate
-        lfo = config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
-        # Map LFO to a range suitable for cutoff modulation (e.g., +/- 50% of current cutoff)
-        lfo_cutoff = lfo
+    # Create a global LFO for filter cutoff modulation
+    global_lfo = LFO()
+    lfo_cutoff = global_lfo.get_cutoff_modulation(frames)
 
     num_active_notes = 0
     with config.notes_lock:
