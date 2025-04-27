@@ -4,12 +4,15 @@ from qwerty_synth import adsr
 
 
 cutoff = 10000  # Default cutoff frequency in Hz
-_last_output = 0.0  # Internal state for continuity
+resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
+_last_output_1 = 0.0  # Internal state for continuity (first stage)
+_last_output_2 = 0.0  # Internal state for continuity (second stage)
+_last_input = 0.0  # Previous input sample
 
 
 def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     """
-    Apply a simple one-pole low-pass filter to the input signal.
+    Apply a two-pole low-pass filter with resonance to the input signal.
 
     Parameters:
         samples (np.ndarray): Input audio signal array (1D).
@@ -19,7 +22,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     Returns:
         np.ndarray: Filtered output signal.
     """
-    global _last_output
+    global _last_output_1, _last_output_2, _last_input
 
     # Create array of cutoff values (base + modulations)
     if len(samples) == 0:
@@ -48,13 +51,39 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     # Apply filter with the modulated cutoff
     filtered = np.zeros_like(samples)
 
-    # Apply filter sample by sample with potentially varying cutoff
+    # Limit resonance to safe values to prevent instability
+    # Higher resonance values create more pronounced peaks at the cutoff frequency
+    safe_resonance = min(resonance, 0.99)
+
+    # Calculate feedback factor based on resonance
+    # As resonance approaches 1.0, feedback increases dramatically
+    feedback = safe_resonance * 0.98
+
+    # Apply two-pole filter with resonance sample by sample
     for i, x in enumerate(samples):
+        # Calculate filter coefficient for current cutoff
         rc = 1.0 / (2 * np.pi * modulated_cutoff[i])
         dt = 1.0 / sample_rate
         alpha = dt / (rc + dt)
 
-        _last_output = alpha * x + (1 - alpha) * _last_output
-        filtered[i] = _last_output
+        # Apply first filter stage with feedback for resonance
+        input_with_feedback = x - (_last_output_2 * feedback)
+        output_1 = alpha * input_with_feedback + (1 - alpha) * _last_output_1
+        _last_output_1 = output_1
+
+        # Apply second filter stage
+        output_2 = alpha * output_1 + (1 - alpha) * _last_output_2
+        _last_output_2 = output_2
+
+        filtered[i] = output_2
+        _last_input = x
 
     return filtered
+
+
+def reset_filter_state():
+    """Reset the filter state variables."""
+    global _last_output_1, _last_output_2, _last_input
+    _last_output_1 = 0.0
+    _last_output_2 = 0.0
+    _last_input = 0.0

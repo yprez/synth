@@ -173,6 +173,17 @@ class SynthGUI(QMainWindow):
         self.cutoff_label = QLabel(f"{filter.cutoff:.0f} Hz")
         filter_layout.addWidget(self.cutoff_label)
 
+        # Add resonance control
+        filter_layout.addWidget(QLabel("Resonance"))
+        self.resonance_slider = QSlider(Qt.Horizontal)
+        self.resonance_slider.setRange(0, 95)  # 0.0 to 0.95 (x100)
+        self.resonance_slider.setValue(int(filter.resonance * 100))
+        self.resonance_slider.valueChanged.connect(self.update_filter_resonance)
+        filter_layout.addWidget(self.resonance_slider, stretch=1)
+
+        self.resonance_label = QLabel(f"{filter.resonance:.2f}")
+        filter_layout.addWidget(self.resonance_label)
+
         # Add filter envelope amount control
         filter_layout.addWidget(QLabel("Envelope Amount"))
         self.filter_env_amount_slider = QSlider(Qt.Horizontal)
@@ -522,6 +533,11 @@ class SynthGUI(QMainWindow):
             self.cutoff_slider.setValue(int(filter.cutoff))
             self.cutoff_label.setText(f"{filter.cutoff:.0f} Hz")
 
+        # Check if filter resonance has changed and update GUI if needed
+        if self.resonance_slider.value() != int(filter.resonance * 100):
+            self.resonance_slider.setValue(int(filter.resonance * 100))
+            self.resonance_label.setText(f"{filter.resonance:.2f}")
+
         # Check if filter envelope amount has changed and update GUI
         if self.filter_env_amount_slider.value() != adsr.filter_env_amount:
             self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
@@ -722,6 +738,12 @@ class SynthGUI(QMainWindow):
         cutoff = float(value)
         filter.cutoff = cutoff
         self.cutoff_label.setText(f"{cutoff:.0f} Hz")
+
+    def update_filter_resonance(self, value):
+        """Update the filter resonance."""
+        resonance = value / 100.0
+        filter.resonance = resonance
+        self.resonance_label.setText(f"{resonance:.2f}")
 
     def update_filter_env_amount(self, value):
         """Update the filter envelope amount."""
