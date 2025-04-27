@@ -84,6 +84,10 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
         filtered[i] = output_2
         _last_input = x
 
+    # Prevent DC drift by applying a tiny decay to the filter state variables
+    _last_output_1 *= 0.999
+    _last_output_2 *= 0.999
+
     return filtered
 
 
