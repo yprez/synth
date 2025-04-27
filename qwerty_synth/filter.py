@@ -62,7 +62,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
 
     # Calculate feedback factor based on resonance
     # As resonance approaches 1.0, feedback increases dramatically
-    feedback = safe_resonance * 0.98
+    feedback = safe_resonance**2 * 0.98
 
     # Apply two-pole filter with resonance sample by sample
     for i, x in enumerate(samples):

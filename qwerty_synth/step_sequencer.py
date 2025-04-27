@@ -404,7 +404,7 @@ class StepSequencer(QWidget):
         # We want 16th notes so divide by 4
         step_interval = int(60000 / bpm / 4)
         # Calculate step duration - use a slightly shorter duration to prevent overlap
-        self.step_duration = (step_interval / 1000) * 0.8  # 80% of step interval
+        self.step_duration = (step_interval / 1000) * 1.0  # 80% of step interval
 
         if self.sequencer_running:
             # Update timer if running
