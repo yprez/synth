@@ -70,6 +70,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
         rc = 1.0 / (2 * np.pi * modulated_cutoff[i])
         dt = 1.0 / sample_rate
         alpha = dt / (rc + dt)
+        alpha = max(0.001, min(alpha, 0.999))  # Clamp alpha for stability
 
         # Apply first filter stage with feedback for resonance
         input_with_feedback = x - (_last_output_2 * feedback)
