@@ -5,6 +5,7 @@ from qwerty_synth import adsr
 
 cutoff = 10000  # Default cutoff frequency in Hz
 resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
+filter_enabled = True  # Flag to enable/disable the filter
 _last_output_1 = 0.0  # Internal state for continuity (first stage)
 _last_output_2 = 0.0  # Internal state for continuity (second stage)
 _last_input = 0.0  # Previous input sample
@@ -23,6 +24,10 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
         np.ndarray: Filtered output signal.
     """
     global _last_output_1, _last_output_2, _last_input
+
+    # If filter is disabled, return the original samples
+    if not filter_enabled:
+        return samples
 
     # Create array of cutoff values (base + modulations)
     if len(samples) == 0:

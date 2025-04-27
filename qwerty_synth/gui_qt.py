@@ -162,6 +162,12 @@ class SynthGUI(QMainWindow):
         filter_layout = QHBoxLayout(filter_group)
         main_layout.addWidget(filter_group)
 
+        # Filter enable checkbox
+        self.filter_enable_checkbox = QCheckBox("Enable Filter")
+        self.filter_enable_checkbox.setChecked(filter.filter_enabled)
+        self.filter_enable_checkbox.stateChanged.connect(self.update_filter_enabled)
+        filter_layout.addWidget(self.filter_enable_checkbox)
+
         filter_layout.addWidget(QLabel("Cutoff Frequency"))
 
         self.cutoff_slider = QSlider(Qt.Horizontal)
@@ -567,6 +573,10 @@ class SynthGUI(QMainWindow):
         if self.lfo_enable_checkbox.isChecked() != config.lfo_enabled:
             self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
 
+        # Check if filter enabled status has changed and update GUI if needed
+        if self.filter_enable_checkbox.isChecked() != filter.filter_enabled:
+            self.filter_enable_checkbox.setChecked(filter.filter_enabled)
+
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
 
@@ -795,6 +805,10 @@ class SynthGUI(QMainWindow):
     def update_lfo_enabled(self, state):
         """Update the LFO enabled setting."""
         config.lfo_enabled = (state == Qt.Checked)
+
+    def update_filter_enabled(self, state):
+        """Update the filter enabled setting."""
+        filter.filter_enabled = (state == Qt.Checked)
 
     def decrease_octave(self):
         """Decrease the octave by one."""
