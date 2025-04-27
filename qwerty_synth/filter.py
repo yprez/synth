@@ -73,7 +73,8 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
         alpha = max(0.001, min(alpha, 0.999))  # Clamp alpha for stability
 
         # Apply first filter stage with feedback for resonance
-        input_with_feedback = x - (_last_output_2 * feedback)
+        fb = np.tanh(_last_output_2 * feedback)  # mild saturation
+        input_with_feedback = x - fb
         output_1 = alpha * input_with_feedback + (1 - alpha) * _last_output_1
         _last_output_1 = output_1
 
