@@ -32,9 +32,10 @@ def update_delay_from_bpm():
     """Update delay time based on BPM and selected division."""
     from qwerty_synth import config
 
-    beats_per_ms = config.bpm / 60000.0
-    mult = DIV2MULT.get(config.delay_division, 0.25)  # Default to quarter note
-    delay_ms = (1 / beats_per_ms) * mult * 1000  # beats→ms
+    beats_per_second = config.bpm / 60.0
+    seconds_per_beat = 1 / beats_per_second
+    seconds_per_whole_note = seconds_per_beat * 4.0
+    delay_ms = seconds_per_whole_note * DIV2MULT.get(config.delay_division, 0.25) * 1000  # seconds→ms
     config.delay_time_ms = delay_ms
     set_time(delay_ms)  # Update the actual delay time
 
