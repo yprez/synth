@@ -58,3 +58,9 @@ def process_block(x, fb, mix):
         y[i] = s * (1.0 - mix) + delayed * mix
         write_idx = (write_idx + 1) % _buffer.size
     return y
+
+def clear_cache():
+    """Clear the delay buffer and reset write index."""
+    global _buffer, write_idx
+    _buffer.fill(0)
+    write_idx = 0

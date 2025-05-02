@@ -935,6 +935,8 @@ class SynthGUI(QMainWindow):
     def update_delay_enabled(self, state):
         """Update the delay enabled setting."""
         config.delay_enabled = (state == Qt.Checked)
+        if not config.delay_enabled:
+            delay.clear_cache()
 
     def update_delay_sync(self, state):
         """Update whether delay time is synced to BPM."""
