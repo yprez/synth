@@ -220,15 +220,16 @@ def audio_callback(outdata, frames, time_info, status):
         if filter.cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
 
-        # Apply delay effect if enabled
-        if config.delay_enabled:
-            buffer = delay.process_block(
-                buffer,
-                config.delay_feedback,
-                config.delay_mix
-            )
     else:
         unfiltered_buffer_copy = np.zeros(frames)
+
+    # Apply delay effect if enabled - after all oscillator processing
+    if config.delay_enabled:
+        buffer = delay.process_block(
+            buffer,
+            config.delay_feedback,
+            config.delay_mix
+        )
 
     outdata[:] = (config.volume * buffer).reshape(-1, 1)
 
