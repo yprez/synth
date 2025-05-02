@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox
+    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox, QFrame
 )
 import pyqtgraph as pg
 
@@ -511,26 +511,42 @@ class SynthGUI(QMainWindow):
         self.delay_enable_checkbox = QCheckBox("Enable Delay")
         self.delay_enable_checkbox.setChecked(config.delay_enabled)
         self.delay_enable_checkbox.stateChanged.connect(self.update_delay_enabled)
-        delay_layout.addWidget(self.delay_enable_checkbox, 0, 0, 1, 6)
+        delay_layout.addWidget(self.delay_enable_checkbox, 0, 0, 1, 3)
 
-        # Delay division control (tempo sync)
-        delay_layout.addWidget(QLabel("Division:"), 1, 0)
+        # Tempo sync checkbox
+        self.delay_sync_checkbox = QCheckBox("Sync to Tempo")
+        self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
+        self.delay_sync_checkbox.stateChanged.connect(self.update_delay_sync)
+        delay_layout.addWidget(self.delay_sync_checkbox, 0, 3, 1, 3)
+
+        # Create frame for tempo-sync controls
+        self.tempo_sync_frame = QFrame()
+        tempo_sync_hlayout = QHBoxLayout(self.tempo_sync_frame)
+        tempo_sync_hlayout.setContentsMargins(0, 0, 0, 0)
+        tempo_sync_hlayout.setSpacing(8)
+        delay_layout.addWidget(self.tempo_sync_frame, 1, 0, 1, 6)
+
+        # Division
+        tempo_sync_hlayout.addWidget(QLabel("Division:"), stretch=0)
         self.delay_division_combo = QComboBox()
         self.delay_division_combo.addItems(list(delay.DIV2MULT.keys()))
         self.delay_division_combo.setCurrentText(config.delay_division)
         self.delay_division_combo.currentTextChanged.connect(self.update_delay_division)
-        delay_layout.addWidget(self.delay_division_combo, 1, 1, 1, 2)
+        tempo_sync_hlayout.addWidget(self.delay_division_combo, stretch=1)
 
-        # Display computed delay time
-        delay_layout.addWidget(QLabel("BPM:"), 1, 3)
+        # BPM
+        tempo_sync_hlayout.addWidget(QLabel("BPM:"), stretch=0)
         self.delay_bpm_spinbox = QSpinBox()
         self.delay_bpm_spinbox.setRange(40, 300)
         self.delay_bpm_spinbox.setValue(config.bpm)
         self.delay_bpm_spinbox.valueChanged.connect(self.update_delay_bpm)
-        delay_layout.addWidget(self.delay_bpm_spinbox, 1, 4)
+        tempo_sync_hlayout.addWidget(self.delay_bpm_spinbox, stretch=1)
 
+        # Computed delay time
         self.delay_ms_label = QLabel(f"{config.delay_time_ms:.1f} ms")
-        delay_layout.addWidget(self.delay_ms_label, 1, 5)
+        tempo_sync_hlayout.addWidget(self.delay_ms_label, stretch=0)
+        tempo_sync_hlayout.addStretch(1)
+        self.tempo_sync_frame.setMaximumHeight(40)
 
         # Delay time manual control
         delay_layout.addWidget(QLabel("Time (ms):"), 2, 0)
@@ -541,6 +557,7 @@ class SynthGUI(QMainWindow):
         delay_layout.addWidget(self.delay_time_slider, 2, 1, 1, 4)
         self.delay_time_label = QLabel(f"{config.delay_time_ms:.0f} ms")
         delay_layout.addWidget(self.delay_time_label, 2, 5)
+        delay_layout.setRowStretch(2, 1)
 
         # Delay feedback control
         delay_layout.addWidget(QLabel("Feedback:"), 3, 0)
@@ -551,6 +568,7 @@ class SynthGUI(QMainWindow):
         delay_layout.addWidget(self.delay_feedback_slider, 3, 1, 1, 4)
         self.delay_feedback_label = QLabel(f"{config.delay_feedback:.2f}")
         delay_layout.addWidget(self.delay_feedback_label, 3, 5)
+        delay_layout.setRowStretch(3, 1)
 
         # Delay mix control
         delay_layout.addWidget(QLabel("Mix (Dry ↔ Wet):"), 4, 0)
@@ -561,6 +579,10 @@ class SynthGUI(QMainWindow):
         delay_layout.addWidget(self.delay_mix_slider, 4, 1, 1, 4)
         self.delay_mix_label = QLabel(f"{config.delay_mix:.2f}")
         delay_layout.addWidget(self.delay_mix_label, 4, 5)
+        delay_layout.setRowStretch(4, 1)
+
+        # Update the visibility of sync controls based on initial state
+        self.update_delay_sync_controls()
 
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
@@ -653,6 +675,10 @@ class SynthGUI(QMainWindow):
         # Check if delay parameters have changed and update GUI if needed
         if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
             self.delay_enable_checkbox.setChecked(config.delay_enabled)
+
+        if self.delay_sync_checkbox.isChecked() != config.delay_sync_enabled:
+            self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
+            self.update_delay_sync_controls()
 
         if self.delay_time_slider.value() != int(config.delay_time_ms):
             self.delay_time_slider.setValue(int(config.delay_time_ms))
@@ -910,12 +936,34 @@ class SynthGUI(QMainWindow):
         """Update the delay enabled setting."""
         config.delay_enabled = (state == Qt.Checked)
 
+    def update_delay_sync(self, state):
+        """Update whether delay time is synced to BPM."""
+        config.delay_sync_enabled = (state == Qt.Checked)
+        self.update_delay_sync_controls()
+
+        # If enabling sync, update delay time from BPM
+        if config.delay_sync_enabled:
+            delay.update_delay_from_bpm()
+            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
+            self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
+
+    def update_delay_sync_controls(self):
+        """Show/hide appropriate controls based on sync setting."""
+        # Show/hide sync controls based on sync checkbox state
+        self.tempo_sync_frame.setVisible(config.delay_sync_enabled)
+
+        # Enable/disable manual time slider based on sync setting
+        self.delay_time_slider.setEnabled(not config.delay_sync_enabled)
+
     def update_delay_time(self, value):
         """Update the delay time setting."""
-        config.delay_time_ms = float(value)
-        delay.set_time(value)
-        self.delay_time_label.setText(f"{value:.0f} ms")
-        self.delay_ms_label.setText(f"{value:.1f} ms")
+        # Only update if we're not in sync mode
+        if not config.delay_sync_enabled:
+            config.delay_time_ms = float(value)
+            delay.set_time(value)
+            self.delay_time_label.setText(f"{value:.0f} ms")
+            self.delay_ms_label.setText(f"{value:.1f} ms")
 
     def update_delay_feedback(self, value):
         """Update the delay feedback setting."""
@@ -932,26 +980,42 @@ class SynthGUI(QMainWindow):
     def update_delay_division(self, division):
         """Update the delay division setting and recalculate time."""
         config.delay_division = division
-        delay.update_delay_from_bpm()
+        if config.delay_sync_enabled:
+            delay.update_delay_from_bpm()
 
-        # Update displayed values
-        self.delay_time_slider.setValue(int(config.delay_time_ms))
-        self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
-        self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
+            # Update displayed values
+            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
+            self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
     def update_delay_bpm(self, bpm):
         """Update the global BPM and recalculate delay time."""
         config.bpm = bpm
-        delay.update_delay_from_bpm()
+
+        if config.delay_sync_enabled:
+            delay.update_delay_from_bpm()
+
+            # Update displayed values
+            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
+            self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
         # Also update the sequencer BPM if it exists
         if hasattr(self, 'sequencer') and self.sequencer:
             self.sequencer.bpm_spinbox.setValue(bpm)
 
-        # Update displayed values
-        self.delay_time_slider.setValue(int(config.delay_time_ms))
-        self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
-        self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
+    def sync_sequencer_bpm(self, bpm):
+        """Sync the global BPM when sequencer BPM changes."""
+        config.bpm = bpm
+        self.delay_bpm_spinbox.setValue(bpm)
+
+        if config.delay_sync_enabled:
+            delay.update_delay_from_bpm()
+
+            # Update displayed delay time values
+            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
+            self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
     def decrease_octave(self):
         """Decrease the octave by one."""
@@ -978,17 +1042,6 @@ class SynthGUI(QMainWindow):
         # Convert slider value to offset (x12 semitones per octave)
         config.octave_offset = value * 12
         self.octave_label.setText(f"{value:+d}")
-
-    def sync_sequencer_bpm(self, bpm):
-        """Sync the global BPM when sequencer BPM changes."""
-        config.bpm = bpm
-        self.delay_bpm_spinbox.setValue(bpm)
-        delay.update_delay_from_bpm()
-
-        # Update displayed delay time values
-        self.delay_time_slider.setValue(int(config.delay_time_ms))
-        self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
-        self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
     def closeEvent(self, event):
         """Clean up when window is closed."""

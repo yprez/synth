@@ -54,6 +54,7 @@ delay_time_ms = 350      # 10 - 1000 ms
 delay_feedback = 0.35    # 0.0 - 0.95
 delay_mix = 0.35         # 0.0 (dry) - 1.0 (wet)
 delay_enabled = False
+delay_sync_enabled = True  # Whether delay time is synced to BPM
 
 # Global tempo and sync settings
 bpm = 120               # master tempo
