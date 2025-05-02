@@ -17,6 +17,7 @@ from qwerty_synth import adsr
 from qwerty_synth import synth
 from qwerty_synth import input as kb_input
 from qwerty_synth import filter
+from qwerty_synth import delay
 from qwerty_synth.step_sequencer import StepSequencer
 
 # Global variable to hold reference to the GUI instance
@@ -281,6 +282,11 @@ class SynthGUI(QMainWindow):
         lfo_tab_layout = QHBoxLayout(lfo_tab_widget)
         envelope_tabs.addTab(lfo_tab_widget, "LFO Control")
 
+        # Create the delay effect tab
+        delay_tab_widget = QWidget()
+        delay_tab_layout = QHBoxLayout(delay_tab_widget)
+        envelope_tabs.addTab(delay_tab_widget, "Delay Effect")
+
         # Create the sequencer tab
         self.sequencer = StepSequencer()
         envelope_tabs.addTab(self.sequencer, "Step Sequencer")
@@ -492,6 +498,47 @@ class SynthGUI(QMainWindow):
         self.lfo_target_combo.currentTextChanged.connect(self.update_lfo_target)
         lfo_layout.addWidget(self.lfo_target_combo, 2, 3, 1, 3)
 
+        # Delay effect controls
+        delay_group = QGroupBox("Delay Parameters")
+        delay_layout = QGridLayout(delay_group)
+        delay_tab_layout.addWidget(delay_group)
+
+        # Delay enable checkbox
+        self.delay_enable_checkbox = QCheckBox("Enable Delay")
+        self.delay_enable_checkbox.setChecked(config.delay_enabled)
+        self.delay_enable_checkbox.stateChanged.connect(self.update_delay_enabled)
+        delay_layout.addWidget(self.delay_enable_checkbox, 0, 0, 1, 6)
+
+        # Delay time control
+        delay_layout.addWidget(QLabel("Time (ms)"), 1, 0)
+        self.delay_time_slider = QSlider(Qt.Horizontal)
+        self.delay_time_slider.setRange(10, 1000)
+        self.delay_time_slider.setValue(int(config.delay_time_ms))
+        self.delay_time_slider.valueChanged.connect(self.update_delay_time)
+        delay_layout.addWidget(self.delay_time_slider, 1, 1, 1, 4)
+        self.delay_time_label = QLabel(f"{config.delay_time_ms:.0f} ms")
+        delay_layout.addWidget(self.delay_time_label, 1, 5)
+
+        # Delay feedback control
+        delay_layout.addWidget(QLabel("Feedback"), 2, 0)
+        self.delay_feedback_slider = QSlider(Qt.Horizontal)
+        self.delay_feedback_slider.setRange(0, 95)  # 0.0 to 0.95 (x100)
+        self.delay_feedback_slider.setValue(int(config.delay_feedback * 100))
+        self.delay_feedback_slider.valueChanged.connect(self.update_delay_feedback)
+        delay_layout.addWidget(self.delay_feedback_slider, 2, 1, 1, 4)
+        self.delay_feedback_label = QLabel(f"{config.delay_feedback:.2f}")
+        delay_layout.addWidget(self.delay_feedback_label, 2, 5)
+
+        # Delay mix control
+        delay_layout.addWidget(QLabel("Mix (Dry ↔ Wet)"), 3, 0)
+        self.delay_mix_slider = QSlider(Qt.Horizontal)
+        self.delay_mix_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.delay_mix_slider.setValue(int(config.delay_mix * 100))
+        self.delay_mix_slider.valueChanged.connect(self.update_delay_mix)
+        delay_layout.addWidget(self.delay_mix_slider, 3, 1, 1, 4)
+        self.delay_mix_label = QLabel(f"{config.delay_mix:.2f}")
+        delay_layout.addWidget(self.delay_mix_label, 3, 5)
+
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
         main_layout.addLayout(bottom_layout)
@@ -576,6 +623,22 @@ class SynthGUI(QMainWindow):
         # Check if filter enabled status has changed and update GUI if needed
         if self.filter_enable_checkbox.isChecked() != filter.filter_enabled:
             self.filter_enable_checkbox.setChecked(filter.filter_enabled)
+
+        # Check if delay parameters have changed and update GUI if needed
+        if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
+            self.delay_enable_checkbox.setChecked(config.delay_enabled)
+
+        if self.delay_time_slider.value() != int(config.delay_time_ms):
+            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
+
+        if self.delay_feedback_slider.value() != int(config.delay_feedback * 100):
+            self.delay_feedback_slider.setValue(int(config.delay_feedback * 100))
+            self.delay_feedback_label.setText(f"{config.delay_feedback:.2f}")
+
+        if self.delay_mix_slider.value() != int(config.delay_mix * 100):
+            self.delay_mix_slider.setValue(int(config.delay_mix * 100))
+            self.delay_mix_label.setText(f"{config.delay_mix:.2f}")
 
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
@@ -809,6 +872,28 @@ class SynthGUI(QMainWindow):
     def update_filter_enabled(self, state):
         """Update the filter enabled setting."""
         filter.filter_enabled = (state == Qt.Checked)
+
+    def update_delay_enabled(self, state):
+        """Update the delay enabled setting."""
+        config.delay_enabled = (state == Qt.Checked)
+
+    def update_delay_time(self, value):
+        """Update the delay time setting."""
+        config.delay_time_ms = float(value)
+        delay.set_time(value)
+        self.delay_time_label.setText(f"{value:.0f} ms")
+
+    def update_delay_feedback(self, value):
+        """Update the delay feedback setting."""
+        feedback = value / 100.0
+        config.delay_feedback = feedback
+        self.delay_feedback_label.setText(f"{feedback:.2f}")
+
+    def update_delay_mix(self, value):
+        """Update the delay mix setting."""
+        mix = value / 100.0
+        config.delay_mix = mix
+        self.delay_mix_label.setText(f"{mix:.2f}")
 
     def decrease_octave(self):
         """Decrease the octave by one."""

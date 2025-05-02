@@ -48,3 +48,9 @@ lfo_target = 'pitch'  # options: 'pitch', 'volume', 'cutoff'
 lfo_attack_time = 0.2  # seconds - time for LFO to reach full intensity
 lfo_delay_time = 0.1  # seconds before LFO starts after note trigger
 lfo_enabled = True  # Toggle for enabling/disabling LFO
+
+# Delay effect settings
+delay_time_ms = 350      # 10 - 1000 ms
+delay_feedback = 0.35    # 0.0 - 0.95
+delay_mix = 0.35         # 0.0 (dry) - 1.0 (wet)
+delay_enabled = False

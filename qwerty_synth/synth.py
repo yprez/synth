@@ -6,6 +6,7 @@ import sounddevice as sd
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import filter
+from qwerty_synth import delay
 from qwerty_synth.lfo import LFO
 
 
@@ -218,6 +219,14 @@ def audio_callback(outdata, frames, time_info, status):
         # Only apply if we have a valid cutoff (below Nyquist)
         if filter.cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
+
+        # Apply delay effect if enabled
+        if config.delay_enabled:
+            buffer = delay.process_block(
+                buffer,
+                config.delay_feedback,
+                config.delay_mix
+            )
     else:
         unfiltered_buffer_copy = np.zeros(frames)
 
