@@ -3,6 +3,17 @@
 import numpy as np
 from qwerty_synth.config import sample_rate, delay_time_ms
 
+# Division to multiplier mapping
+DIV2MULT = {
+    '1/1'  : 1.0,     # Whole note
+    '1/2'  : 0.5,     # Half note
+    '1/4'  : 0.25,    # Quarter note
+    '1/8'  : 0.125,   # Eighth note
+    '1/8d' : 0.1875,  # Dotted eighth (1/8 × 1.5)
+    '1/16' : 0.0625,  # Sixteenth note
+    '1/16t': 0.0416667  # Triplet sixteenth (1/16 × 2/3)
+}
+
 # Allocate max 1 s buffer
 _max_samples = int(1.0 * sample_rate)
 _buffer = np.zeros(_max_samples, dtype=np.float32)
@@ -16,6 +27,16 @@ def set_time(ms):
 
 # Initialize delay samples
 set_time(delay_time_ms)
+
+def update_delay_from_bpm():
+    """Update delay time based on BPM and selected division."""
+    from qwerty_synth import config
+
+    beats_per_ms = config.bpm / 60000.0
+    mult = DIV2MULT.get(config.delay_division, 0.25)  # Default to quarter note
+    delay_ms = (1 / beats_per_ms) * mult * 1000  # beats→ms
+    config.delay_time_ms = delay_ms
+    set_time(delay_ms)  # Update the actual delay time
 
 def process_block(x, fb, mix):
     """Process an audio block with delay effect.

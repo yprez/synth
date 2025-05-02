@@ -54,3 +54,7 @@ delay_time_ms = 350      # 10 - 1000 ms
 delay_feedback = 0.35    # 0.0 - 0.95
 delay_mix = 0.35         # 0.0 (dry) - 1.0 (wet)
 delay_enabled = False
+
+# Global tempo and sync settings
+bpm = 120               # master tempo
+delay_division = '1/4'  # '1/1', '1/2', '1/4', '1/8', '1/8d', '1/16', '1/16t'
