@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
 )
 
 from qwerty_synth.controller import play_midi_note
+from qwerty_synth import config
 
 
 class StepSequencer(QWidget):
@@ -105,7 +106,9 @@ class StepSequencer(QWidget):
         self.sequencer_steps = [[False for _ in range(16)] for _ in range(8)]
         self.current_step = -1  # No step active until started
         self.sequencer_running = False
-        self.bpm = 60  # Don't change this! I like it this way.
+
+        self.bpm = config.bpm
+
         self.step_buttons = []  # Will hold references to all step buttons
         self.note_labels = []   # Will hold references to note labels
 
