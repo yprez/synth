@@ -8,9 +8,10 @@ sample_rate = 44100
 volume = 0.5
 fade_duration = 0.01
 max_active_notes = 12  # Maximum number of simultaneous notes before oldest are released
+blocksize = 8192  # Audio buffer size to prevent underruns
 
 # Visual settings
-visual_buffer_size = int(sample_rate * 0.1)
+visual_buffer_size = max(int(sample_rate * 0.1), blocksize)
 waveform_buffer = np.zeros(visual_buffer_size)
 unfiltered_buffer = np.zeros(visual_buffer_size)  # Buffer for storing unfiltered waveform
 buffer_lock = threading.Lock()

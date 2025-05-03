@@ -268,7 +268,7 @@ def create_audio_stream():
         samplerate=config.sample_rate,
         channels=2,  # Stereo output
         callback=audio_callback,
-        blocksize=4096,
+        blocksize=config.blocksize,
         latency='high'  # Use 'high' for more stability
     )
     return stream
