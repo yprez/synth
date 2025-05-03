@@ -36,6 +36,10 @@ octave_max = 3
 # Waveform settings
 waveform_type = 'sine'
 
+# Drive settings
+drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)
+drive_on = True         # master toggle
+
 # Mono mode and portamento settings
 mono_mode = False
 glide_time = 0.05  # in seconds, default 50 ms

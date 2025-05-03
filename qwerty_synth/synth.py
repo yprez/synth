@@ -8,6 +8,7 @@ from qwerty_synth import adsr
 from qwerty_synth import filter
 from qwerty_synth import delay
 from qwerty_synth.lfo import LFO
+from qwerty_synth.drive import apply_drive
 
 
 class Oscillator:
@@ -208,10 +209,15 @@ def audio_callback(outdata, frames, time_info, status):
             buffer *= scaling_factor
             unfiltered_buffer *= scaling_factor
 
-        # Store a copy of the unfiltered buffer for visualization
+        # Apply drive effect (wave folding/soft clipping) before filter
+        buffer = apply_drive(buffer)
+
+        # Optional safety clip to prevent extreme peaks after drive
+        np.clip(buffer, -1.2, 1.2, out=buffer)
+
+        # Store a copy of the buffer after drive but before filter for visualization
         unfiltered_buffer_copy = buffer.copy()
 
-        # Apply filter only if needed (more efficient)
         # Normalize filter envelope if active notes > 0
         filter_env_buffer = filter_env_buffer / num_active_notes
 

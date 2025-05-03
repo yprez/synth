@@ -158,6 +158,28 @@ class SynthGUI(QMainWindow):
         self.glide_label = QLabel(f"{config.glide_time*1000:.0f} ms")
         mono_layout.addWidget(self.glide_label)
 
+        # Drive Control
+        drive_group = QGroupBox("Drive Control")
+        drive_layout = QHBoxLayout(drive_group)
+        main_layout.addWidget(drive_group)
+
+        # Drive enable checkbox
+        self.drive_enable_checkbox = QCheckBox("Enable Drive")
+        self.drive_enable_checkbox.setChecked(config.drive_on)
+        self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
+        drive_layout.addWidget(self.drive_enable_checkbox)
+
+        drive_layout.addWidget(QLabel("Drive Gain"))
+
+        self.drive_slider = QSlider(Qt.Horizontal)
+        self.drive_slider.setRange(0, 300)  # 0.0 to 3.0 (x100)
+        self.drive_slider.setValue(int(config.drive_gain * 100))
+        self.drive_slider.valueChanged.connect(self.update_drive_gain)
+        drive_layout.addWidget(self.drive_slider, stretch=1)
+
+        self.drive_label = QLabel(f"{config.drive_gain:.1f}")
+        drive_layout.addWidget(self.drive_label)
+
         # Filter Control
         filter_group = QGroupBox("Filter Control")
         filter_layout = QHBoxLayout(filter_group)
@@ -672,6 +694,14 @@ class SynthGUI(QMainWindow):
         if self.filter_enable_checkbox.isChecked() != filter.filter_enabled:
             self.filter_enable_checkbox.setChecked(filter.filter_enabled)
 
+        # Check if drive settings have changed and update GUI if needed
+        if self.drive_enable_checkbox.isChecked() != config.drive_on:
+            self.drive_enable_checkbox.setChecked(config.drive_on)
+
+        if self.drive_slider.value() != int(config.drive_gain * 100):
+            self.drive_slider.setValue(int(config.drive_gain * 100))
+            self.drive_label.setText(f"{config.drive_gain:.1f}")
+
         # Check if delay parameters have changed and update GUI if needed
         if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
             self.delay_enable_checkbox.setChecked(config.delay_enabled)
@@ -931,6 +961,16 @@ class SynthGUI(QMainWindow):
     def update_filter_enabled(self, state):
         """Update the filter enabled setting."""
         filter.filter_enabled = (state == Qt.Checked)
+
+    def update_drive_enabled(self, state):
+        """Update the drive enabled setting."""
+        config.drive_on = (state == Qt.Checked)
+
+    def update_drive_gain(self, value):
+        """Update the drive gain setting."""
+        gain = value / 100.0
+        config.drive_gain = gain
+        self.drive_label.setText(f"{gain:.1f}")
 
     def update_delay_enabled(self, state):
         """Update the delay enabled setting."""
