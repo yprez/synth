@@ -229,15 +229,31 @@ def audio_callback(outdata, frames, time_info, status):
     else:
         unfiltered_buffer_copy = np.zeros(frames)
 
+    # Create stereo buffers from mono buffer
+    buffer_L = np.copy(buffer)
+    buffer_R = np.copy(buffer)
+
     # Apply delay effect if enabled - after all oscillator processing
     if config.delay_enabled:
-        buffer = delay.process_block(
-            buffer,
-            config.delay_feedback,
-            config.delay_mix
-        )
+        if config.delay_pingpong:
+            # Apply ping-pong stereo delay
+            buffer_L, buffer_R = delay.pingpong(
+                buffer_L, buffer_R,
+                config.delay_mix,
+                config.delay_feedback
+            )
+        else:
+            # Apply traditional mono delay
+            mono_delayed = delay.process_block(
+                buffer,
+                config.delay_feedback,
+                config.delay_mix
+            )
+            buffer_L = buffer_R = mono_delayed
 
-    outdata[:] = (config.volume * buffer).reshape(-1, 1)
+    # Output stereo audio
+    outdata[:, 0] = config.volume * buffer_L
+    outdata[:, 1] = config.volume * buffer_R
 
     with config.buffer_lock:
         config.waveform_buffer = np.roll(config.waveform_buffer, -frames)
@@ -250,7 +266,7 @@ def create_audio_stream():
     """Create and return a configured audio output stream."""
     stream = sd.OutputStream(
         samplerate=config.sample_rate,
-        channels=1,
+        channels=2,  # Stereo output
         callback=audio_callback,
         blocksize=4096,
         latency='high'  # Use 'high' for more stability

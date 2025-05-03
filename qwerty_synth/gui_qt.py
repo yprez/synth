@@ -535,6 +535,12 @@ class SynthGUI(QMainWindow):
         self.delay_enable_checkbox.stateChanged.connect(self.update_delay_enabled)
         delay_layout.addWidget(self.delay_enable_checkbox, 0, 0, 1, 3)
 
+        # Ping-pong checkbox
+        self.pingpong_checkbox = QCheckBox("Ping-Pong (Stereo)")
+        self.pingpong_checkbox.setChecked(config.delay_pingpong)
+        self.pingpong_checkbox.stateChanged.connect(self.update_delay_pingpong)
+        delay_layout.addWidget(self.pingpong_checkbox, 0, 1, 1, 3)
+
         # Tempo sync checkbox
         self.delay_sync_checkbox = QCheckBox("Sync to Tempo")
         self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
@@ -779,6 +785,10 @@ class SynthGUI(QMainWindow):
         if self.volume_slider.value() != int(config.volume * 100):
             self.volume_slider.setValue(int(config.volume * 100))
             self.volume_label.setText(f"{config.volume:.2f}")
+
+        # Check if delay ping-pong status has changed and update GUI if needed
+        if self.pingpong_checkbox.isChecked() != config.delay_pingpong:
+            self.pingpong_checkbox.setChecked(config.delay_pingpong)
 
         # Update ADSR curves if parameters changed
         if adsr_changed:
@@ -1084,6 +1094,12 @@ class SynthGUI(QMainWindow):
         # Convert slider value to offset (x12 semitones per octave)
         config.octave_offset = value * 12
         self.octave_label.setText(f"{value:+d}")
+
+    def update_delay_pingpong(self, state):
+        """Update the delay ping-pong setting."""
+        config.delay_pingpong = (state == Qt.Checked)
+        if config.delay_enabled:
+            delay.clear_cache()  # Clear buffers to avoid artifacts when switching modes
 
     def closeEvent(self, event):
         """Clean up when window is closed."""
