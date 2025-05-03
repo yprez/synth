@@ -38,7 +38,7 @@ waveform_type = 'sine'
 
 # Drive settings
 drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)
-drive_on = True         # master toggle
+drive_on = False         # master toggle
 
 # Mono mode and portamento settings
 mono_mode = False
