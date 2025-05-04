@@ -8,7 +8,7 @@ sample_rate = 44100
 volume = 0.5
 fade_duration = 0.01
 max_active_notes = 12  # Maximum number of simultaneous notes before oldest are released
-blocksize = 8192  # Audio buffer size to prevent underruns
+blocksize = 2048  # Audio buffer size
 
 # Visual settings
 visual_buffer_size = max(int(sample_rate * 0.1), blocksize)

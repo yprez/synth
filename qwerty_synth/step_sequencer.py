@@ -235,6 +235,7 @@ class StepSequencer(QWidget):
 
         # Create sequencer timer but don't start it
         self.sequencer_timer = QTimer(self)
+        self.sequencer_timer.setTimerType(Qt.PreciseTimer)
         self.sequencer_timer.timeout.connect(self.advance_sequence)
 
     def create_step_grid(self):
@@ -407,7 +408,7 @@ class StepSequencer(QWidget):
         # We want 16th notes so divide by 4
         step_interval = int(60000 / bpm / 4)
         # Calculate step duration - use a slightly shorter duration to prevent overlap
-        self.step_duration = (step_interval / 1000) * 1.0  # 80% of step interval
+        self.step_duration = (step_interval / 1000) * 0.8  # 80% of step interval
 
         if self.sequencer_running:
             # Update timer if running
@@ -478,6 +479,7 @@ class StepSequencer(QWidget):
             # Calculate step interval based on BPM
             step_interval = int(60000 / self.bpm / 4)  # 16th notes
             self.sequencer_timer.setInterval(step_interval)
+            self.sequencer_timer.setSingleShot(False)  # Ensure continuous timer
             self.current_step = 15  # Will advance to 0 on first step
             self.sequencer_timer.start()
             self.sequencer_running = True
@@ -510,7 +512,7 @@ class StepSequencer(QWidget):
                 button.setStyleSheet("QPushButton { background-color: #a0a0a0; }")
 
         # Play notes for the current step
-        note_release_buffer = 0.01  # Small buffer to prevent notes from overlapping
+        note_release_buffer = 0.02  # Small buffer to prevent notes from overlapping
         for row in range(self.num_rows):
             if self.sequencer_steps[row][self.current_step]:
                 midi_note = self.sequencer_notes[row]
