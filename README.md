@@ -1,13 +1,18 @@
 # QWERTY Synth
 
-A minimalist real-time synthesizer built in Python using your QWERTY keyboard as a piano. It includes:
+A minimalist real-time synthesizer built in Python using your keyboard as a piano. It includes:
 
 - Polyphony (multiple notes at once)
 - Waveform switching (sine, square, triangle, sawtooth)
 - Octave shifting
 - ADSR envelope control (with live tweaking)
+- Low-pass filter with cutoff and resonance control
+- Drive/distortion effect for adding warmth and grit
+- Tempo-synced stereo delay effect
+- LFO modulation for pitch, volume, and filter cutoff
+- Step sequencer with scale and rhythm controls
 - Live waveform, frequency spectrum, and ADSR curve visualization
-- Volume control
+- A graphical user interface
 
 ## Features
 
@@ -26,6 +31,12 @@ A minimalist real-time synthesizer built in Python using your QWERTY keyboard as
 - Volume control:
   - `[`: Decrease volume
   - `]`: Increase volume
+- GUI with additional features:
+  - Filter controls (cutoff, resonance, envelope)
+  - Drive effect for soft-clipping distortion
+  - Delay effect with tempo sync and ping-pong mode
+  - LFO for creating vibrato, tremolo, or filter wobble effects
+  - Step sequencer with customizable scales and patterns
 - Real-time plots:
   - Waveform view
   - Frequency spectrum
@@ -45,7 +56,7 @@ uv sync
 #### Or using pip:
 
 ```bash
-pip install numpy sounddevice pynput matplotlib
+pip install numpy sounddevice pynput matplotlib pyqt5 pyqtgraph
 ```
 
 ## Running
@@ -56,7 +67,7 @@ Run the synth with:
 uv run python main.py
 ```
 
-Then press keys on your keyboard to play.
+Then press keys on your keyboard to play or use the GUI controls.
 
 ### Exiting
 
@@ -68,11 +79,12 @@ Then press keys on your keyboard to play.
 * You can tweak the envelope (ADSR) in real time while playing notes.
 * Your system should support low-latency audio (e.g. ALSA on Linux).
 * Ensure your keyboard layout matches QWERTY for accurate note mapping.
+* The step sequencer allows you to create patterns in various musical scales.
+* Use mono mode and portamento for lead sounds with smooth note transitions.
 
 
 ### TODO
 
 * MIDI input support
 * Save/load patches
-* GUI for envelope and waveform controls
 * Audio recording to WAV
