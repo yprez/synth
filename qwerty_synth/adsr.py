@@ -4,9 +4,9 @@ import numpy as np
 
 # ADSR envelope parameters for amplitude
 adsr = {
-    'attack': 0.02,
-    'decay': 0.03,
-    'sustain': 0.2,
+    'attack': 0.01,
+    'decay': 0.02,
+    'sustain': 0.1,
     'release': 0.2,
 }
 

@@ -306,13 +306,17 @@ def audio_callback(outdata, frames, time_info, status):
         config.unfiltered_buffer[-frames:] = unfiltered_buffer_copy
 
 
-def create_audio_stream():
-    """Create and return a configured audio output stream."""
+def create_audio_stream(latency='high'):
+    """Create and return a configured audio output stream.
+
+    Args:
+        latency: 'high' for stability or 'low' for reduced latency
+    """
     stream = sd.OutputStream(
         samplerate=config.sample_rate,
         channels=2,  # Stereo output
         callback=audio_callback,
         blocksize=config.blocksize,
-        latency='high'  # Use 'high' for more stability
+        latency=latency
     )
     return stream

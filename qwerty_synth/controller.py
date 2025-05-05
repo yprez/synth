@@ -2,6 +2,7 @@
 
 import threading
 import time
+import mido
 
 from qwerty_synth import config
 from qwerty_synth.synth import Oscillator
@@ -130,3 +131,135 @@ def play_sequence(sequence, interval=0.0):
 
     # Start the sequence
     play_next(sequence, 0)
+
+
+def play_midi_file(midi_file_path, tempo_scale=1.0):
+    """
+    Play a MIDI file using the synthesizer.
+
+    Args:
+        midi_file_path: Path to the MIDI file
+        tempo_scale: Scale factor for tempo (1.0 = normal speed, 0.5 = half speed, etc.)
+    """
+    try:
+        # Load the MIDI file
+        midi_file = mido.MidiFile(midi_file_path)
+
+        # Calculate time scale (tempo adjustment)
+        time_scale = 1.0 / tempo_scale
+
+        # Track active notes for each channel to handle note_off events
+        active_notes = {}
+
+        def play_midi_events():
+            """Play MIDI events in a separate thread with improved timing."""
+            # Use absolute timing instead of sleep-based timing
+            start_time = time.time()
+            current_time = 0
+
+            for msg in midi_file:
+                # Calculate when this event should happen
+                current_time += msg.time * time_scale
+                target_time = start_time + current_time
+
+                # Wait until it's time to process this event
+                # This approach compensates for processing overhead
+                wait_time = target_time - time.time()
+                if wait_time > 0:
+                    time.sleep(wait_time)
+
+                # Handle note on events
+                if msg.type == 'note_on' and msg.velocity > 0:
+                    # Convert velocity from 0-127 to 0.0-1.0
+                    velocity = msg.velocity / 127.0
+
+                    # Start the note (duration will be handled by note_off)
+                    osc = play_midi_note(msg.note, 0, velocity)
+
+                    # Store oscillator reference for this channel and note
+                    channel_key = (msg.channel, msg.note)
+                    active_notes[channel_key] = osc
+
+                # Handle note off events (or note_on with velocity 0)
+                elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
+                    channel_key = (msg.channel, msg.note)
+
+                    # If we have a reference to this note's oscillator, release it
+                    if channel_key in active_notes:
+                        with config.notes_lock:
+                            # Mark the oscillator as released to start its release envelope
+                            osc = active_notes[channel_key]
+                            if osc.key in config.active_notes:
+                                config.active_notes[osc.key].released = True
+                                config.active_notes[osc.key].env_time = 0.0
+                                config.active_notes[osc.key].lfo_env_time = 0.0
+
+                        # Remove from active notes
+                        del active_notes[channel_key]
+
+        # Start playback in a separate thread
+        threading.Thread(target=play_midi_events, daemon=True).start()
+
+    except Exception as e:
+        print(f"Error playing MIDI file: {e}")
+
+
+def midi_file_to_sequence(midi_file_path):
+    """
+    Convert a MIDI file to a sequence that can be played with play_sequence().
+
+    Args:
+        midi_file_path: Path to the MIDI file
+
+    Returns:
+        A list of (midi_note, duration, velocity) tuples
+    """
+    try:
+        # Load the MIDI file
+        midi_file = mido.MidiFile(midi_file_path)
+
+        # Resulting sequence
+        sequence = []
+
+        # Active notes with their start times
+        active_notes = {}
+        current_time = 0
+
+        # Process all messages
+        for msg in midi_file:
+            # Update current time
+            current_time += msg.time
+
+            # Handle note on events
+            if msg.type == 'note_on' and msg.velocity > 0:
+                # Store the start time for this note
+                channel_key = (msg.channel, msg.note)
+                active_notes[channel_key] = {
+                    'start_time': current_time,
+                    'velocity': msg.velocity / 127.0
+                }
+
+            # Handle note off events (or note_on with velocity 0)
+            elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
+                channel_key = (msg.channel, msg.note)
+
+                # If we have this note's start time, calculate duration and add to sequence
+                if channel_key in active_notes:
+                    start_time = active_notes[channel_key]['start_time']
+                    velocity = active_notes[channel_key]['velocity']
+                    duration = current_time - start_time
+
+                    # Add to sequence (midi_note, duration, velocity)
+                    sequence.append((msg.note, duration, velocity))
+
+                    # Remove from active notes
+                    del active_notes[channel_key]
+
+        # Sort the sequence by start time
+        sequence.sort(key=lambda x: x[0])
+
+        return sequence
+
+    except Exception as e:
+        print(f"Error converting MIDI file to sequence: {e}")
+        return []
