@@ -17,7 +17,7 @@ from qwerty_synth import adsr
 from qwerty_synth import synth
 from qwerty_synth import input as kb_input
 from qwerty_synth import filter
-from qwerty_synth import delay
+from qwerty_synth.delay import DIV2MULT
 from qwerty_synth.step_sequencer import StepSequencer
 
 # Global variable to hold reference to the GUI instance
@@ -557,7 +557,7 @@ class SynthGUI(QMainWindow):
         # Division
         tempo_sync_hlayout.addWidget(QLabel("Division:"), stretch=0)
         self.delay_division_combo = QComboBox()
-        self.delay_division_combo.addItems(list(delay.DIV2MULT.keys()))
+        self.delay_division_combo.addItems(list(DIV2MULT.keys()))
         self.delay_division_combo.setCurrentText(config.delay_division)
         self.delay_division_combo.currentTextChanged.connect(self.update_delay_division)
         tempo_sync_hlayout.addWidget(self.delay_division_combo, stretch=1)
@@ -639,7 +639,7 @@ class SynthGUI(QMainWindow):
         self.timer.start(30)  # Update every 30ms
 
         # Initialize delay time from BPM
-        delay.update_delay_from_bpm()
+        self.update_delay_from_bpm()
 
     def update_plots(self):
         """Update function for waveform and spectrum plots animation."""
@@ -986,7 +986,7 @@ class SynthGUI(QMainWindow):
         """Update the delay enabled setting."""
         config.delay_enabled = (state == Qt.Checked)
         if not config.delay_enabled:
-            delay.clear_cache()
+            synth.delay.clear_cache()
 
     def update_delay_sync(self, state):
         """Update whether delay time is synced to BPM."""
@@ -995,7 +995,7 @@ class SynthGUI(QMainWindow):
 
         # If enabling sync, update delay time from BPM
         if config.delay_sync_enabled:
-            delay.update_delay_from_bpm()
+            self.update_delay_from_bpm()
             self.delay_time_slider.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
@@ -1013,7 +1013,7 @@ class SynthGUI(QMainWindow):
         # Only update if we're not in sync mode
         if not config.delay_sync_enabled:
             config.delay_time_ms = float(value)
-            delay.set_time(value)
+            synth.delay.set_time(value)
             self.delay_time_label.setText(f"{value:.0f} ms")
             self.delay_ms_label.setText(f"{value:.1f} ms")
 
@@ -1033,19 +1033,23 @@ class SynthGUI(QMainWindow):
         """Update the delay division setting and recalculate time."""
         config.delay_division = division
         if config.delay_sync_enabled:
-            delay.update_delay_from_bpm()
+            self.update_delay_from_bpm()
 
             # Update displayed values
             self.delay_time_slider.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
+    def update_delay_from_bpm(self):
+        """Update delay time based on BPM and selected division."""
+        synth.delay.update_delay_from_bpm(config.bpm, config.delay_division)
+
     def update_delay_bpm(self, bpm):
         """Update the global BPM and recalculate delay time."""
         config.bpm = bpm
 
         if config.delay_sync_enabled:
-            delay.update_delay_from_bpm()
+            self.update_delay_from_bpm()
 
             # Update displayed values
             self.delay_time_slider.setValue(int(config.delay_time_ms))
@@ -1062,7 +1066,7 @@ class SynthGUI(QMainWindow):
         self.delay_bpm_spinbox.setValue(bpm)
 
         if config.delay_sync_enabled:
-            delay.update_delay_from_bpm()
+            self.update_delay_from_bpm()
 
             # Update displayed delay time values
             self.delay_time_slider.setValue(int(config.delay_time_ms))
@@ -1099,7 +1103,7 @@ class SynthGUI(QMainWindow):
         """Update the delay ping-pong setting."""
         config.delay_pingpong = (state == Qt.Checked)
         if config.delay_enabled:
-            delay.clear_cache()  # Clear buffers to avoid artifacts when switching modes
+            synth.delay.clear_cache()  # Clear buffers to avoid artifacts when switching modes
 
     def closeEvent(self, event):
         """Clean up when window is closed."""

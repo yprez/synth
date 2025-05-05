@@ -6,10 +6,12 @@ import sounddevice as sd
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import filter
-from qwerty_synth import delay
+from qwerty_synth.delay import Delay
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
 
+# Initialize delay effect
+delay = Delay(config.sample_rate, config.delay_time_ms)
 
 class Oscillator:
     """Oscillator that generates waveforms with ADSR envelope."""

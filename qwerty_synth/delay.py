@@ -194,28 +194,3 @@ class Delay:
         self._write_idx = 0
         self._write_idx_L = 0
         self._write_idx_R = 0
-
-
-# For backward compatibility with the module-level API
-_delay = Delay(sample_rate, delay_time_ms)
-
-def set_time(ms):
-    """Set delay time in milliseconds (backward compatibility)."""
-    _delay.set_time(ms)
-
-def update_delay_from_bpm():
-    """Update delay time based on BPM and division (backward compatibility)."""
-    from qwerty_synth import config
-    return _delay.update_delay_from_bpm(config.bpm, config.delay_division)
-
-def process_block(x, fb, mix):
-    """Process an audio block with delay (backward compatibility)."""
-    return _delay.process_block(x, fb, mix)
-
-def pingpong(L, R, mix, fb):
-    """Process stereo audio with ping-pong delay (backward compatibility)."""
-    return _delay.pingpong(L, R, mix, fb)
-
-def clear_cache():
-    """Clear delay buffers (backward compatibility)."""
-    _delay.clear_cache()
