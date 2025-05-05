@@ -309,6 +309,11 @@ class SynthGUI(QMainWindow):
         delay_tab_layout = QHBoxLayout(delay_tab_widget)
         envelope_tabs.addTab(delay_tab_widget, "Delay Effect")
 
+        # Create the chorus effect tab
+        chorus_tab_widget = QWidget()
+        chorus_tab_layout = QHBoxLayout(chorus_tab_widget)
+        envelope_tabs.addTab(chorus_tab_widget, "Chorus Effect")
+
         # Create the sequencer tab
         self.sequencer = StepSequencer()
         envelope_tabs.addTab(self.sequencer, "Step Sequencer")
@@ -612,6 +617,50 @@ class SynthGUI(QMainWindow):
         # Update the visibility of sync controls based on initial state
         self.update_delay_sync_controls()
 
+        # Chorus effect controls
+        chorus_group = QGroupBox("Chorus Parameters")
+        chorus_layout = QGridLayout(chorus_group)
+        chorus_tab_layout.addWidget(chorus_group)
+
+        # Chorus enable checkbox
+        self.chorus_enable_checkbox = QCheckBox("Enable Chorus")
+        self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
+        self.chorus_enable_checkbox.stateChanged.connect(self.update_chorus_enabled)
+        chorus_layout.addWidget(self.chorus_enable_checkbox, 0, 0, 1, 6)
+
+        # Chorus rate control
+        chorus_layout.addWidget(QLabel("Rate (Hz):"), 1, 0)
+        self.chorus_rate_slider = QSlider(Qt.Horizontal)
+        self.chorus_rate_slider.setRange(1, 100)  # 0.1 to 10.0 Hz (x10)
+        self.chorus_rate_slider.setValue(int(config.chorus_rate * 10))
+        self.chorus_rate_slider.valueChanged.connect(self.update_chorus_rate)
+        chorus_layout.addWidget(self.chorus_rate_slider, 1, 1, 1, 4)
+        self.chorus_rate_label = QLabel(f"{config.chorus_rate:.1f} Hz")
+        chorus_layout.addWidget(self.chorus_rate_label, 1, 5)
+        chorus_layout.setRowStretch(1, 1)
+
+        # Chorus depth control
+        chorus_layout.addWidget(QLabel("Depth (ms):"), 2, 0)
+        self.chorus_depth_slider = QSlider(Qt.Horizontal)
+        self.chorus_depth_slider.setRange(1, 30)  # 1 to 30 ms
+        self.chorus_depth_slider.setValue(int(config.chorus_depth * 1000))
+        self.chorus_depth_slider.valueChanged.connect(self.update_chorus_depth)
+        chorus_layout.addWidget(self.chorus_depth_slider, 2, 1, 1, 4)
+        self.chorus_depth_label = QLabel(f"{config.chorus_depth * 1000:.1f} ms")
+        chorus_layout.addWidget(self.chorus_depth_label, 2, 5)
+        chorus_layout.setRowStretch(2, 1)
+
+        # Chorus mix control
+        chorus_layout.addWidget(QLabel("Mix (Dry ↔ Wet):"), 3, 0)
+        self.chorus_mix_slider = QSlider(Qt.Horizontal)
+        self.chorus_mix_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.chorus_mix_slider.setValue(int(config.chorus_mix * 100))
+        self.chorus_mix_slider.valueChanged.connect(self.update_chorus_mix)
+        chorus_layout.addWidget(self.chorus_mix_slider, 3, 1, 1, 4)
+        self.chorus_mix_label = QLabel(f"{config.chorus_mix:.2f}")
+        chorus_layout.addWidget(self.chorus_mix_label, 3, 5)
+        chorus_layout.setRowStretch(3, 1)
+
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
         main_layout.addLayout(bottom_layout)
@@ -789,6 +838,26 @@ class SynthGUI(QMainWindow):
         # Check if delay ping-pong status has changed and update GUI if needed
         if self.pingpong_checkbox.isChecked() != config.delay_pingpong:
             self.pingpong_checkbox.setChecked(config.delay_pingpong)
+
+        # Check if chorus parameters have changed and update GUI if needed
+        if self.chorus_enable_checkbox.isChecked() != config.chorus_enabled:
+            self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
+
+        if self.chorus_rate_slider.value() != int(config.chorus_rate * 10):
+            self.chorus_rate_slider.setValue(int(config.chorus_rate * 10))
+            self.chorus_rate_label.setText(f"{config.chorus_rate:.1f} Hz")
+
+        if self.chorus_depth_slider.value() != int(config.chorus_depth * 1000):
+            self.chorus_depth_slider.setValue(int(config.chorus_depth * 1000))
+            self.chorus_depth_label.setText(f"{config.chorus_depth * 1000:.1f} ms")
+
+        if self.chorus_mix_slider.value() != int(config.chorus_mix * 100):
+            self.chorus_mix_slider.setValue(int(config.chorus_mix * 100))
+            self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
+
+        if self.chorus_voices_slider.value() != config.chorus_voices:
+            self.chorus_voices_slider.setValue(config.chorus_voices)
+            self.chorus_voices_label.setText(f"{config.chorus_voices}")
 
         # Update ADSR curves if parameters changed
         if adsr_changed:
@@ -1104,6 +1173,39 @@ class SynthGUI(QMainWindow):
         config.delay_pingpong = (state == Qt.Checked)
         if config.delay_enabled:
             synth.delay.clear_cache()  # Clear buffers to avoid artifacts when switching modes
+
+    def update_chorus_enabled(self, state):
+        """Update the chorus enabled setting."""
+        config.chorus_enabled = (state == Qt.Checked)
+        if not config.chorus_enabled:
+            synth.chorus.clear_cache()  # Clear buffers when disabling
+
+    def update_chorus_rate(self, value):
+        """Update the chorus rate setting."""
+        rate = value / 10.0  # Convert from slider value to Hz
+        config.chorus_rate = rate
+        synth.chorus.set_rate(rate)
+        self.chorus_rate_label.setText(f"{rate:.1f} Hz")
+
+    def update_chorus_depth(self, value):
+        """Update the chorus depth setting."""
+        depth = value / 1000.0  # Convert from ms to seconds
+        config.chorus_depth = depth
+        synth.chorus.set_depth(depth)
+        self.chorus_depth_label.setText(f"{value:.1f} ms")
+
+    def update_chorus_mix(self, value):
+        """Update the chorus mix setting."""
+        mix = value / 100.0
+        config.chorus_mix = mix
+        synth.chorus.set_mix(mix)
+        self.chorus_mix_label.setText(f"{mix:.2f}")
+
+    def update_chorus_voices(self, value):
+        """Update the number of chorus voices."""
+        config.chorus_voices = value
+        synth.chorus.set_voices(value)
+        self.chorus_voices_label.setText(f"{value}")
 
     def closeEvent(self, event):
         """Clean up when window is closed."""

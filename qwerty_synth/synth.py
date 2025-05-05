@@ -7,11 +7,13 @@ from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import filter
 from qwerty_synth.delay import Delay
+from qwerty_synth.chorus import Chorus
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
 
-# Initialize delay effect
+# Initialize effects
 delay = Delay(config.sample_rate, config.delay_time_ms)
+chorus = Chorus(config.sample_rate)
 
 class Oscillator:
     """Oscillator that generates waveforms with ADSR envelope."""
@@ -263,6 +265,17 @@ def audio_callback(outdata, frames, time_info, status):
     # Create stereo buffers from mono buffer
     buffer_L = buffer
     buffer_R = buffer
+
+    # Apply chorus effect if enabled - before the delay
+    if config.chorus_enabled:
+        # Update chorus parameters in case they've changed
+        chorus.set_rate(config.chorus_rate)
+        chorus.set_depth(config.chorus_depth)
+        chorus.set_mix(config.chorus_mix)
+        chorus.set_voices(config.chorus_voices)
+
+        # Process audio through chorus
+        buffer_L, buffer_R = chorus.process(buffer_L, buffer_R)
 
     # Apply delay effect if enabled - after all oscillator processing
     if config.delay_enabled:
