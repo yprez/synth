@@ -183,19 +183,21 @@ def audio_callback(outdata, frames, time_info, status):
                     osc.released = True
                     osc.last_env_level = osc.last_env_level  # Preserve the current envelope level
 
-        # Process only the active notes up to our limit
-        for key, osc in active_note_items:
-            wave, osc_filter_env = osc.generate(frames)
-            buffer += wave
-            unfiltered_buffer += wave
-            filter_env_buffer += osc_filter_env  # Add this oscillator's filter env to buffer
-            if osc.done:
-                finished_keys.append(key)
-            else:
-                num_active_notes += 1
+        # Process only the active notes up to our limit - only the most recent ones
+        processing_notes = sorted_notes[:config.max_active_notes]
+        if processing_notes:
+            for key, osc in processing_notes:
+                wave, osc_filter_env = osc.generate(frames)
+                buffer += wave
+                unfiltered_buffer += wave
+                filter_env_buffer += osc_filter_env  # Add this oscillator's filter env to buffer
+                if osc.done:
+                    finished_keys.append(key)
+                else:
+                    num_active_notes += 1
 
-        for key in finished_keys:
-            del config.active_notes[key]
+            for key in finished_keys:
+                del config.active_notes[key]
 
     # Apply normalization to prevent clipping with multiple notes
     if num_active_notes > 0:
@@ -230,8 +232,8 @@ def audio_callback(outdata, frames, time_info, status):
         unfiltered_buffer_copy = np.zeros(frames)
 
     # Create stereo buffers from mono buffer
-    buffer_L = np.copy(buffer)
-    buffer_R = np.copy(buffer)
+    buffer_L = buffer
+    buffer_R = buffer
 
     # Apply delay effect if enabled - after all oscillator processing
     if config.delay_enabled:
@@ -251,7 +253,7 @@ def audio_callback(outdata, frames, time_info, status):
             )
             buffer_L = buffer_R = mono_delayed
 
-    # Output stereo audio
+    # Output stereo audio - avoid unnecessary copy operations
     outdata[:, 0] = config.volume * buffer_L
     outdata[:, 1] = config.volume * buffer_R
 

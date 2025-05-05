@@ -7,7 +7,7 @@ import threading
 sample_rate = 44100
 volume = 0.5
 fade_duration = 0.01
-max_active_notes = 12  # Maximum number of simultaneous notes before oldest are released
+max_active_notes = 8  # Maximum number of simultaneous notes before oldest are released
 blocksize = 2048  # Audio buffer size
 
 # Visual settings
