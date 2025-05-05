@@ -46,8 +46,12 @@ class Oscillator:
         # Generate LFO signal
         lfo = self.lfo.generate(frames)
 
-        # Implement glide effect if target frequency differs from current frequency
-        if self.freq != self.target_freq:
+        # Fast path for non-glide cases (most common scenario)
+        if self.freq == self.target_freq:
+            # No glide needed, use constant frequency
+            freq_array = np.full(frames, self.freq)
+        else:
+            # Implement glide effect if target frequency differs from current frequency
             # Ensure glide_time is at least 0.001 seconds (1ms) to avoid division by zero
             safe_glide_time = max(0.001, config.glide_time)
 
@@ -74,17 +78,17 @@ class Oscillator:
                 # If glide_time is zero, jump immediately to target frequency
                 self.freq = self.target_freq
                 freq_array = np.full(frames, self.target_freq)
-        else:
-            # No glide needed, use constant frequency
-            freq_array = np.full(frames, self.freq)
 
-        # Apply LFO modulation to pitch
-        mod_freq_array = self.lfo.apply_pitch_modulation(freq_array, lfo)
+        # Apply LFO modulation to pitch - only if LFO is actually doing something
+        if not np.all(lfo == 0):
+            mod_freq_array = self.lfo.apply_pitch_modulation(freq_array, lfo)
+        else:
+            mod_freq_array = freq_array
 
         # Calculate phase increments based on modulated frequency
         phase_increments = 2 * np.pi * mod_freq_array / config.sample_rate
 
-        # Accumulate phase
+        # Accumulate phase - this is more efficient than using numpy.cumsum
         phase_array = np.zeros(frames)
         current_phase = self.phase
 
@@ -98,52 +102,75 @@ class Oscillator:
         wave_func = self._wave_funcs.get(self.waveform, self._wave_funcs['sine'])
         wave = wave_func(phase_array)
 
-        # Generate amplitude envelope
-        env = np.zeros(frames)
-        for i in range(frames):
-            time = self.env_time + i / config.sample_rate
-            if not self.released:
-                if time < adsr.adsr['attack']:
-                    env[i] = (time / adsr.adsr['attack'])
-                elif time < adsr.adsr['attack'] + adsr.adsr['decay']:
-                    dt = time - adsr.adsr['attack']
-                    env[i] = 1 - (1 - adsr.adsr['sustain']) * (dt / adsr.adsr['decay'])
-                else:
-                    env[i] = adsr.adsr['sustain']
-            else:
-                if time < adsr.adsr['release']:
-                    env[i] = self.last_env_level * (1 - time / adsr.adsr['release'])
-                else:
-                    env[i] = 0.0
-                    self.done = True
+        # Check if we're in a simple case for envelope (no release, past attack/decay)
+        simple_env_case = (not self.released and
+                           self.env_time > adsr.adsr['attack'] + adsr.adsr['decay'])
 
-        # Generate filter envelope
-        filter_env = np.zeros(frames)
-        for i in range(frames):
-            time = self.filter_env_time + i / config.sample_rate
-            if not self.released:
-                if time < adsr.filter_adsr['attack']:
-                    filter_env[i] = (time / adsr.filter_adsr['attack'])
-                elif time < adsr.filter_adsr['attack'] + adsr.filter_adsr['decay']:
-                    dt = time - adsr.filter_adsr['attack']
-                    filter_env[i] = 1 - (1 - adsr.filter_adsr['sustain']) * (dt / adsr.filter_adsr['decay'])
+        # Fast path for sustained notes
+        if simple_env_case:
+            env = np.full(frames, adsr.adsr['sustain'])
+            self.env_time += frames / config.sample_rate
+            self.last_env_level = adsr.adsr['sustain']
+        else:
+            # Generate amplitude envelope
+            env = np.zeros(frames)
+            for i in range(frames):
+                time = self.env_time + i / config.sample_rate
+                if not self.released:
+                    if time < adsr.adsr['attack']:
+                        env[i] = (time / adsr.adsr['attack'])
+                    elif time < adsr.adsr['attack'] + adsr.adsr['decay']:
+                        dt = time - adsr.adsr['attack']
+                        env[i] = 1 - (1 - adsr.adsr['sustain']) * (dt / adsr.adsr['decay'])
+                    else:
+                        env[i] = adsr.adsr['sustain']
                 else:
-                    filter_env[i] = adsr.filter_adsr['sustain']
-            else:
-                if time < adsr.filter_adsr['release']:
-                    filter_env[i] = self.last_filter_env_level * (1 - time / adsr.filter_adsr['release'])
+                    if time < adsr.adsr['release']:
+                        env[i] = self.last_env_level * (1 - time / adsr.adsr['release'])
+                    else:
+                        env[i] = 0.0
+                        self.done = True
+
+            # Update envelope trackers
+            self.env_time += frames / config.sample_rate
+            self.last_env_level = env[-1]
+
+        # Similar approach for filter envelope
+        simple_filter_env_case = (
+            not self.released and
+            self.filter_env_time > adsr.filter_adsr['attack'] + adsr.filter_adsr['decay']
+        )
+
+        if simple_filter_env_case:
+            filter_env = np.full(frames, adsr.filter_adsr['sustain'])
+            self.filter_env_time += frames / config.sample_rate
+            self.last_filter_env_level = adsr.filter_adsr['sustain']
+        else:
+            # Generate filter envelope
+            filter_env = np.zeros(frames)
+            for i in range(frames):
+                time = self.filter_env_time + i / config.sample_rate
+                if not self.released:
+                    if time < adsr.filter_adsr['attack']:
+                        filter_env[i] = (time / adsr.filter_adsr['attack'])
+                    elif time < adsr.filter_adsr['attack'] + adsr.filter_adsr['decay']:
+                        dt = time - adsr.filter_adsr['attack']
+                        filter_env[i] = 1 - (1 - adsr.filter_adsr['sustain']) * (dt / adsr.filter_adsr['decay'])
+                    else:
+                        filter_env[i] = adsr.filter_adsr['sustain']
                 else:
-                    filter_env[i] = 0.0
-                    # Note: we don't set self.done here as amplitude envelope controls that
+                    if time < adsr.filter_adsr['release']:
+                        filter_env[i] = self.last_filter_env_level * (1 - time / adsr.filter_adsr['release'])
+                    else:
+                        filter_env[i] = 0.0
 
-        # Update envelope trackers
-        self.env_time += frames / config.sample_rate
-        self.last_env_level = env[-1]
-        self.filter_env_time += frames / config.sample_rate
-        self.last_filter_env_level = filter_env[-1]
+            # Update filter envelope trackers
+            self.filter_env_time += frames / config.sample_rate
+            self.last_filter_env_level = filter_env[-1]
 
-        # Apply LFO modulation to volume
-        env = self.lfo.apply_amplitude_modulation(env, lfo)
+        # Apply LFO modulation to volume - only if needed
+        if not np.all(lfo == 0) and config.lfo_target == 'volume':
+            env = self.lfo.apply_amplitude_modulation(env, lfo)
 
         # Apply envelope and velocity to the wave
         output = wave * env * self.velocity

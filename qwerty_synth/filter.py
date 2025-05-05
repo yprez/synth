@@ -5,7 +5,7 @@ from qwerty_synth import adsr
 
 cutoff = 10000  # Default cutoff frequency in Hz
 resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
-filter_enabled = True  # Flag to enable/disable the filter
+filter_enabled = False  # Flag to enable/disable the filter
 _last_output_1 = 0.0  # Internal state for continuity (first stage)
 _last_output_2 = 0.0  # Internal state for continuity (second stage)
 _last_input = 0.0  # Previous input sample
@@ -29,7 +29,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     if not filter_enabled:
         return samples
 
-    # Create array of cutoff values (base + modulations)
+    # Skip processing empty arrays
     if len(samples) == 0:
         return samples
 
@@ -53,39 +53,81 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     if np.min(modulated_cutoff) >= sample_rate / 2:
         return samples
 
-    # Apply filter with the modulated cutoff
-    filtered = np.zeros_like(samples)
+    # Skip filtering if resonance is zero and cutoff is very high (optimization)
+    if resonance < 0.01 and np.min(modulated_cutoff) > sample_rate / 3:
+        return samples
+
+    # Use a faster filter implementation when cutoff is constant across all samples
+    if np.allclose(modulated_cutoff, modulated_cutoff[0], rtol=0.01):
+        return apply_filter_constant_cutoff(samples, modulated_cutoff[0])
+
+    # Apply the standard filter with varying cutoff
+    return apply_filter_variable_cutoff(samples, modulated_cutoff)
+
+
+def apply_filter_constant_cutoff(samples, cutoff_freq):
+    """Optimized filter implementation for constant cutoff frequency."""
+    global _last_output_1, _last_output_2, _last_input
+
+    # Calculate filter coefficient for constant cutoff
+    rc = 1.0 / (2 * np.pi * cutoff_freq)
+    dt = 1.0 / sample_rate
+    alpha = dt / (rc + dt)
+    alpha = max(0.001, min(alpha, 0.999))  # Clamp alpha for stability
 
     # Limit resonance to safe values to prevent instability
-    # Higher resonance values create more pronounced peaks at the cutoff frequency
     safe_resonance = min(resonance, 0.99)
-
-    # Calculate feedback factor based on resonance
-    # As resonance approaches 1.0, feedback increases dramatically
     feedback = safe_resonance**2 * 0.98
 
-    # Apply two-pole filter with resonance sample by sample
+    # Apply filter in one pass
+    filtered = np.zeros_like(samples)
     for i, x in enumerate(samples):
-        # Calculate filter coefficient for current cutoff
-        rc = 1.0 / (2 * np.pi * modulated_cutoff[i])
-        dt = 1.0 / sample_rate
-        alpha = dt / (rc + dt)
-        alpha = max(0.001, min(alpha, 0.999))  # Clamp alpha for stability
-
-        # Apply first filter stage with feedback for resonance
-        fb = np.tanh(_last_output_2 * feedback)  # mild saturation
+        fb = _last_output_2 * feedback
         input_with_feedback = x - fb
         output_1 = alpha * input_with_feedback + (1 - alpha) * _last_output_1
         _last_output_1 = output_1
 
-        # Apply second filter stage
         output_2 = alpha * output_1 + (1 - alpha) * _last_output_2
         _last_output_2 = output_2
 
         filtered[i] = output_2
-        _last_input = x
 
-    # Prevent DC drift by applying a tiny decay to the filter state variables
+    # Prevent DC drift
+    _last_output_1 *= 0.999
+    _last_output_2 *= 0.999
+
+    return filtered
+
+
+def apply_filter_variable_cutoff(samples, modulated_cutoff):
+    """Standard filter implementation for variable cutoff frequency."""
+    global _last_output_1, _last_output_2, _last_input
+
+    # Calculate all filter coefficients at once
+    rc = 1.0 / (2 * np.pi * modulated_cutoff)
+    dt = 1.0 / sample_rate
+    alpha = dt / (rc + dt)
+    alpha = np.clip(alpha, 0.001, 0.999)  # Clamp alpha for stability
+
+    # Limit resonance to safe values to prevent instability
+    safe_resonance = min(resonance, 0.99)
+    feedback = safe_resonance**2 * 0.98
+
+    filtered = np.zeros_like(samples)
+
+    # Apply filter sample by sample, but with pre-calculated coefficients
+    for i, x in enumerate(samples):
+        fb = _last_output_2 * feedback
+        input_with_feedback = x - fb
+        output_1 = alpha[i] * input_with_feedback + (1 - alpha[i]) * _last_output_1
+        _last_output_1 = output_1
+
+        output_2 = alpha[i] * output_1 + (1 - alpha[i]) * _last_output_2
+        _last_output_2 = output_2
+
+        filtered[i] = output_2
+
+    # Prevent DC drift
     _last_output_1 *= 0.999
     _last_output_2 *= 0.999
 

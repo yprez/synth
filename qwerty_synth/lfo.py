@@ -25,37 +25,33 @@ class LFO:
         Returns:
             numpy array of LFO values
         """
-        if not config.lfo_enabled:
-            # Still increment time and phase even when disabled
-            self.env_time += frames / config.sample_rate
-            self.phase += frames / config.sample_rate
+        # Always update timing even when disabled
+        self.env_time += frames / config.sample_rate
+        self.phase += frames / config.sample_rate
+
+        # Skip generation entirely if disabled or depth is zero
+        if not config.lfo_enabled or config.lfo_depth <= 0.001:
             return np.zeros(frames)
 
         # Generate time array for LFO
         t = np.arange(frames) / config.sample_rate + self.phase
 
-        # Compute LFO envelope with delay and attack
+        # Quick envelope processing based on current state
         if self.env_time < config.lfo_delay_time:
-            # In delay phase - no LFO
-            lfo_env = 0.0
-        elif config.lfo_attack_time > 0:
+            # Still in delay phase - return zeros quickly
+            return np.zeros(frames)
+
+        # Calculate envelope level
+        if self.env_time < config.lfo_delay_time + config.lfo_attack_time:
             # In attack phase - apply attack envelope after delay
             attack_time = self.env_time - config.lfo_delay_time
-            lfo_env = np.clip(attack_time / config.lfo_attack_time, 0, 1.0)
+            lfo_env = attack_time / config.lfo_attack_time
         else:
-            # No attack time - full envelope after delay
+            # After attack - full envelope
             lfo_env = 1.0
 
-        lfo_env_array = np.full(frames, lfo_env)
-
-        # Generate LFO signal with envelope
-        lfo = lfo_env_array * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
-
-        # Increment LFO envelope time
-        self.env_time += frames / config.sample_rate
-
-        # Update phase for next buffer
-        self.phase += frames / config.sample_rate
+        # Generate LFO signal with envelope - vectorized
+        lfo = lfo_env * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
 
         return lfo
 
@@ -69,7 +65,8 @@ class LFO:
         Returns:
             Modulated frequency array
         """
-        if config.lfo_target != 'pitch':
+        # Quick return if not targeting pitch or if LFO is all zeros
+        if config.lfo_target != 'pitch' or np.all(lfo_values == 0):
             return freq_array
 
         # The exponential formula converts semitones to frequency ratio
@@ -86,7 +83,8 @@ class LFO:
         Returns:
             Modulated amplitude envelope
         """
-        if config.lfo_target != 'volume':
+        # Quick return if not targeting volume or if LFO is all zeros
+        if config.lfo_target != 'volume' or np.all(lfo_values == 0):
             return env
 
         # Modulate amplitude using LFO
@@ -103,7 +101,8 @@ class LFO:
         Returns:
             LFO values for cutoff modulation or None if not targeting cutoff
         """
-        if config.lfo_target != 'cutoff' or not config.lfo_enabled:
+        # Skip processing completely when not needed
+        if config.lfo_target != 'cutoff' or not config.lfo_enabled or config.lfo_depth <= 0.001:
             return None
 
         t = np.arange(frames) / config.sample_rate + self.phase
