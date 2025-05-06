@@ -148,9 +148,6 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
         # Store original tempo scale for potential later adjustments
         config.midi_tempo_scale = tempo_scale
 
-        # Calculate time scale (tempo adjustment)
-        time_scale = 1.0 / tempo_scale
-
         # Estimate total duration for progress tracking
         total_duration = sum(msg.time for msg in midi_file) / tempo_scale
         config.midi_playback_duration = total_duration
