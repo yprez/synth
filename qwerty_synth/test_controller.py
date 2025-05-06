@@ -77,12 +77,12 @@ def main():
         # Example 6: Play a short melody with different velocities
         print("Playing a short melody with different velocities...")
         melody = [
-            (69, 0.2, 1.0),    # A4, loud
-            (67, 0.2, 0.7),    # G4, medium
-            (65, 0.2, 0.4),    # F4, soft
-            (64, 0.2, 0.7),    # E4, medium
-            (62, 0.2, 1.0),    # D4, loud
-            (60, 0.6, 0.8),    # C4, medium-long
+            (69, 0.2, 1.0),    # A4
+            (67, 0.2, 0.8),    # G4
+            (65, 0.2, 0.6),    # F4
+            (64, 0.2, 0.4),    # E4
+            (62, 0.2, 0.2),    # D4
+            (60, 0.6, 0.1),    # C4
         ]
         play_sequence(melody, interval=0.1)
 
@@ -109,9 +109,9 @@ def main():
         print("  Poly mode: Playing three consecutive notes (they should overlap)")
         play_midi_note(60, 1.0)  # C4
         time.sleep(0.3)
-        play_midi_note(64, 1.0)  # E4
+        play_midi_note(64, 7.0)  # E4
         time.sleep(0.3)
-        play_midi_note(67, 1.0)  # G4
+        play_midi_note(67, 5.0)  # G4
         time.sleep(1.5)
 
         # Test in mono mode
