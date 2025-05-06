@@ -72,3 +72,10 @@ chorus_enabled = False   # Toggle for enabling/disabling chorus effect
 # Global tempo and sync settings
 bpm = 120               # master tempo
 delay_division = '1/4'  # '1/1', '1/2', '1/4', '1/8', '1/8d', '1/16', '1/16t'
+
+# MIDI playback control
+midi_paused = False
+midi_playback_active = False
+midi_playback_start_time = 0
+midi_playback_duration = 0
+midi_tempo_scale = 1.0

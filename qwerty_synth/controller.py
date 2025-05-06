@@ -145,8 +145,18 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
         # Load the MIDI file
         midi_file = mido.MidiFile(midi_file_path)
 
+        # Store original tempo scale for potential later adjustments
+        config.midi_tempo_scale = tempo_scale
+
         # Calculate time scale (tempo adjustment)
         time_scale = 1.0 / tempo_scale
+
+        # Estimate total duration for progress tracking
+        total_duration = sum(msg.time for msg in midi_file) / tempo_scale
+        config.midi_playback_duration = total_duration
+
+        # Reset playback state
+        config.midi_playback_active = True
 
         # Track active notes for each channel to handle note_off events
         active_notes = {}
@@ -156,52 +166,89 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
             # Use absolute timing instead of sleep-based timing
             start_time = time.perf_counter()
             current_time = 0
+            pause_start_time = 0
+            total_pause_time = 0
 
-            for msg in midi_file:
-                # Calculate when this event should happen
-                current_time += msg.time * time_scale
-                target_time = start_time + current_time
+            try:
+                for msg in midi_file:
+                    # Check if playback has been stopped
+                    if not config.midi_playback_active:
+                        # Release any active notes
+                        for channel_key in list(active_notes.keys()):
+                            with config.notes_lock:
+                                osc = active_notes[channel_key]
+                                if osc.key in config.active_notes:
+                                    config.active_notes[osc.key].released = True
+                        break
 
-                # Wait until it's time to process this event
-                # This approach compensates for processing overhead
-                wait_time = target_time - time.perf_counter()
-                if wait_time > 0:
-                    time.sleep(wait_time)
+                    # Handle paused state
+                    while config.midi_paused and config.midi_playback_active:
+                        if pause_start_time == 0:
+                            pause_start_time = time.perf_counter()
+                        time.sleep(0.1)  # Sleep to avoid busy waiting
 
-                # Handle note on events
-                if msg.type == 'note_on' and msg.velocity > 0:
-                    # Convert velocity from 0-127 to 0.0-1.0
-                    velocity = msg.velocity / 127.0
+                    # If we were paused and resumed
+                    if pause_start_time > 0:
+                        pause_end_time = time.perf_counter()
+                        total_pause_time += (pause_end_time - pause_start_time)
+                        pause_start_time = 0
 
-                    # Start the note (duration will be handled by note_off)
-                    osc = play_midi_note(msg.note, 0, velocity)
+                    # Check if tempo scale has changed
+                    current_time_scale = 1.0 / config.midi_tempo_scale
 
-                    # Store oscillator reference for this channel and note
-                    channel_key = (msg.channel, msg.note)
-                    active_notes[channel_key] = osc
+                    # Calculate when this event should happen
+                    current_time += msg.time * current_time_scale
+                    # Adjust target time by subtracting pause duration
+                    target_time = start_time + current_time - total_pause_time
 
-                # Handle note off events (or note_on with velocity 0)
-                elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
-                    channel_key = (msg.channel, msg.note)
+                    # Wait until it's time to process this event
+                    # This approach compensates for processing overhead
+                    wait_time = target_time - time.perf_counter()
+                    if wait_time > 0:
+                        time.sleep(wait_time)
 
-                    # If we have a reference to this note's oscillator, release it
-                    if channel_key in active_notes:
-                        with config.notes_lock:
-                            # Mark the oscillator as released to start its release envelope
-                            osc = active_notes[channel_key]
-                            if osc.key in config.active_notes:
-                                config.active_notes[osc.key].released = True
-                                config.active_notes[osc.key].env_time = 0.0
-                                config.active_notes[osc.key].lfo_env_time = 0.0
+                    # Handle note on events
+                    if msg.type == 'note_on' and msg.velocity > 0:
+                        # Convert velocity from 0-127 to 0.0-1.0
+                        velocity = msg.velocity / 127.0
 
-                        # Remove from active notes
-                        del active_notes[channel_key]
+                        # Start the note (duration will be handled by note_off)
+                        osc = play_midi_note(msg.note, 0, velocity)
+
+                        # Store oscillator reference for this channel and note
+                        channel_key = (msg.channel, msg.note)
+                        active_notes[channel_key] = osc
+
+                    # Handle note off events (or note_on with velocity 0)
+                    elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
+                        channel_key = (msg.channel, msg.note)
+
+                        # If we have a reference to this note's oscillator, release it
+                        if channel_key in active_notes:
+                            with config.notes_lock:
+                                # Mark the oscillator as released to start its release envelope
+                                osc = active_notes[channel_key]
+                                if osc.key in config.active_notes:
+                                    config.active_notes[osc.key].released = True
+                                    config.active_notes[osc.key].env_time = 0.0
+                                    config.active_notes[osc.key].lfo_env_time = 0.0
+
+                            # Remove from active notes
+                            del active_notes[channel_key]
+
+                # Mark playback as complete
+                config.midi_playback_active = False
+
+            except Exception as e:
+                print(f"Error during MIDI playback: {e}")
+                config.midi_playback_active = False
 
         # Start playback in a separate thread
         threading.Thread(target=play_midi_events, daemon=True).start()
 
     except Exception as e:
         print(f"Error playing MIDI file: {e}")
+        config.midi_playback_active = False
 
 
 def midi_file_to_sequence(midi_file_path):

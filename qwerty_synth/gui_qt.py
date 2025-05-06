@@ -3,12 +3,14 @@
 import sys
 import time
 import signal
+import os
 import numpy as np
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox, QFrame
+    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox, QFrame,
+    QFileDialog, QProgressBar
 )
 import pyqtgraph as pg
 
@@ -19,6 +21,7 @@ from qwerty_synth import input as kb_input
 from qwerty_synth import filter
 from qwerty_synth.delay import DIV2MULT
 from qwerty_synth.step_sequencer import StepSequencer
+from qwerty_synth.controller import play_midi_file
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
@@ -42,6 +45,12 @@ class SynthGUI(QMainWindow):
 
         # Create sequencer instance
         self.sequencer = None  # Will be initialized in setup_ui
+
+        # MIDI player state
+        self.midi_player_active = False
+        self.midi_file_path = None
+        self.midi_playback_thread = None
+        self.midi_paused = False
 
         # Set up the user interface
         self.setup_ui()
@@ -694,6 +703,76 @@ class SynthGUI(QMainWindow):
         exit_button.clicked.connect(self.close)
         bottom_layout.addWidget(exit_button, alignment=Qt.AlignRight)
 
+        # Create the MIDI player tab
+        midi_player_widget = QWidget()
+        midi_player_layout = QVBoxLayout(midi_player_widget)
+        envelope_tabs.addTab(midi_player_widget, "MIDI Player")
+
+        # MIDI file selection
+        midi_file_group = QGroupBox("MIDI File")
+        midi_file_layout = QHBoxLayout(midi_file_group)
+        midi_player_layout.addWidget(midi_file_group)
+
+        self.midi_file_label = QLabel("No file selected")
+        midi_file_layout.addWidget(self.midi_file_label, stretch=1)
+
+        browse_button = QPushButton("Browse...")
+        browse_button.clicked.connect(self.browse_midi_file)
+        midi_file_layout.addWidget(browse_button)
+
+        # Playback controls
+        playback_group = QGroupBox("Playback Controls")
+        playback_layout = QHBoxLayout(playback_group)
+        midi_player_layout.addWidget(playback_group)
+
+        self.play_button = QPushButton("Play")
+        self.play_button.clicked.connect(self.play_midi)
+        self.play_button.setEnabled(False)
+        playback_layout.addWidget(self.play_button)
+
+        self.pause_button = QPushButton("Pause")
+        self.pause_button.clicked.connect(self.pause_midi)
+        self.pause_button.setEnabled(False)
+        playback_layout.addWidget(self.pause_button)
+
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.clicked.connect(self.stop_midi)
+        self.stop_button.setEnabled(False)
+        playback_layout.addWidget(self.stop_button)
+
+        # Tempo control
+        tempo_group = QGroupBox("Tempo")
+        tempo_layout = QHBoxLayout(tempo_group)
+        midi_player_layout.addWidget(tempo_group)
+
+        tempo_layout.addWidget(QLabel("Tempo Scale:"))
+
+        self.tempo_slider = QSlider(Qt.Horizontal)
+        self.tempo_slider.setRange(50, 200)  # 0.5x to 2.0x
+        self.tempo_slider.setValue(100)      # Default 1.0x
+        self.tempo_slider.valueChanged.connect(self.update_midi_tempo)
+        tempo_layout.addWidget(self.tempo_slider, stretch=1)
+
+        self.tempo_label = QLabel("1.00x")
+        tempo_layout.addWidget(self.tempo_label)
+
+        # Progress display
+        progress_group = QGroupBox("Playback Progress")
+        progress_layout = QVBoxLayout(progress_group)
+        midi_player_layout.addWidget(progress_group)
+
+        self.midi_progress_bar = QProgressBar()
+        self.midi_progress_bar.setRange(0, 100)
+        self.midi_progress_bar.setValue(0)
+        progress_layout.addWidget(self.midi_progress_bar)
+
+        # Status label
+        self.midi_status_label = QLabel("Ready")
+        progress_layout.addWidget(self.midi_status_label)
+
+        # Add spacer to push controls to the top
+        midi_player_layout.addStretch(1)
+
     def start_animation(self):
         """Start the QTimer for updating plots."""
         self.timer = QTimer()
@@ -1224,11 +1303,158 @@ class SynthGUI(QMainWindow):
         self.wave_viz_group.setVisible(self.visualization_enabled)
         self.spec_viz_group.setVisible(self.visualization_enabled)
 
+    def browse_midi_file(self):
+        """Open a file dialog to select a MIDI file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select MIDI File", "", "MIDI Files (*.mid *.midi);;All Files (*)"
+        )
+
+        if file_path:
+            self.midi_file_path = file_path
+            # Display just the filename, not the full path
+            self.midi_file_label.setText(os.path.basename(file_path))
+            self.play_button.setEnabled(True)
+            self.midi_status_label.setText("Ready to play")
+            self.midi_progress_bar.setValue(0)
+
+            # If already playing, stop
+            if self.midi_player_active:
+                self.stop_midi()
+
+    def play_midi(self):
+        """Play the selected MIDI file."""
+        if not self.midi_file_path:
+            return
+
+        # If paused, resume
+        if self.midi_paused:
+            config.midi_paused = False
+            self.midi_paused = False
+            self.midi_status_label.setText("Playing")
+            return
+
+        # Start new playback
+        self.stop_midi()  # Ensure any previous playback is stopped
+
+        # Get tempo scale from slider
+        tempo_scale = self.tempo_slider.value() / 100.0
+
+        try:
+            # Set up playback state
+            self.midi_player_active = True
+            self.midi_paused = False
+            config.midi_paused = False
+
+            # Update UI
+            self.play_button.setEnabled(False)
+            self.pause_button.setEnabled(True)
+            self.stop_button.setEnabled(True)
+            self.midi_status_label.setText("Playing")
+
+            # Start MIDI playback (non-blocking)
+            import threading
+            self.midi_playback_thread = threading.Thread(
+                target=self._play_midi_thread,
+                args=(self.midi_file_path, tempo_scale),
+                daemon=True
+            )
+            self.midi_playback_thread.start()
+
+            # Start progress update timer
+            self.midi_progress_timer = QTimer()
+            self.midi_progress_timer.timeout.connect(self.update_midi_progress)
+            self.midi_progress_timer.start(100)  # Update every 100ms
+
+        except Exception as e:
+            self.midi_status_label.setText(f"Error: {str(e)}")
+            self.midi_player_active = False
+            self.play_button.setEnabled(True)
+            self.pause_button.setEnabled(False)
+            self.stop_button.setEnabled(False)
+
+    def _play_midi_thread(self, file_path, tempo_scale):
+        """Background thread for MIDI playback."""
+        try:
+            # Store start time for progress calculation
+            config.midi_playback_start_time = time.time()
+            config.midi_playback_active = True
+
+            # Play the MIDI file
+            play_midi_file(file_path, tempo_scale)
+
+            # Don't immediately reset state as the playback runs asynchronously
+            # It will be reset when the playback completes or is stopped
+        except Exception as e:
+            print(f"MIDI playback error: {e}")
+            config.midi_playback_active = False
+
+    def pause_midi(self):
+        """Pause the MIDI playback."""
+        if self.midi_player_active and not self.midi_paused:
+            self.midi_paused = True
+            config.midi_paused = True
+            self.midi_status_label.setText("Paused")
+            self.play_button.setEnabled(True)
+
+    def stop_midi(self):
+        """Stop the MIDI playback."""
+        if self.midi_player_active:
+            # Signal to stop playback
+            config.midi_playback_active = False
+            self.midi_player_active = False
+            self.midi_paused = False
+            config.midi_paused = False
+
+            # Reset UI
+            self.play_button.setEnabled(True)
+            self.pause_button.setEnabled(False)
+            self.stop_button.setEnabled(False)
+            self.midi_status_label.setText("Stopped")
+            self.midi_progress_bar.setValue(0)
+
+            # Stop progress timer if it's running
+            if hasattr(self, 'midi_progress_timer') and self.midi_progress_timer.isActive():
+                self.midi_progress_timer.stop()
+
+    def update_midi_tempo(self, value):
+        """Update the MIDI playback tempo."""
+        tempo_scale = value / 100.0
+        self.tempo_label.setText(f"{tempo_scale:.2f}x")
+        config.midi_tempo_scale = tempo_scale
+
+    def update_midi_progress(self):
+        """Update the MIDI playback progress bar."""
+        # Check if playback is still active
+        if not self.midi_player_active:
+            self.midi_progress_timer.stop()
+            return
+
+        # If playback has completed naturally
+        if not config.midi_playback_active:
+            self.stop_midi()
+            self.midi_status_label.setText("Completed")
+            return
+
+        # Calculate rough progress based on time (this is approximate)
+        # For a better implementation, the controller would need to report actual progress
+        if hasattr(config, 'midi_playback_duration') and config.midi_playback_duration > 0:
+            elapsed = time.time() - config.midi_playback_start_time
+            if self.midi_paused:
+                # Don't update progress while paused
+                return
+
+            progress = min(100, int((elapsed / config.midi_playback_duration) * 100))
+            self.midi_progress_bar.setValue(progress)
+
     def closeEvent(self, event):
         """Clean up when window is closed."""
         self.animation_running = False
         if hasattr(self, 'timer'):
             self.timer.stop()
+
+        # Stop MIDI playback if active
+        if self.midi_player_active:
+            self.stop_midi()
 
         # Stop sequencer if running
         if self.sequencer:
