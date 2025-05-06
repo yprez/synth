@@ -35,6 +35,7 @@ class SynthGUI(QMainWindow):
 
         # Animation control variables
         self.animation_running = True
+        self.visualization_enabled = True
 
         # Keep track of the last GUI update time
         self.last_update_time = time.time()
@@ -50,7 +51,7 @@ class SynthGUI(QMainWindow):
         self.start_animation()
 
         # Handle window close event
-        self.show()
+        self.showMaximized()  # Start maximized but with window controls
 
     def setup_ui(self):
         """Set up the user interface components."""
@@ -213,7 +214,7 @@ class SynthGUI(QMainWindow):
         self.resonance_label = QLabel(f"{filter.resonance:.2f}")
         filter_layout.addWidget(self.resonance_label)
 
-        # Add filter envelope amount control
+        # Filter envelope amount control
         filter_layout.addWidget(QLabel("Envelope Amount"))
         self.filter_env_amount_slider = QSlider(Qt.Horizontal)
         self.filter_env_amount_slider.setRange(0, 10000)
@@ -223,67 +224,6 @@ class SynthGUI(QMainWindow):
 
         self.filter_env_amount_label = QLabel(f"{adsr.filter_env_amount:.0f} Hz")
         filter_layout.addWidget(self.filter_env_amount_label)
-
-        # Create a layout for visualization frames
-        viz_layout = QHBoxLayout()
-        main_layout.addLayout(viz_layout, stretch=1)
-
-        # Waveform visualization
-        wave_viz_group = QGroupBox("Waveform Display")
-        wave_viz_layout = QVBoxLayout(wave_viz_group)
-        viz_layout.addWidget(wave_viz_group)
-
-        # Set up pyqtgraph plot for waveform
-        self.wave_plot = pg.PlotWidget()
-        self.wave_plot.setLabel('left', 'Amplitude')
-        self.wave_plot.setLabel('bottom', 'Samples')
-        self.wave_plot.setTitle('Synth Output Waveform')
-        self.wave_plot.showGrid(x=True, y=True, alpha=0.3)
-        wave_viz_layout.addWidget(self.wave_plot)
-
-        # Initialize waveform plot
-        self.window_size = 512
-
-        # Add legend before creating plot items
-        self.wave_plot.addLegend()
-
-        self.wave_curve = self.wave_plot.plot(
-            np.zeros(self.window_size),
-            pen=pg.mkPen('b', width=2),
-            name='Filtered'
-        )
-        self.unfiltered_curve = self.wave_plot.plot(
-            np.zeros(self.window_size),
-            pen=pg.mkPen('r', width=1, style=Qt.DashLine),
-            name='Unfiltered'
-        )
-        self.wave_plot.setYRange(-1, 1)
-        self.wave_plot.setXRange(0, 500)
-
-        # Spectrum visualization
-        spec_viz_group = QGroupBox("Frequency Spectrum")
-        spec_viz_layout = QVBoxLayout(spec_viz_group)
-        viz_layout.addWidget(spec_viz_group)
-
-        # Set up pyqtgraph plot for spectrum
-        self.spec_plot = pg.PlotWidget()
-        self.spec_plot.setLabel('left', 'Magnitude')
-        self.spec_plot.setLabel('bottom', 'Frequency (Hz)')
-        self.spec_plot.setTitle('Frequency Spectrum')
-        self.spec_plot.showGrid(x=True, y=True, alpha=0.3)
-        self.spec_plot.setLogMode(x=False, y=False)
-        spec_viz_layout.addWidget(self.spec_plot)
-
-        # Initialize spectrum plot
-        self.fft_size = 2048
-        self.freqs = np.fft.rfftfreq(self.fft_size, d=1 / config.sample_rate)
-        self.spec_curve = self.spec_plot.plot(
-            self.freqs,
-            np.zeros_like(self.freqs),
-            pen=pg.mkPen('g', width=2)
-        )
-        self.spec_plot.setXRange(50, 5000)
-        self.spec_plot.setYRange(0, 0.25)
 
         # Create a tabbed widget for amp ADSR and filter ADSR
         envelope_tabs = QTabWidget()
@@ -661,6 +601,79 @@ class SynthGUI(QMainWindow):
         chorus_layout.addWidget(self.chorus_mix_label, 3, 5)
         chorus_layout.setRowStretch(3, 1)
 
+        # Visualization toggle and visualizations at the bottom
+        viz_toggle_layout = QHBoxLayout()
+        main_layout.addLayout(viz_toggle_layout)
+
+        self.viz_enable_checkbox = QCheckBox("Enable Waveform and Spectrum Visualization (requires more CPU)")
+        self.viz_enable_checkbox.setChecked(self.visualization_enabled)
+        self.viz_enable_checkbox.stateChanged.connect(self.update_visualization_enabled)
+        viz_toggle_layout.addWidget(self.viz_enable_checkbox)
+
+        # Create a layout for visualization frames
+        viz_layout = QHBoxLayout()
+        main_layout.addLayout(viz_layout, stretch=1)
+
+        # Waveform visualization
+        self.wave_viz_group = QGroupBox("Waveform Display")
+        wave_viz_layout = QVBoxLayout(self.wave_viz_group)
+        viz_layout.addWidget(self.wave_viz_group)
+
+        # Set up pyqtgraph plot for waveform
+        self.wave_plot = pg.PlotWidget()
+        self.wave_plot.setLabel('left', 'Amplitude')
+        self.wave_plot.setLabel('bottom', 'Samples')
+        self.wave_plot.setTitle('Synth Output Waveform')
+        self.wave_plot.showGrid(x=True, y=True, alpha=0.3)
+        wave_viz_layout.addWidget(self.wave_plot)
+
+        # Initialize waveform plot
+        self.window_size = 512
+
+        # Add legend before creating plot items
+        self.wave_plot.addLegend()
+
+        self.wave_curve = self.wave_plot.plot(
+            np.zeros(self.window_size),
+            pen=pg.mkPen('b', width=2),
+            name='Filtered'
+        )
+        self.unfiltered_curve = self.wave_plot.plot(
+            np.zeros(self.window_size),
+            pen=pg.mkPen('r', width=1, style=Qt.DashLine),
+            name='Unfiltered'
+        )
+        self.wave_plot.setYRange(-1, 1)
+        self.wave_plot.setXRange(0, 500)
+
+        # Spectrum visualization
+        self.spec_viz_group = QGroupBox("Frequency Spectrum")
+        spec_viz_layout = QVBoxLayout(self.spec_viz_group)
+        viz_layout.addWidget(self.spec_viz_group)
+
+        # Set up pyqtgraph plot for spectrum
+        self.spec_plot = pg.PlotWidget()
+        self.spec_plot.setLabel('left', 'Magnitude')
+        self.spec_plot.setLabel('bottom', 'Frequency (Hz)')
+        self.spec_plot.setTitle('Frequency Spectrum')
+        self.spec_plot.showGrid(x=True, y=True, alpha=0.3)
+        self.spec_plot.setLogMode(x=False, y=False)
+        spec_viz_layout.addWidget(self.spec_plot)
+
+        # Initialize spectrum plot
+        self.fft_size = 2048
+        self.freqs = np.fft.rfftfreq(self.fft_size, d=1 / config.sample_rate)
+        self.spec_curve = self.spec_plot.plot(
+            self.freqs,
+            np.zeros_like(self.freqs),
+            pen=pg.mkPen('g', width=2)
+        )
+        self.spec_plot.setXRange(50, 5000)
+        self.spec_plot.setYRange(0, 0.25)
+
+        # Update visibility based on initial state
+        self.update_visualization_visibility()
+
         # Instructions and Exit button
         bottom_layout = QHBoxLayout()
         main_layout.addLayout(bottom_layout)
@@ -855,16 +868,16 @@ class SynthGUI(QMainWindow):
             self.chorus_mix_slider.setValue(int(config.chorus_mix * 100))
             self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
 
-        if self.chorus_voices_slider.value() != config.chorus_voices:
-            self.chorus_voices_slider.setValue(config.chorus_voices)
-            self.chorus_voices_label.setText(f"{config.chorus_voices}")
-
         # Update ADSR curves if parameters changed
         if adsr_changed:
             self.plot_adsr_curve()
 
         if filter_adsr_changed:
             self.plot_filter_adsr_curve()
+
+        # Skip waveform and spectrum processing if visualization is disabled
+        if not self.visualization_enabled:
+            return
 
         # Get current audio buffer data
         with config.buffer_lock:
@@ -1201,11 +1214,15 @@ class SynthGUI(QMainWindow):
         synth.chorus.set_mix(mix)
         self.chorus_mix_label.setText(f"{mix:.2f}")
 
-    def update_chorus_voices(self, value):
-        """Update the number of chorus voices."""
-        config.chorus_voices = value
-        synth.chorus.set_voices(value)
-        self.chorus_voices_label.setText(f"{value}")
+    def update_visualization_enabled(self, state):
+        """Update visualization enabled status and visibility."""
+        self.visualization_enabled = (state == Qt.Checked)
+        self.update_visualization_visibility()
+
+    def update_visualization_visibility(self):
+        """Show or hide visualization based on enabled status."""
+        self.wave_viz_group.setVisible(self.visualization_enabled)
+        self.spec_viz_group.setVisible(self.visualization_enabled)
 
     def closeEvent(self, event):
         """Clean up when window is closed."""
