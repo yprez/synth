@@ -154,7 +154,7 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
         def play_midi_events():
             """Play MIDI events in a separate thread with improved timing."""
             # Use absolute timing instead of sleep-based timing
-            start_time = time.time()
+            start_time = time.perf_counter()
             current_time = 0
 
             for msg in midi_file:
@@ -164,7 +164,7 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
 
                 # Wait until it's time to process this event
                 # This approach compensates for processing overhead
-                wait_time = target_time - time.time()
+                wait_time = target_time - time.perf_counter()
                 if wait_time > 0:
                     time.sleep(wait_time)
 
