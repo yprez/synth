@@ -185,7 +185,7 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
                     while config.midi_paused and config.midi_playback_active:
                         if pause_start_time == 0:
                             pause_start_time = time.perf_counter()
-                        time.sleep(0.1)  # Sleep to avoid busy waiting
+                        time.sleep(0.01)  # Reduced sleep time for better responsiveness
 
                     # If we were paused and resumed
                     if pause_start_time > 0:
@@ -201,11 +201,19 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
                     # Adjust target time by subtracting pause duration
                     target_time = start_time + current_time - total_pause_time
 
-                    # Wait until it's time to process this event
-                    # This approach compensates for processing overhead
+                    # Wait until it's time to process this event - with improved precision
                     wait_time = target_time - time.perf_counter()
                     if wait_time > 0:
-                        time.sleep(wait_time)
+                        # For short waits, use busy waiting for high precision
+                        if wait_time < 0.01:
+                            while time.perf_counter() < target_time:
+                                pass
+                        else:
+                            # For longer waits, sleep most of the time then busy wait
+                            time.sleep(wait_time - 0.005)  # Wake up 5ms early
+                            # Then busy wait for the remaining time for precision
+                            while time.perf_counter() < target_time:
+                                pass
 
                     # Handle note on events
                     if msg.type == 'note_on' and msg.velocity > 0:
