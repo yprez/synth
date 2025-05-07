@@ -14,6 +14,40 @@ from qwerty_synth.drive import apply_drive
 # Initialize effects
 delay = Delay(config.sample_rate, config.delay_time_ms)
 chorus = Chorus(config.sample_rate)
+global_lfo = LFO()  # Global LFO instance for filter modulation
+
+# Parameter change flags
+_chorus_params_changed = False
+_delay_params_changed = False
+
+def update_chorus_params():
+    """Update chorus parameters if they've changed."""
+    global _chorus_params_changed
+    if _chorus_params_changed:
+        chorus.set_rate(config.chorus_rate)
+        chorus.set_depth(config.chorus_depth)
+        chorus.set_mix(config.chorus_mix)
+        chorus.set_voices(config.chorus_voices)
+        _chorus_params_changed = False
+
+def update_delay_params():
+    """Update delay parameters if they've changed."""
+    global _delay_params_changed
+    if _delay_params_changed:
+        delay.set_time(config.delay_time_ms)
+        delay.set_feedback(config.delay_feedback)
+        delay.set_mix(config.delay_mix)
+        _delay_params_changed = False
+
+def mark_chorus_params_changed():
+    """Mark chorus parameters as changed."""
+    global _chorus_params_changed
+    _chorus_params_changed = True
+
+def mark_delay_params_changed():
+    """Mark delay parameters as changed."""
+    global _delay_params_changed
+    _delay_params_changed = True
 
 class Oscillator:
     """Oscillator that generates waveforms with ADSR envelope."""
@@ -208,9 +242,7 @@ def audio_callback(outdata, frames, time_info, status):
     unfiltered_buffer = np.zeros(frames)
     filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values
 
-    # If LFO is targeting filter cutoff, generate global LFO signal
-    # Create a global LFO for filter cutoff modulation
-    global_lfo = LFO()
+    # Use global LFO for filter cutoff modulation
     lfo_cutoff = global_lfo.get_cutoff_modulation(frames)
 
     num_active_notes = 0
@@ -285,17 +317,15 @@ def audio_callback(outdata, frames, time_info, status):
 
     # Apply chorus effect if enabled - before the delay
     if config.chorus_enabled:
-        # Update chorus parameters in case they've changed
-        chorus.set_rate(config.chorus_rate)
-        chorus.set_depth(config.chorus_depth)
-        chorus.set_mix(config.chorus_mix)
-        chorus.set_voices(config.chorus_voices)
-
+        # Update chorus parameters only if they've changed
+        update_chorus_params()
         # Process audio through chorus
         buffer_L, buffer_R = chorus.process(buffer_L, buffer_R)
 
     # Apply delay effect if enabled - after all oscillator processing
     if config.delay_enabled:
+        # Update delay parameters only if they've changed
+        update_delay_params()
         if config.delay_pingpong:
             # Apply ping-pong stereo delay
             buffer_L, buffer_R = delay.pingpong(
