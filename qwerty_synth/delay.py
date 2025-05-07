@@ -108,24 +108,38 @@ class Delay:
         # Safety clamp feedback to prevent runaway gain
         fb = np.clip(fb, 0.0, 0.99)
 
+        # Pre-allocate output array
+        buffer_len = len(x)
         y = np.empty_like(x)
-        for i, s in enumerate(x):
-            if use_interpolation:
+        delayed = np.empty_like(x)
+
+        # Pre-calculate dry component (can be vectorized)
+        dry_component = x * (1.0 - mix)
+
+        if use_interpolation:
+            for i in range(buffer_len):
                 # Linear interpolation for fractional sample accuracy
                 idx_f = self._write_idx - self.delay_samples_f
                 idx_i = int(np.floor(idx_f)) & self._mask
                 frac = idx_f - np.floor(idx_f)
-                delayed = ((1.0 - frac) * self._buffer[idx_i] +
-                           frac * self._buffer[(idx_i + 1) & self._mask])
-            else:
+                delayed[i] = ((1.0 - frac) * self._buffer[idx_i] +
+                              frac * self._buffer[(idx_i + 1) & self._mask])
+
+                # Process sample
+                self._buffer[self._write_idx] = x[i] + delayed[i] * fb
+                self._write_idx = (self._write_idx + 1) & self._mask
+        else:
+            for i in range(buffer_len):
                 # Simple integer sample delay
                 read_idx = (self._write_idx - self.delay_samples) & self._mask
-                delayed = self._buffer[read_idx]
+                delayed[i] = self._buffer[read_idx]
 
-            # Process sample
-            self._buffer[self._write_idx] = s + delayed * fb
-            y[i] = s * (1.0 - mix) + delayed * mix
-            self._write_idx = (self._write_idx + 1) & self._mask
+                # Process sample
+                self._buffer[self._write_idx] = x[i] + delayed[i] * fb
+                self._write_idx = (self._write_idx + 1) & self._mask
+
+        # Vectorize the wet/dry mix (can be done outside the loop)
+        y = dry_component + delayed * mix
 
         return y
 
@@ -145,41 +159,57 @@ class Delay:
         # Safety clamp feedback to prevent runaway gain
         fb = np.clip(fb, 0.0, 0.99)
 
+        # Pre-allocate output arrays
+        buffer_len = len(L)
         out_L = np.empty_like(L)
         out_R = np.empty_like(R)
+        delayed_L = np.empty_like(L)
+        delayed_R = np.empty_like(R)
 
-        for i, (sL, sR) in enumerate(zip(L, R)):
-            if use_interpolation:
+        # Pre-calculate dry components (can be vectorized)
+        dry_L = L * (1.0 - mix)
+        dry_R = R * (1.0 - mix)
+
+        if use_interpolation:
+            for i in range(buffer_len):
                 # Linear interpolation for L channel
                 idx_f_L = self._write_idx_L - self.delay_samples_f
                 idx_i_L = int(np.floor(idx_f_L)) & self._mask
                 frac_L = idx_f_L - np.floor(idx_f_L)
-                dl = ((1.0 - frac_L) * self._buffer_L[idx_i_L] +
-                      frac_L * self._buffer_L[(idx_i_L + 1) & self._mask])
+                delayed_L[i] = ((1.0 - frac_L) * self._buffer_L[idx_i_L] +
+                               frac_L * self._buffer_L[(idx_i_L + 1) & self._mask])
 
                 # Linear interpolation for R channel
                 idx_f_R = self._write_idx_R - self.delay_samples_f
                 idx_i_R = int(np.floor(idx_f_R)) & self._mask
                 frac_R = idx_f_R - np.floor(idx_f_R)
-                dr = ((1.0 - frac_R) * self._buffer_R[idx_i_R] +
-                      frac_R * self._buffer_R[(idx_i_R + 1) & self._mask])
-            else:
+                delayed_R[i] = ((1.0 - frac_R) * self._buffer_R[idx_i_R] +
+                               frac_R * self._buffer_R[(idx_i_R + 1) & self._mask])
+
+                # Cross-feedback: L feeds R buffer and vice-versa
+                self._buffer_L[self._write_idx_L] = L[i] + delayed_R[i] * fb
+                self._buffer_R[self._write_idx_R] = R[i] + delayed_L[i] * fb
+
+                self._write_idx_L = (self._write_idx_L + 1) & self._mask
+                self._write_idx_R = (self._write_idx_R + 1) & self._mask
+        else:
+            for i in range(buffer_len):
                 # Simple integer sample delay
                 read_idx_L = (self._write_idx_L - self.delay_samples) & self._mask
                 read_idx_R = (self._write_idx_R - self.delay_samples) & self._mask
-                dl = self._buffer_L[read_idx_L]
-                dr = self._buffer_R[read_idx_R]
+                delayed_L[i] = self._buffer_L[read_idx_L]
+                delayed_R[i] = self._buffer_R[read_idx_R]
 
-            # Dry/wet mix
-            out_L[i] = sL * (1.0 - mix) + dl * mix
-            out_R[i] = sR * (1.0 - mix) + dr * mix
+                # Cross-feedback: L feeds R buffer and vice-versa
+                self._buffer_L[self._write_idx_L] = L[i] + delayed_R[i] * fb
+                self._buffer_R[self._write_idx_R] = R[i] + delayed_L[i] * fb
 
-            # Cross-feedback: L feeds R buffer and vice-versa
-            self._buffer_L[self._write_idx_L] = sL + dr * fb
-            self._buffer_R[self._write_idx_R] = sR + dl * fb
+                self._write_idx_L = (self._write_idx_L + 1) & self._mask
+                self._write_idx_R = (self._write_idx_R + 1) & self._mask
 
-            self._write_idx_L = (self._write_idx_L + 1) & self._mask
-            self._write_idx_R = (self._write_idx_R + 1) & self._mask
+        # Vectorize the wet/dry mix (can be done outside the loop)
+        out_L = dry_L + delayed_L * mix
+        out_R = dry_R + delayed_R * mix
 
         return out_L, out_R
 
