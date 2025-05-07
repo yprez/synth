@@ -237,7 +237,6 @@ def audio_callback(outdata, frames, time_info, status):
         print(f"Audio callback status: {status}")
 
     buffer = np.zeros(frames)
-    unfiltered_buffer = np.zeros(frames)
     filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values
 
     # Use global LFO for filter cutoff modulation
@@ -267,7 +266,6 @@ def audio_callback(outdata, frames, time_info, status):
             for key, osc in processing_notes:
                 wave, osc_filter_env = osc.generate(frames)
                 buffer += wave
-                unfiltered_buffer += wave
                 filter_env_buffer += osc_filter_env  # Add this oscillator's filter env to buffer
                 if osc.done:
                     finished_keys.append(key)
@@ -287,7 +285,6 @@ def audio_callback(outdata, frames, time_info, status):
         if rms > 0.3:  # If RMS is above threshold
             scaling_factor = 0.3 / rms
             buffer *= scaling_factor
-            unfiltered_buffer *= scaling_factor
 
         # Normalize filter envelope if active notes > 0
         filter_env_buffer = filter_env_buffer / num_active_notes
@@ -297,17 +294,11 @@ def audio_callback(outdata, frames, time_info, status):
         if filter.cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
 
-        # Store a copy of the buffer after filter but before drive for visualization
-        unfiltered_buffer_copy = buffer.copy()
-
         # Apply drive effect (wave folding/soft clipping) after filter
         buffer = apply_drive(buffer)
 
         # Optional safety clip to prevent extreme peaks after drive
         np.clip(buffer, -1.2, 1.2, out=buffer)
-
-    else:
-        unfiltered_buffer_copy = np.zeros(frames)
 
     # Create stereo buffers from mono buffer
     buffer_L = buffer
@@ -349,8 +340,6 @@ def audio_callback(outdata, frames, time_info, status):
     with config.buffer_lock:
         config.waveform_buffer = np.roll(config.waveform_buffer, -frames)
         config.waveform_buffer[-frames:] = buffer
-        config.unfiltered_buffer = np.roll(config.unfiltered_buffer, -frames)
-        config.unfiltered_buffer[-frames:] = unfiltered_buffer_copy
 
 
 def create_audio_stream(latency='high'):

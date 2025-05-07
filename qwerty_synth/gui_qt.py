@@ -639,18 +639,10 @@ class SynthGUI(QMainWindow):
         # Initialize waveform plot
         self.window_size = 512
 
-        # Add legend before creating plot items
-        self.wave_plot.addLegend()
-
+        # Remove legend and unfiltered curve
         self.wave_curve = self.wave_plot.plot(
             np.zeros(self.window_size),
-            pen=pg.mkPen('b', width=2),
-            name='Filtered'
-        )
-        self.unfiltered_curve = self.wave_plot.plot(
-            np.zeros(self.window_size),
-            pen=pg.mkPen('r', width=1, style=Qt.DashLine),
-            name='Unfiltered'
+            pen=pg.mkPen('b', width=2)
         )
         self.wave_plot.setYRange(-1, 1)
         self.wave_plot.setXRange(0, 500)
@@ -961,7 +953,6 @@ class SynthGUI(QMainWindow):
         # Get current audio buffer data
         with config.buffer_lock:
             filtered_data = config.waveform_buffer.copy()
-            unfiltered_data = config.unfiltered_buffer.copy()
 
         if len(filtered_data) == 0:
             return
@@ -985,13 +976,7 @@ class SynthGUI(QMainWindow):
             filtered_segment = np.pad(filtered_segment,
                                       (0, self.window_size - len(filtered_segment)))
 
-        unfiltered_segment = unfiltered_data[start:end]
-        if len(unfiltered_segment) < self.window_size:
-            unfiltered_segment = np.pad(unfiltered_segment,
-                                        (0, self.window_size - len(unfiltered_segment)))
-
         self.wave_curve.setData(np.arange(len(filtered_segment)), filtered_segment)
-        self.unfiltered_curve.setData(np.arange(len(unfiltered_segment)), unfiltered_segment)
 
         # Update spectrum plot
         fft_data = (
@@ -1291,7 +1276,7 @@ class SynthGUI(QMainWindow):
         mix = value / 100.0
         config.chorus_mix = mix
         synth.chorus.set_mix(mix)
-        self.chorus_mix_label.setText(f"{mix:.2f}")
+        self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
 
     def update_visualization_enabled(self, state):
         """Update visualization enabled status and visibility."""
