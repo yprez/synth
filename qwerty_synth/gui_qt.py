@@ -168,28 +168,6 @@ class SynthGUI(QMainWindow):
         self.glide_label = QLabel(f"{config.glide_time*1000:.0f} ms")
         mono_layout.addWidget(self.glide_label)
 
-        # Drive Control
-        drive_group = QGroupBox("Drive Control")
-        drive_layout = QHBoxLayout(drive_group)
-        main_layout.addWidget(drive_group)
-
-        # Drive enable checkbox
-        self.drive_enable_checkbox = QCheckBox("Enable Drive")
-        self.drive_enable_checkbox.setChecked(config.drive_on)
-        self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
-        drive_layout.addWidget(self.drive_enable_checkbox)
-
-        drive_layout.addWidget(QLabel("Drive Gain"))
-
-        self.drive_slider = QSlider(Qt.Horizontal)
-        self.drive_slider.setRange(0, 300)  # 0.0 to 3.0 (x100)
-        self.drive_slider.setValue(int(config.drive_gain * 100))
-        self.drive_slider.valueChanged.connect(self.update_drive_gain)
-        drive_layout.addWidget(self.drive_slider, stretch=1)
-
-        self.drive_label = QLabel(f"{config.drive_gain:.1f}")
-        drive_layout.addWidget(self.drive_label)
-
         # Filter Control
         filter_group = QGroupBox("Filter Control")
         filter_layout = QHBoxLayout(filter_group)
@@ -234,6 +212,28 @@ class SynthGUI(QMainWindow):
         self.filter_env_amount_label = QLabel(f"{adsr.filter_env_amount:.0f} Hz")
         filter_layout.addWidget(self.filter_env_amount_label)
 
+        # Drive Control
+        drive_group = QGroupBox("Drive Control")
+        drive_layout = QHBoxLayout(drive_group)
+        main_layout.addWidget(drive_group)
+
+        # Drive enable checkbox
+        self.drive_enable_checkbox = QCheckBox("Enable Drive")
+        self.drive_enable_checkbox.setChecked(config.drive_on)
+        self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
+        drive_layout.addWidget(self.drive_enable_checkbox)
+
+        drive_layout.addWidget(QLabel("Drive Gain"))
+
+        self.drive_slider = QSlider(Qt.Horizontal)
+        self.drive_slider.setRange(0, 300)  # 0.0 to 3.0 (x100)
+        self.drive_slider.setValue(int(config.drive_gain * 100))
+        self.drive_slider.valueChanged.connect(self.update_drive_gain)
+        drive_layout.addWidget(self.drive_slider, stretch=1)
+
+        self.drive_label = QLabel(f"{config.drive_gain:.1f}")
+        drive_layout.addWidget(self.drive_label)
+
         # Create a tabbed widget for amp ADSR and filter ADSR
         envelope_tabs = QTabWidget()
         main_layout.addWidget(envelope_tabs, stretch=1)
@@ -256,12 +256,12 @@ class SynthGUI(QMainWindow):
         # Create the delay effect tab
         delay_tab_widget = QWidget()
         delay_tab_layout = QHBoxLayout(delay_tab_widget)
-        envelope_tabs.addTab(delay_tab_widget, "Delay Effect")
+        envelope_tabs.addTab(delay_tab_widget, "Delay")
 
         # Create the chorus effect tab
         chorus_tab_widget = QWidget()
         chorus_tab_layout = QHBoxLayout(chorus_tab_widget)
-        envelope_tabs.addTab(chorus_tab_widget, "Chorus Effect")
+        envelope_tabs.addTab(chorus_tab_widget, "Chorus")
 
         # Create the sequencer tab
         self.sequencer = StepSequencer()

@@ -289,15 +289,6 @@ def audio_callback(outdata, frames, time_info, status):
             buffer *= scaling_factor
             unfiltered_buffer *= scaling_factor
 
-        # Apply drive effect (wave folding/soft clipping) before filter
-        buffer = apply_drive(buffer)
-
-        # Optional safety clip to prevent extreme peaks after drive
-        np.clip(buffer, -1.2, 1.2, out=buffer)
-
-        # Store a copy of the buffer after drive but before filter for visualization
-        unfiltered_buffer_copy = buffer.copy()
-
         # Normalize filter envelope if active notes > 0
         filter_env_buffer = filter_env_buffer / num_active_notes
 
@@ -305,6 +296,15 @@ def audio_callback(outdata, frames, time_info, status):
         # Only apply if we have a valid cutoff (below Nyquist)
         if filter.cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
+
+        # Store a copy of the buffer after filter but before drive for visualization
+        unfiltered_buffer_copy = buffer.copy()
+
+        # Apply drive effect (wave folding/soft clipping) after filter
+        buffer = apply_drive(buffer)
+
+        # Optional safety clip to prevent extreme peaks after drive
+        np.clip(buffer, -1.2, 1.2, out=buffer)
 
     else:
         unfiltered_buffer_copy = np.zeros(frames)
