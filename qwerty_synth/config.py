@@ -64,8 +64,8 @@ delay_pingpong = False     # Ping-pong stereo effect
 
 # Chorus effect settings
 chorus_rate = 0.5        # Hz - speed of modulation (0.1 - 10.0 Hz)
-chorus_depth = 0.007     # Seconds - depth of modulation (0.001 - 0.030 s)
-chorus_mix = 0.5         # 0.0 (dry) - 1.0 (wet)
+chorus_depth = 0.005     # Seconds - depth of modulation (0.001 - 0.030 s)
+chorus_mix = 0.2         # 0.0 (dry) - 1.0 (wet)
 chorus_voices = 1        # Number of chorus voices (1 - 4) - using 1 for CPU efficiency
 chorus_enabled = False   # Toggle for enabling/disabling chorus effect
 
