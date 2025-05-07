@@ -133,35 +133,30 @@ class Chorus:
 
     def _process_single_voice(self, L, R):
         """Optimized processing for a single chorus voice."""
+        # Calculate all phase values for the entire buffer at once
+        buffer_len = len(L)
+        phase_values = (self.phase + 2 * np.pi * self.rate / self.sample_rate *
+                        np.arange(buffer_len)) % (2 * np.pi)
+
+        # Calculate all LFO values at once
+        lfo_values = np.sin(phase_values)
+
+        # Calculate all delay values
+        delay_samples = self.base_delay_samples + lfo_values * (self.depth * self.sample_rate)
+
+        # Pre-allocate output arrays
         out_L = np.empty_like(L)
         out_R = np.empty_like(R)
 
-        # Calculate phase increment per sample
-        phase_inc = 2 * np.pi * self.rate / self.sample_rate
-
-        # Base delay in samples
-        base_delay = self.base_delay_samples
-
-        # Amplitude of delay modulation in samples
-        mod_amplitude = self.depth * self.sample_rate
-
-        # Dry mix (pre-calculated)
-        dry_mix = 1.0 - self.mix
-
-        # For each sample
-        for i in range(len(L)):
+        # Circular buffer management still needs sample-by-sample processing
+        # due to the dependency of each sample on the buffer state
+        for i in range(buffer_len):
             # Store the current sample in the buffer
             self._buffer_L[self._write_idx] = L[i]
             self._buffer_R[self._write_idx] = R[i]
 
-            # Calculate LFO output
-            lfo = np.sin(self.phase)
-
-            # Calculate delay samples
-            delay_samples = base_delay + lfo * mod_amplitude
-
-            # Get fractional sample index for interpolation
-            read_idx_f = self._write_idx - delay_samples
+            # Calculate read indices and fractions for interpolation
+            read_idx_f = self._write_idx - delay_samples[i]
             read_idx_i = int(np.floor(read_idx_f)) & self._mask
             read_idx_f_frac = read_idx_f - np.floor(read_idx_f)
             next_idx = (read_idx_i + 1) & self._mask
@@ -174,12 +169,14 @@ class Chorus:
                        read_idx_f_frac * self._buffer_R[next_idx])
 
             # Mix dry and wet signals
-            out_L[i] = L[i] * dry_mix + sample_L * self.mix
-            out_R[i] = R[i] * dry_mix + sample_R * self.mix
+            out_L[i] = L[i] * (1.0 - self.mix) + sample_L * self.mix
+            out_R[i] = R[i] * (1.0 - self.mix) + sample_R * self.mix
 
-            # Update phase and write index
-            self.phase = (self.phase + phase_inc) % (2 * np.pi)
+            # Update write index
             self._write_idx = (self._write_idx + 1) & self._mask
+
+        # Update the phase for next buffer
+        self.phase = phase_values[-1]
 
         return out_L, out_R
 
