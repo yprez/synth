@@ -35,8 +35,6 @@ def update_delay_params():
     global _delay_params_changed
     if _delay_params_changed:
         delay.set_time(config.delay_time_ms)
-        delay.set_feedback(config.delay_feedback)
-        delay.set_mix(config.delay_mix)
         _delay_params_changed = False
 
 def mark_chorus_params_changed():
@@ -335,8 +333,10 @@ def audio_callback(outdata, frames, time_info, status):
             )
         else:
             # Apply traditional mono delay
+            # Convert stereo to mono by averaging L and R if chorus has been applied
+            mono_input = (buffer_L + buffer_R) / 2 if config.chorus_enabled else buffer
             mono_delayed = delay.process_block(
-                buffer,
+                mono_input,
                 config.delay_feedback,
                 config.delay_mix
             )
