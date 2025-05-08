@@ -9,8 +9,8 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
-    QCheckBox, QDoubleSpinBox, QComboBox, QTabWidget, QSpinBox, QFrame,
-    QFileDialog, QProgressBar
+    QCheckBox, QComboBox, QTabWidget, QSpinBox, QFrame,
+    QFileDialog, QProgressBar, QDial
 )
 import pyqtgraph as pg
 
@@ -38,7 +38,7 @@ class SynthGUI(QMainWindow):
 
         # Animation control variables
         self.animation_running = True
-        self.visualization_enabled = True
+        self.visualization_enabled = False
 
         # Keep track of the last GUI update time
         self.last_update_time = time.time()
@@ -97,19 +97,23 @@ class SynthGUI(QMainWindow):
 
         # Volume Control
         volume_group = QGroupBox("Volume Control")
-        volume_layout = QHBoxLayout(volume_group)
+        volume_layout = QGridLayout(volume_group)
         control_layout.addWidget(volume_group, stretch=1)
 
-        volume_layout.addWidget(QLabel("Volume"))
+        volume_label = QLabel("Volume")
+        volume_label.setAlignment(Qt.AlignCenter)
+        volume_layout.addWidget(volume_label, 0, 0)
 
-        self.volume_slider = QSlider(Qt.Horizontal)
-        self.volume_slider.setRange(0, 100)
-        self.volume_slider.setValue(int(config.volume * 100))
-        self.volume_slider.valueChanged.connect(self.update_volume)
-        volume_layout.addWidget(self.volume_slider, stretch=1)
+        self.volume_dial = QDial()
+        self.volume_dial.setRange(0, 100)
+        self.volume_dial.setValue(int(config.volume * 100))
+        self.volume_dial.valueChanged.connect(self.update_volume)
+        self.volume_dial.setNotchesVisible(True)
+        volume_layout.addWidget(self.volume_dial, 1, 0)
 
         self.volume_label = QLabel(f"{config.volume:.2f}")
-        volume_layout.addWidget(self.volume_label)
+        self.volume_label.setAlignment(Qt.AlignCenter)
+        volume_layout.addWidget(self.volume_label, 2, 0)
 
         # Octave Control
         octave_group = QGroupBox("Octave Control")
@@ -168,71 +172,95 @@ class SynthGUI(QMainWindow):
         self.glide_label = QLabel(f"{config.glide_time*1000:.0f} ms")
         mono_layout.addWidget(self.glide_label)
 
+        # Create a horizontal layout for filter and drive controls
+        filter_drive_layout = QHBoxLayout()
+        main_layout.addLayout(filter_drive_layout)
+
         # Filter Control
         filter_group = QGroupBox("Filter Control")
-        filter_layout = QHBoxLayout(filter_group)
-        main_layout.addWidget(filter_group)
+        filter_layout = QGridLayout(filter_group)
+        filter_drive_layout.addWidget(filter_group)
 
         # Filter enable checkbox
         self.filter_enable_checkbox = QCheckBox("Enable Filter")
         self.filter_enable_checkbox.setChecked(filter.filter_enabled)
         self.filter_enable_checkbox.stateChanged.connect(self.update_filter_enabled)
-        filter_layout.addWidget(self.filter_enable_checkbox)
+        filter_layout.addWidget(self.filter_enable_checkbox, 0, 0, 1, 3)
 
-        filter_layout.addWidget(QLabel("Cutoff Frequency"))
+        # Cutoff control
+        cutoff_label = QLabel("Cutoff")
+        cutoff_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(cutoff_label, 1, 0)
 
-        self.cutoff_slider = QSlider(Qt.Horizontal)
-        self.cutoff_slider.setRange(100, 10000)
-        self.cutoff_slider.setValue(int(filter.cutoff))
-        self.cutoff_slider.valueChanged.connect(self.update_filter_cutoff)
-        filter_layout.addWidget(self.cutoff_slider, stretch=1)
+        self.cutoff_dial = QDial()
+        self.cutoff_dial.setRange(100, 10000)
+        self.cutoff_dial.setValue(int(filter.cutoff))
+        self.cutoff_dial.valueChanged.connect(self.update_filter_cutoff)
+        self.cutoff_dial.setNotchesVisible(True)
+        filter_layout.addWidget(self.cutoff_dial, 2, 0)
 
         self.cutoff_label = QLabel(f"{filter.cutoff:.0f} Hz")
-        filter_layout.addWidget(self.cutoff_label)
+        self.cutoff_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(self.cutoff_label, 3, 0)
 
-        # Add resonance control
-        filter_layout.addWidget(QLabel("Resonance"))
-        self.resonance_slider = QSlider(Qt.Horizontal)
-        self.resonance_slider.setRange(0, 95)  # 0.0 to 0.95 (x100)
-        self.resonance_slider.setValue(int(filter.resonance * 100))
-        self.resonance_slider.valueChanged.connect(self.update_filter_resonance)
-        filter_layout.addWidget(self.resonance_slider, stretch=1)
+        # Resonance control
+        res_label = QLabel("Resonance")
+        res_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(res_label, 1, 1)
+
+        self.resonance_dial = QDial()
+        self.resonance_dial.setRange(0, 95)  # 0.0 to 0.95 (x100)
+        self.resonance_dial.setValue(int(filter.resonance * 100))
+        self.resonance_dial.valueChanged.connect(self.update_filter_resonance)
+        self.resonance_dial.setNotchesVisible(True)
+        filter_layout.addWidget(self.resonance_dial, 2, 1)
 
         self.resonance_label = QLabel(f"{filter.resonance:.2f}")
-        filter_layout.addWidget(self.resonance_label)
+        self.resonance_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(self.resonance_label, 3, 1)
 
         # Filter envelope amount control
-        filter_layout.addWidget(QLabel("Envelope Amount"))
-        self.filter_env_amount_slider = QSlider(Qt.Horizontal)
-        self.filter_env_amount_slider.setRange(0, 10000)
-        self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
-        self.filter_env_amount_slider.valueChanged.connect(self.update_filter_env_amount)
-        filter_layout.addWidget(self.filter_env_amount_slider, stretch=1)
+        env_label = QLabel("Env Amount")
+        env_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(env_label, 1, 2)
+
+        self.filter_env_amount_dial = QDial()
+        self.filter_env_amount_dial.setRange(0, 10000)
+        self.filter_env_amount_dial.setValue(int(adsr.filter_env_amount))
+        self.filter_env_amount_dial.valueChanged.connect(self.update_filter_env_amount)
+        self.filter_env_amount_dial.setNotchesVisible(True)
+        filter_layout.addWidget(self.filter_env_amount_dial, 2, 2)
 
         self.filter_env_amount_label = QLabel(f"{adsr.filter_env_amount:.0f} Hz")
-        filter_layout.addWidget(self.filter_env_amount_label)
+        self.filter_env_amount_label.setAlignment(Qt.AlignCenter)
+        filter_layout.addWidget(self.filter_env_amount_label, 3, 2)
 
         # Drive Control
         drive_group = QGroupBox("Drive Control")
-        drive_layout = QHBoxLayout(drive_group)
-        main_layout.addWidget(drive_group)
+        drive_layout = QGridLayout(drive_group)
+        filter_drive_layout.addWidget(drive_group)
 
         # Drive enable checkbox
         self.drive_enable_checkbox = QCheckBox("Enable Drive")
         self.drive_enable_checkbox.setChecked(config.drive_on)
         self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
-        drive_layout.addWidget(self.drive_enable_checkbox)
+        drive_layout.addWidget(self.drive_enable_checkbox, 0, 0)
 
-        drive_layout.addWidget(QLabel("Drive Gain"))
+        # Drive gain control
+        drive_gain_label = QLabel("Drive Gain")
+        drive_gain_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(drive_gain_label, 1, 0)
 
-        self.drive_slider = QSlider(Qt.Horizontal)
-        self.drive_slider.setRange(0, 300)  # 0.0 to 3.0 (x100)
-        self.drive_slider.setValue(int(config.drive_gain * 100))
-        self.drive_slider.valueChanged.connect(self.update_drive_gain)
-        drive_layout.addWidget(self.drive_slider, stretch=1)
+        self.drive_dial = QDial()
+        self.drive_dial.setRange(0, 300)  # 0.0 to 3.0 (x100)
+        self.drive_dial.setValue(int(config.drive_gain * 100))
+        self.drive_dial.valueChanged.connect(self.update_drive_gain)
+        self.drive_dial.setNotchesVisible(True)
+        drive_layout.addWidget(self.drive_dial, 2, 0)
 
         self.drive_label = QLabel(f"{config.drive_gain:.1f}")
-        drive_layout.addWidget(self.drive_label)
+        self.drive_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(self.drive_label, 3, 0)
 
         # Create a tabbed widget for amp ADSR and filter ADSR
         envelope_tabs = QTabWidget()
@@ -276,53 +304,77 @@ class SynthGUI(QMainWindow):
         adsr_controls = QGridLayout(adsr_group)
         amp_env_layout.addWidget(adsr_group)
 
-        # Attack slider
-        adsr_controls.addWidget(QLabel("Attack"), 0, 0)
-        self.attack_slider = QSlider(Qt.Horizontal)
-        self.attack_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.attack_slider.setValue(int(adsr.adsr['attack'] * 100))
-        self.attack_slider.valueChanged.connect(
+        # Attack control
+        attack_label = QLabel("Attack")
+        attack_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(attack_label, 0, 0)
+
+        self.attack_dial = QDial()
+        self.attack_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.attack_dial.setValue(int(adsr.adsr['attack'] * 100))
+        self.attack_dial.valueChanged.connect(
             lambda v: self.update_adsr('attack', v/100.0)
         )
-        adsr_controls.addWidget(self.attack_slider, 0, 1)
-        self.attack_label = QLabel(f"{adsr.adsr['attack']:.2f} s")
-        adsr_controls.addWidget(self.attack_label, 0, 2)
+        self.attack_dial.setNotchesVisible(True)
+        adsr_controls.addWidget(self.attack_dial, 1, 0)
 
-        # Decay slider
-        adsr_controls.addWidget(QLabel("Decay"), 1, 0)
-        self.decay_slider = QSlider(Qt.Horizontal)
-        self.decay_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.decay_slider.setValue(int(adsr.adsr['decay'] * 100))
-        self.decay_slider.valueChanged.connect(
+        self.attack_label = QLabel(f"{adsr.adsr['attack']:.2f} s")
+        self.attack_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(self.attack_label, 2, 0)
+
+        # Decay control
+        decay_label = QLabel("Decay")
+        decay_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(decay_label, 0, 1)
+
+        self.decay_dial = QDial()
+        self.decay_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.decay_dial.setValue(int(adsr.adsr['decay'] * 100))
+        self.decay_dial.valueChanged.connect(
             lambda v: self.update_adsr('decay', v/100.0)
         )
-        adsr_controls.addWidget(self.decay_slider, 1, 1)
-        self.decay_label = QLabel(f"{adsr.adsr['decay']:.2f} s")
-        adsr_controls.addWidget(self.decay_label, 1, 2)
+        self.decay_dial.setNotchesVisible(True)
+        adsr_controls.addWidget(self.decay_dial, 1, 1)
 
-        # Sustain slider
-        adsr_controls.addWidget(QLabel("Sustain"), 2, 0)
-        self.sustain_slider = QSlider(Qt.Horizontal)
-        self.sustain_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.sustain_slider.setValue(int(adsr.adsr['sustain'] * 100))
-        self.sustain_slider.valueChanged.connect(
+        self.decay_label = QLabel(f"{adsr.adsr['decay']:.2f} s")
+        self.decay_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(self.decay_label, 2, 1)
+
+        # Sustain control
+        sustain_label = QLabel("Sustain")
+        sustain_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(sustain_label, 0, 2)
+
+        self.sustain_dial = QDial()
+        self.sustain_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.sustain_dial.setValue(int(adsr.adsr['sustain'] * 100))
+        self.sustain_dial.valueChanged.connect(
             lambda v: self.update_adsr('sustain', v/100.0)
         )
-        adsr_controls.addWidget(self.sustain_slider, 2, 1)
+        self.sustain_dial.setNotchesVisible(True)
+        adsr_controls.addWidget(self.sustain_dial, 1, 2)
+
         self.sustain_label = QLabel(f"{adsr.adsr['sustain']:.2f}")
+        self.sustain_label.setAlignment(Qt.AlignCenter)
         adsr_controls.addWidget(self.sustain_label, 2, 2)
 
-        # Release slider
-        adsr_controls.addWidget(QLabel("Release"), 3, 0)
-        self.release_slider = QSlider(Qt.Horizontal)
-        self.release_slider.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
-        self.release_slider.setValue(int(adsr.adsr['release'] * 100))
-        self.release_slider.valueChanged.connect(
+        # Release control
+        release_label = QLabel("Release")
+        release_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(release_label, 0, 3)
+
+        self.release_dial = QDial()
+        self.release_dial.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
+        self.release_dial.setValue(int(adsr.adsr['release'] * 100))
+        self.release_dial.valueChanged.connect(
             lambda v: self.update_adsr('release', v/100.0)
         )
-        adsr_controls.addWidget(self.release_slider, 3, 1)
+        self.release_dial.setNotchesVisible(True)
+        adsr_controls.addWidget(self.release_dial, 1, 3)
+
         self.release_label = QLabel(f"{adsr.adsr['release']:.2f} s")
-        adsr_controls.addWidget(self.release_label, 3, 2)
+        self.release_label.setAlignment(Qt.AlignCenter)
+        adsr_controls.addWidget(self.release_label, 2, 3)
 
         # ADSR visualization for amplitude
         adsr_viz_group = QGroupBox("ADSR Curve")
@@ -350,53 +402,77 @@ class SynthGUI(QMainWindow):
         filter_adsr_controls = QGridLayout(filter_adsr_group)
         filter_env_layout.addWidget(filter_adsr_group)
 
-        # Filter Attack slider
-        filter_adsr_controls.addWidget(QLabel("Attack"), 0, 0)
-        self.filter_attack_slider = QSlider(Qt.Horizontal)
-        self.filter_attack_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.filter_attack_slider.setValue(int(adsr.filter_adsr['attack'] * 100))
-        self.filter_attack_slider.valueChanged.connect(
+        # Filter Attack control
+        filter_attack_label = QLabel("Attack")
+        filter_attack_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(filter_attack_label, 0, 0)
+
+        self.filter_attack_dial = QDial()
+        self.filter_attack_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.filter_attack_dial.setValue(int(adsr.filter_adsr['attack'] * 100))
+        self.filter_attack_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('attack', v/100.0)
         )
-        filter_adsr_controls.addWidget(self.filter_attack_slider, 0, 1)
-        self.filter_attack_label = QLabel(f"{adsr.filter_adsr['attack']:.2f} s")
-        filter_adsr_controls.addWidget(self.filter_attack_label, 0, 2)
+        self.filter_attack_dial.setNotchesVisible(True)
+        filter_adsr_controls.addWidget(self.filter_attack_dial, 1, 0)
 
-        # Filter Decay slider
-        filter_adsr_controls.addWidget(QLabel("Decay"), 1, 0)
-        self.filter_decay_slider = QSlider(Qt.Horizontal)
-        self.filter_decay_slider.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.filter_decay_slider.setValue(int(adsr.filter_adsr['decay'] * 100))
-        self.filter_decay_slider.valueChanged.connect(
+        self.filter_attack_label = QLabel(f"{adsr.filter_adsr['attack']:.2f} s")
+        self.filter_attack_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(self.filter_attack_label, 2, 0)
+
+        # Filter Decay control
+        filter_decay_label = QLabel("Decay")
+        filter_decay_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(filter_decay_label, 0, 1)
+
+        self.filter_decay_dial = QDial()
+        self.filter_decay_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
+        self.filter_decay_dial.setValue(int(adsr.filter_adsr['decay'] * 100))
+        self.filter_decay_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('decay', v/100.0)
         )
-        filter_adsr_controls.addWidget(self.filter_decay_slider, 1, 1)
-        self.filter_decay_label = QLabel(f"{adsr.filter_adsr['decay']:.2f} s")
-        filter_adsr_controls.addWidget(self.filter_decay_label, 1, 2)
+        self.filter_decay_dial.setNotchesVisible(True)
+        filter_adsr_controls.addWidget(self.filter_decay_dial, 1, 1)
 
-        # Filter Sustain slider
-        filter_adsr_controls.addWidget(QLabel("Sustain"), 2, 0)
-        self.filter_sustain_slider = QSlider(Qt.Horizontal)
-        self.filter_sustain_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.filter_sustain_slider.setValue(int(adsr.filter_adsr['sustain'] * 100))
-        self.filter_sustain_slider.valueChanged.connect(
+        self.filter_decay_label = QLabel(f"{adsr.filter_adsr['decay']:.2f} s")
+        self.filter_decay_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(self.filter_decay_label, 2, 1)
+
+        # Filter Sustain control
+        filter_sustain_label = QLabel("Sustain")
+        filter_sustain_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(filter_sustain_label, 0, 2)
+
+        self.filter_sustain_dial = QDial()
+        self.filter_sustain_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.filter_sustain_dial.setValue(int(adsr.filter_adsr['sustain'] * 100))
+        self.filter_sustain_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('sustain', v/100.0)
         )
-        filter_adsr_controls.addWidget(self.filter_sustain_slider, 2, 1)
+        self.filter_sustain_dial.setNotchesVisible(True)
+        filter_adsr_controls.addWidget(self.filter_sustain_dial, 1, 2)
+
         self.filter_sustain_label = QLabel(f"{adsr.filter_adsr['sustain']:.2f}")
+        self.filter_sustain_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_sustain_label, 2, 2)
 
-        # Filter Release slider
-        filter_adsr_controls.addWidget(QLabel("Release"), 3, 0)
-        self.filter_release_slider = QSlider(Qt.Horizontal)
-        self.filter_release_slider.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
-        self.filter_release_slider.setValue(int(adsr.filter_adsr['release'] * 100))
-        self.filter_release_slider.valueChanged.connect(
+        # Filter Release control
+        filter_release_label = QLabel("Release")
+        filter_release_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(filter_release_label, 0, 3)
+
+        self.filter_release_dial = QDial()
+        self.filter_release_dial.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
+        self.filter_release_dial.setValue(int(adsr.filter_adsr['release'] * 100))
+        self.filter_release_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('release', v/100.0)
         )
-        filter_adsr_controls.addWidget(self.filter_release_slider, 3, 1)
+        self.filter_release_dial.setNotchesVisible(True)
+        filter_adsr_controls.addWidget(self.filter_release_dial, 1, 3)
+
         self.filter_release_label = QLabel(f"{adsr.filter_adsr['release']:.2f} s")
-        filter_adsr_controls.addWidget(self.filter_release_label, 3, 2)
+        self.filter_release_label.setAlignment(Qt.AlignCenter)
+        filter_adsr_controls.addWidget(self.filter_release_label, 2, 3)
 
         # Filter ADSR visualization
         filter_adsr_viz_group = QGroupBox("Filter ADSR Curve")
@@ -424,144 +500,188 @@ class SynthGUI(QMainWindow):
         lfo_layout = QGridLayout(lfo_group)
         lfo_tab_layout.addWidget(lfo_group)
 
-        # LFO Enable checkbox
+        # LFO Enable checkbox and Target selector in top row
+        control_row = QHBoxLayout()
+        lfo_layout.addLayout(control_row, 0, 0, 1, 4)
+
         self.lfo_enable_checkbox = QCheckBox("Enable LFO")
         self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
         self.lfo_enable_checkbox.stateChanged.connect(self.update_lfo_enabled)
-        lfo_layout.addWidget(self.lfo_enable_checkbox, 0, 0, 1, 1)
+        control_row.addWidget(self.lfo_enable_checkbox)
 
-        # LFO Rate - changed from QDoubleSpinBox to QSlider
-        lfo_layout.addWidget(QLabel("Rate (Hz)"), 1, 0)
-        self.lfo_rate_slider = QSlider(Qt.Horizontal)
-        self.lfo_rate_slider.setRange(1, 200)  # 0.1 to 20.0 Hz (x10)
-        self.lfo_rate_slider.setValue(int(config.lfo_rate * 10))
-        self.lfo_rate_slider.valueChanged.connect(self.update_lfo_rate)
-        lfo_layout.addWidget(self.lfo_rate_slider, 1, 1)
-        self.lfo_rate_label = QLabel(f"{config.lfo_rate:.1f} Hz")
-        lfo_layout.addWidget(self.lfo_rate_label, 1, 2)
-
-        # LFO Depth
-        lfo_layout.addWidget(QLabel("Depth"), 1, 3)
-        self.lfo_depth_slider = QSlider(Qt.Horizontal)
-        self.lfo_depth_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
-        self.lfo_depth_slider.valueChanged.connect(self.update_lfo_depth)
-        lfo_layout.addWidget(self.lfo_depth_slider, 1, 4)
-        self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
-        lfo_layout.addWidget(self.lfo_depth_label, 1, 5)
-
-        # LFO Attack Time
-        lfo_layout.addWidget(QLabel("Attack (s)"), 2, 0)
-        self.lfo_attack_slider = QSlider(Qt.Horizontal)
-        self.lfo_attack_slider.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
-        self.lfo_attack_slider.setValue(int(config.lfo_attack_time * 10))
-        self.lfo_attack_slider.valueChanged.connect(self.update_lfo_attack_time)
-        lfo_layout.addWidget(self.lfo_attack_slider, 2, 1)
-        self.lfo_attack_label = QLabel(f"{config.lfo_attack_time:.1f} s")
-        lfo_layout.addWidget(self.lfo_attack_label, 2, 2)
-
-        # LFO Delay Time
-        lfo_layout.addWidget(QLabel("Delay (s)"), 3, 0)
-        self.lfo_delay_slider = QSlider(Qt.Horizontal)
-        self.lfo_delay_slider.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
-        self.lfo_delay_slider.setValue(int(config.lfo_delay_time * 10))
-        self.lfo_delay_slider.valueChanged.connect(self.update_lfo_delay_time)
-        lfo_layout.addWidget(self.lfo_delay_slider, 3, 1)
-        self.lfo_delay_label = QLabel(f"{config.lfo_delay_time:.1f} s")
-        lfo_layout.addWidget(self.lfo_delay_label, 3, 2)
-
-        # LFO Target
-        lfo_layout.addWidget(QLabel("Target"), 2, 3)
+        control_row.addWidget(QLabel("Target:"))
         self.lfo_target_combo = QComboBox()
         self.lfo_target_combo.addItems(["pitch", "volume", "cutoff"])
         self.lfo_target_combo.setCurrentText(config.lfo_target)
         self.lfo_target_combo.currentTextChanged.connect(self.update_lfo_target)
-        lfo_layout.addWidget(self.lfo_target_combo, 2, 3, 1, 3)
+        control_row.addWidget(self.lfo_target_combo)
+
+        # LFO Rate control
+        rate_label = QLabel("Rate")
+        rate_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(rate_label, 1, 0)
+
+        self.lfo_rate_dial = QDial()
+        self.lfo_rate_dial.setRange(1, 200)  # 0.1 to 20.0 Hz (x10)
+        self.lfo_rate_dial.setValue(int(config.lfo_rate * 10))
+        self.lfo_rate_dial.valueChanged.connect(self.update_lfo_rate)
+        self.lfo_rate_dial.setNotchesVisible(True)
+        lfo_layout.addWidget(self.lfo_rate_dial, 2, 0)
+
+        self.lfo_rate_label = QLabel(f"{config.lfo_rate:.1f} Hz")
+        self.lfo_rate_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(self.lfo_rate_label, 3, 0)
+
+        # LFO Depth control
+        depth_label = QLabel("Depth")
+        depth_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(depth_label, 1, 1)
+
+        self.lfo_depth_dial = QDial()
+        self.lfo_depth_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.lfo_depth_dial.setValue(int(config.lfo_depth * 100))
+        self.lfo_depth_dial.valueChanged.connect(self.update_lfo_depth)
+        self.lfo_depth_dial.setNotchesVisible(True)
+        lfo_layout.addWidget(self.lfo_depth_dial, 2, 1)
+
+        self.lfo_depth_label = QLabel(f"{config.lfo_depth:.2f}")
+        self.lfo_depth_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(self.lfo_depth_label, 3, 1)
+
+        # LFO Attack Time control
+        attack_label = QLabel("Attack")
+        attack_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(attack_label, 1, 2)
+
+        self.lfo_attack_dial = QDial()
+        self.lfo_attack_dial.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
+        self.lfo_attack_dial.setValue(int(config.lfo_attack_time * 10))
+        self.lfo_attack_dial.valueChanged.connect(self.update_lfo_attack_time)
+        self.lfo_attack_dial.setNotchesVisible(True)
+        lfo_layout.addWidget(self.lfo_attack_dial, 2, 2)
+
+        self.lfo_attack_label = QLabel(f"{config.lfo_attack_time:.1f} s")
+        self.lfo_attack_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(self.lfo_attack_label, 3, 2)
+
+        # LFO Delay Time control
+        delay_label = QLabel("Delay")
+        delay_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(delay_label, 1, 3)
+
+        self.lfo_delay_dial = QDial()
+        self.lfo_delay_dial.setRange(0, 20)  # 0.0 to 2.0 seconds (x10)
+        self.lfo_delay_dial.setValue(int(config.lfo_delay_time * 10))
+        self.lfo_delay_dial.valueChanged.connect(self.update_lfo_delay_time)
+        self.lfo_delay_dial.setNotchesVisible(True)
+        lfo_layout.addWidget(self.lfo_delay_dial, 2, 3)
+
+        self.lfo_delay_label = QLabel(f"{config.lfo_delay_time:.1f} s")
+        self.lfo_delay_label.setAlignment(Qt.AlignCenter)
+        lfo_layout.addWidget(self.lfo_delay_label, 3, 3)
 
         # Delay effect controls
         delay_group = QGroupBox("Delay Parameters")
         delay_layout = QGridLayout(delay_group)
         delay_tab_layout.addWidget(delay_group)
 
+        # Top row controls
+        control_row = QHBoxLayout()
+        delay_layout.addLayout(control_row, 0, 0, 1, 4)
+
         # Delay enable checkbox
         self.delay_enable_checkbox = QCheckBox("Enable Delay")
         self.delay_enable_checkbox.setChecked(config.delay_enabled)
         self.delay_enable_checkbox.stateChanged.connect(self.update_delay_enabled)
-        delay_layout.addWidget(self.delay_enable_checkbox, 0, 0, 1, 3)
+        control_row.addWidget(self.delay_enable_checkbox)
 
         # Ping-pong checkbox
         self.pingpong_checkbox = QCheckBox("Ping-Pong (Stereo)")
         self.pingpong_checkbox.setChecked(config.delay_pingpong)
         self.pingpong_checkbox.stateChanged.connect(self.update_delay_pingpong)
-        delay_layout.addWidget(self.pingpong_checkbox, 0, 1, 1, 3)
+        control_row.addWidget(self.pingpong_checkbox)
 
         # Tempo sync checkbox
         self.delay_sync_checkbox = QCheckBox("Sync to Tempo")
         self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
         self.delay_sync_checkbox.stateChanged.connect(self.update_delay_sync)
-        delay_layout.addWidget(self.delay_sync_checkbox, 0, 3, 1, 3)
+        control_row.addWidget(self.delay_sync_checkbox)
 
         # Create frame for tempo-sync controls
         self.tempo_sync_frame = QFrame()
-        tempo_sync_hlayout = QHBoxLayout(self.tempo_sync_frame)
-        tempo_sync_hlayout.setContentsMargins(0, 0, 0, 0)
-        tempo_sync_hlayout.setSpacing(8)
-        delay_layout.addWidget(self.tempo_sync_frame, 1, 0, 1, 6)
+        tempo_sync_layout = QHBoxLayout(self.tempo_sync_frame)
+        tempo_sync_layout.setContentsMargins(0, 0, 0, 0)
+        tempo_sync_layout.setSpacing(8)
+        delay_layout.addWidget(self.tempo_sync_frame, 1, 0, 1, 4)
 
         # Division
-        tempo_sync_hlayout.addWidget(QLabel("Division:"), stretch=0)
+        tempo_sync_layout.addWidget(QLabel("Division:"))
         self.delay_division_combo = QComboBox()
         self.delay_division_combo.addItems(list(DIV2MULT.keys()))
         self.delay_division_combo.setCurrentText(config.delay_division)
         self.delay_division_combo.currentTextChanged.connect(self.update_delay_division)
-        tempo_sync_hlayout.addWidget(self.delay_division_combo, stretch=1)
+        tempo_sync_layout.addWidget(self.delay_division_combo)
 
         # BPM
-        tempo_sync_hlayout.addWidget(QLabel("BPM:"), stretch=0)
+        tempo_sync_layout.addWidget(QLabel("BPM:"))
         self.delay_bpm_spinbox = QSpinBox()
         self.delay_bpm_spinbox.setRange(40, 300)
         self.delay_bpm_spinbox.setValue(config.bpm)
         self.delay_bpm_spinbox.valueChanged.connect(self.update_delay_bpm)
-        tempo_sync_hlayout.addWidget(self.delay_bpm_spinbox, stretch=1)
+        tempo_sync_layout.addWidget(self.delay_bpm_spinbox)
 
         # Computed delay time
         self.delay_ms_label = QLabel(f"{config.delay_time_ms:.1f} ms")
-        tempo_sync_hlayout.addWidget(self.delay_ms_label, stretch=0)
-        tempo_sync_hlayout.addStretch(1)
-        self.tempo_sync_frame.setMaximumHeight(40)
+        tempo_sync_layout.addWidget(self.delay_ms_label)
+        tempo_sync_layout.addStretch(1)
 
-        # Delay time manual control
-        delay_layout.addWidget(QLabel("Time (ms):"), 2, 0)
-        self.delay_time_slider = QSlider(Qt.Horizontal)
-        self.delay_time_slider.setRange(10, 1000)
-        self.delay_time_slider.setValue(int(config.delay_time_ms))
-        self.delay_time_slider.valueChanged.connect(self.update_delay_time)
-        delay_layout.addWidget(self.delay_time_slider, 2, 1, 1, 4)
+        # Delay time control
+        time_label = QLabel("Time")
+        time_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(time_label, 2, 0)
+
+        self.delay_time_dial = QDial()
+        self.delay_time_dial.setRange(10, 1000)
+        self.delay_time_dial.setValue(int(config.delay_time_ms))
+        self.delay_time_dial.valueChanged.connect(self.update_delay_time)
+        self.delay_time_dial.setNotchesVisible(True)
+        delay_layout.addWidget(self.delay_time_dial, 3, 0)
+
         self.delay_time_label = QLabel(f"{config.delay_time_ms:.0f} ms")
-        delay_layout.addWidget(self.delay_time_label, 2, 5)
-        delay_layout.setRowStretch(2, 1)
+        self.delay_time_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(self.delay_time_label, 4, 0)
 
         # Delay feedback control
-        delay_layout.addWidget(QLabel("Feedback:"), 3, 0)
-        self.delay_feedback_slider = QSlider(Qt.Horizontal)
-        self.delay_feedback_slider.setRange(0, 95)  # 0.0 to 0.95 (x100)
-        self.delay_feedback_slider.setValue(int(config.delay_feedback * 100))
-        self.delay_feedback_slider.valueChanged.connect(self.update_delay_feedback)
-        delay_layout.addWidget(self.delay_feedback_slider, 3, 1, 1, 4)
+        feedback_label = QLabel("Feedback")
+        feedback_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(feedback_label, 2, 1)
+
+        self.delay_feedback_dial = QDial()
+        self.delay_feedback_dial.setRange(0, 95)  # 0.0 to 0.95 (x100)
+        self.delay_feedback_dial.setValue(int(config.delay_feedback * 100))
+        self.delay_feedback_dial.valueChanged.connect(self.update_delay_feedback)
+        self.delay_feedback_dial.setNotchesVisible(True)
+        delay_layout.addWidget(self.delay_feedback_dial, 3, 1)
+
         self.delay_feedback_label = QLabel(f"{config.delay_feedback:.2f}")
-        delay_layout.addWidget(self.delay_feedback_label, 3, 5)
-        delay_layout.setRowStretch(3, 1)
+        self.delay_feedback_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(self.delay_feedback_label, 4, 1)
 
         # Delay mix control
-        delay_layout.addWidget(QLabel("Mix (Dry ↔ Wet):"), 4, 0)
-        self.delay_mix_slider = QSlider(Qt.Horizontal)
-        self.delay_mix_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.delay_mix_slider.setValue(int(config.delay_mix * 100))
-        self.delay_mix_slider.valueChanged.connect(self.update_delay_mix)
-        delay_layout.addWidget(self.delay_mix_slider, 4, 1, 1, 4)
+        mix_label = QLabel("Mix")
+        mix_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(mix_label, 2, 2)
+
+        self.delay_mix_dial = QDial()
+        self.delay_mix_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.delay_mix_dial.setValue(int(config.delay_mix * 100))
+        self.delay_mix_dial.valueChanged.connect(self.update_delay_mix)
+        self.delay_mix_dial.setNotchesVisible(True)
+        delay_layout.addWidget(self.delay_mix_dial, 3, 2)
+
         self.delay_mix_label = QLabel(f"{config.delay_mix:.2f}")
-        delay_layout.addWidget(self.delay_mix_label, 4, 5)
-        delay_layout.setRowStretch(4, 1)
+        self.delay_mix_label.setAlignment(Qt.AlignCenter)
+        delay_layout.addWidget(self.delay_mix_label, 4, 2)
 
         # Update the visibility of sync controls based on initial state
         self.update_delay_sync_controls()
@@ -571,44 +691,62 @@ class SynthGUI(QMainWindow):
         chorus_layout = QGridLayout(chorus_group)
         chorus_tab_layout.addWidget(chorus_group)
 
-        # Chorus enable checkbox
+        # Chorus enable checkbox in top row
+        control_row = QHBoxLayout()
+        chorus_layout.addLayout(control_row, 0, 0, 1, 3)
+
         self.chorus_enable_checkbox = QCheckBox("Enable Chorus")
         self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
         self.chorus_enable_checkbox.stateChanged.connect(self.update_chorus_enabled)
-        chorus_layout.addWidget(self.chorus_enable_checkbox, 0, 0, 1, 6)
+        control_row.addWidget(self.chorus_enable_checkbox)
 
         # Chorus rate control
-        chorus_layout.addWidget(QLabel("Rate (Hz):"), 1, 0)
-        self.chorus_rate_slider = QSlider(Qt.Horizontal)
-        self.chorus_rate_slider.setRange(1, 100)  # 0.1 to 10.0 Hz (x10)
-        self.chorus_rate_slider.setValue(int(config.chorus_rate * 10))
-        self.chorus_rate_slider.valueChanged.connect(self.update_chorus_rate)
-        chorus_layout.addWidget(self.chorus_rate_slider, 1, 1, 1, 4)
+        rate_label = QLabel("Rate")
+        rate_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(rate_label, 1, 0)
+
+        self.chorus_rate_dial = QDial()
+        self.chorus_rate_dial.setRange(1, 100)  # 0.1 to 10.0 Hz (x10)
+        self.chorus_rate_dial.setValue(int(config.chorus_rate * 10))
+        self.chorus_rate_dial.valueChanged.connect(self.update_chorus_rate)
+        self.chorus_rate_dial.setNotchesVisible(True)
+        chorus_layout.addWidget(self.chorus_rate_dial, 2, 0)
+
         self.chorus_rate_label = QLabel(f"{config.chorus_rate:.1f} Hz")
-        chorus_layout.addWidget(self.chorus_rate_label, 1, 5)
-        chorus_layout.setRowStretch(1, 1)
+        self.chorus_rate_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(self.chorus_rate_label, 3, 0)
 
         # Chorus depth control
-        chorus_layout.addWidget(QLabel("Depth (ms):"), 2, 0)
-        self.chorus_depth_slider = QSlider(Qt.Horizontal)
-        self.chorus_depth_slider.setRange(1, 30)  # 1 to 30 ms
-        self.chorus_depth_slider.setValue(int(config.chorus_depth * 1000))
-        self.chorus_depth_slider.valueChanged.connect(self.update_chorus_depth)
-        chorus_layout.addWidget(self.chorus_depth_slider, 2, 1, 1, 4)
+        depth_label = QLabel("Depth")
+        depth_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(depth_label, 1, 1)
+
+        self.chorus_depth_dial = QDial()
+        self.chorus_depth_dial.setRange(1, 30)  # 1 to 30 ms
+        self.chorus_depth_dial.setValue(int(config.chorus_depth * 1000))
+        self.chorus_depth_dial.valueChanged.connect(self.update_chorus_depth)
+        self.chorus_depth_dial.setNotchesVisible(True)
+        chorus_layout.addWidget(self.chorus_depth_dial, 2, 1)
+
         self.chorus_depth_label = QLabel(f"{config.chorus_depth * 1000:.1f} ms")
-        chorus_layout.addWidget(self.chorus_depth_label, 2, 5)
-        chorus_layout.setRowStretch(2, 1)
+        self.chorus_depth_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(self.chorus_depth_label, 3, 1)
 
         # Chorus mix control
-        chorus_layout.addWidget(QLabel("Mix (Dry ↔ Wet):"), 3, 0)
-        self.chorus_mix_slider = QSlider(Qt.Horizontal)
-        self.chorus_mix_slider.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.chorus_mix_slider.setValue(int(config.chorus_mix * 100))
-        self.chorus_mix_slider.valueChanged.connect(self.update_chorus_mix)
-        chorus_layout.addWidget(self.chorus_mix_slider, 3, 1, 1, 4)
+        mix_label = QLabel("Mix")
+        mix_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(mix_label, 1, 2)
+
+        self.chorus_mix_dial = QDial()
+        self.chorus_mix_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.chorus_mix_dial.setValue(int(config.chorus_mix * 100))
+        self.chorus_mix_dial.valueChanged.connect(self.update_chorus_mix)
+        self.chorus_mix_dial.setNotchesVisible(True)
+        chorus_layout.addWidget(self.chorus_mix_dial, 2, 2)
+
         self.chorus_mix_label = QLabel(f"{config.chorus_mix:.2f}")
-        chorus_layout.addWidget(self.chorus_mix_label, 3, 5)
-        chorus_layout.setRowStretch(3, 1)
+        self.chorus_mix_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(self.chorus_mix_label, 3, 2)
 
         # Visualization toggle and visualizations at the bottom
         viz_toggle_layout = QHBoxLayout()
@@ -679,16 +817,16 @@ class SynthGUI(QMainWindow):
         bottom_layout = QHBoxLayout()
         main_layout.addLayout(bottom_layout)
 
-        # Instructions
-        instruction_text = (
-            "Play notes using your keyboard (A-K, W,E,T,Y,U,O,P).\n"
-            "Z/X: Change octave down/up.\n"
-            "1-4: Change waveform (sine, square, triangle, sawtooth).\n"
-            "5-0, -, =: Adjust ADSR parameters.\n"
-            "[/]: Decrease/Increase volume."
-        )
-        instructions = QLabel(instruction_text)
-        bottom_layout.addWidget(instructions, alignment=Qt.AlignLeft)
+        # # Instructions
+        # instruction_text = (
+        #     "Play notes using your keyboard (A-K, W,E,T,Y,U,O,P).\n"
+        #     "Z/X: Change octave down/up.\n"
+        #     "1-4: Change waveform (sine, square, triangle, sawtooth).\n"
+        #     "5-0, -, =: Adjust ADSR parameters.\n"
+        #     "[/]: Decrease/Increase volume."
+        # )
+        # instructions = QLabel(instruction_text)
+        # bottom_layout.addWidget(instructions, alignment=Qt.AlignLeft)
 
         # Exit button
         exit_button = QPushButton("Exit")
@@ -791,39 +929,36 @@ class SynthGUI(QMainWindow):
             self.octave_label.setText(current_octave_text)
 
         # Check if filter cutoff has changed and update GUI if needed
-        if self.cutoff_slider.value() != filter.cutoff:
-            self.cutoff_slider.setValue(int(filter.cutoff))
+        if self.cutoff_dial.value() != filter.cutoff:
+            self.cutoff_dial.setValue(int(filter.cutoff))
             self.cutoff_label.setText(f"{filter.cutoff:.0f} Hz")
 
         # Check if filter resonance has changed and update GUI if needed
-        if self.resonance_slider.value() != int(filter.resonance * 100):
-            self.resonance_slider.setValue(int(filter.resonance * 100))
+        if self.resonance_dial.value() != int(filter.resonance * 100):
+            self.resonance_dial.setValue(int(filter.resonance * 100))
             self.resonance_label.setText(f"{filter.resonance:.2f}")
 
         # Check if filter envelope amount has changed and update GUI
-        if self.filter_env_amount_slider.value() != adsr.filter_env_amount:
-            self.filter_env_amount_slider.setValue(int(adsr.filter_env_amount))
+        if self.filter_env_amount_dial.value() != adsr.filter_env_amount:
+            self.filter_env_amount_dial.setValue(int(adsr.filter_env_amount))
             self.filter_env_amount_label.setText(f"{adsr.filter_env_amount:.0f} Hz")
 
-        # Check if LFO attack time has changed and update GUI if needed
-        if self.lfo_attack_slider.value() != int(config.lfo_attack_time * 10):
-            self.lfo_attack_slider.setValue(int(config.lfo_attack_time * 10))
-            self.lfo_attack_label.setText(f"{config.lfo_attack_time:.1f} s")
-
-        # Check if LFO rate has changed and update GUI if needed
-        if self.lfo_rate_slider.value() != int(config.lfo_rate * 10):
-            self.lfo_rate_slider.setValue(int(config.lfo_rate * 10))
+        # Check if LFO parameters have changed and update GUI if needed
+        if self.lfo_rate_dial.value() != int(config.lfo_rate * 10):
+            self.lfo_rate_dial.setValue(int(config.lfo_rate * 10))
             self.lfo_rate_label.setText(f"{config.lfo_rate:.1f} Hz")
 
-        # Check if LFO delay time has changed and update GUI if needed
-        if self.lfo_delay_slider.value() != int(config.lfo_delay_time * 10):
-            self.lfo_delay_slider.setValue(int(config.lfo_delay_time * 10))
-            self.lfo_delay_label.setText(f"{config.lfo_delay_time:.1f} s")
-
-        # Check if LFO depth has changed and update GUI if needed
-        if self.lfo_depth_slider.value() != int(config.lfo_depth * 100):
-            self.lfo_depth_slider.setValue(int(config.lfo_depth * 100))
+        if self.lfo_depth_dial.value() != int(config.lfo_depth * 100):
+            self.lfo_depth_dial.setValue(int(config.lfo_depth * 100))
             self.lfo_depth_label.setText(f"{config.lfo_depth:.2f}")
+
+        if self.lfo_attack_dial.value() != int(config.lfo_attack_time * 10):
+            self.lfo_attack_dial.setValue(int(config.lfo_attack_time * 10))
+            self.lfo_attack_label.setText(f"{config.lfo_attack_time:.1f} s")
+
+        if self.lfo_delay_dial.value() != int(config.lfo_delay_time * 10):
+            self.lfo_delay_dial.setValue(int(config.lfo_delay_time * 10))
+            self.lfo_delay_label.setText(f"{config.lfo_delay_time:.1f} s")
 
         # Check if LFO enabled status has changed and update GUI if needed
         if self.lfo_enable_checkbox.isChecked() != config.lfo_enabled:
@@ -837,29 +972,28 @@ class SynthGUI(QMainWindow):
         if self.drive_enable_checkbox.isChecked() != config.drive_on:
             self.drive_enable_checkbox.setChecked(config.drive_on)
 
-        if self.drive_slider.value() != int(config.drive_gain * 100):
-            self.drive_slider.setValue(int(config.drive_gain * 100))
+        if self.drive_dial.value() != int(config.drive_gain * 100):
+            self.drive_dial.setValue(int(config.drive_gain * 100))
             self.drive_label.setText(f"{config.drive_gain:.1f}")
 
         # Check if delay parameters have changed and update GUI if needed
         if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
             self.delay_enable_checkbox.setChecked(config.delay_enabled)
-
         if self.delay_sync_checkbox.isChecked() != config.delay_sync_enabled:
             self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
             self.update_delay_sync_controls()
 
-        if self.delay_time_slider.value() != int(config.delay_time_ms):
-            self.delay_time_slider.setValue(int(config.delay_time_ms))
+        if self.delay_time_dial.value() != int(config.delay_time_ms):
+            self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
-        if self.delay_feedback_slider.value() != int(config.delay_feedback * 100):
-            self.delay_feedback_slider.setValue(int(config.delay_feedback * 100))
+        if self.delay_feedback_dial.value() != int(config.delay_feedback * 100):
+            self.delay_feedback_dial.setValue(int(config.delay_feedback * 100))
             self.delay_feedback_label.setText(f"{config.delay_feedback:.2f}")
 
-        if self.delay_mix_slider.value() != int(config.delay_mix * 100):
-            self.delay_mix_slider.setValue(int(config.delay_mix * 100))
+        if self.delay_mix_dial.value() != int(config.delay_mix * 100):
+            self.delay_mix_dial.setValue(int(config.delay_mix * 100))
             self.delay_mix_label.setText(f"{config.delay_mix:.2f}")
 
         if self.delay_division_combo.currentText() != config.delay_division:
@@ -871,52 +1005,52 @@ class SynthGUI(QMainWindow):
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
 
-        if self.attack_slider.value() != int(adsr.adsr['attack'] * 100):
-            self.attack_slider.setValue(int(adsr.adsr['attack'] * 100))
+        if self.attack_dial.value() != int(adsr.adsr['attack'] * 100):
+            self.attack_dial.setValue(int(adsr.adsr['attack'] * 100))
             self.attack_label.setText(f"{adsr.adsr['attack']:.2f} s")
             adsr_changed = True
 
-        if self.decay_slider.value() != int(adsr.adsr['decay'] * 100):
-            self.decay_slider.setValue(int(adsr.adsr['decay'] * 100))
+        if self.decay_dial.value() != int(adsr.adsr['decay'] * 100):
+            self.decay_dial.setValue(int(adsr.adsr['decay'] * 100))
             self.decay_label.setText(f"{adsr.adsr['decay']:.2f} s")
             adsr_changed = True
 
-        if self.sustain_slider.value() != int(adsr.adsr['sustain'] * 100):
-            self.sustain_slider.setValue(int(adsr.adsr['sustain'] * 100))
+        if self.sustain_dial.value() != int(adsr.adsr['sustain'] * 100):
+            self.sustain_dial.setValue(int(adsr.adsr['sustain'] * 100))
             self.sustain_label.setText(f"{adsr.adsr['sustain']:.2f}")
             adsr_changed = True
 
-        if self.release_slider.value() != int(adsr.adsr['release'] * 100):
-            self.release_slider.setValue(int(adsr.adsr['release'] * 100))
+        if self.release_dial.value() != int(adsr.adsr['release'] * 100):
+            self.release_dial.setValue(int(adsr.adsr['release'] * 100))
             self.release_label.setText(f"{adsr.adsr['release']:.2f} s")
             adsr_changed = True
 
         # Check if filter ADSR parameters have changed
         filter_adsr_changed = False
 
-        if self.filter_attack_slider.value() != int(adsr.filter_adsr['attack'] * 100):
-            self.filter_attack_slider.setValue(int(adsr.filter_adsr['attack'] * 100))
+        if self.filter_attack_dial.value() != int(adsr.filter_adsr['attack'] * 100):
+            self.filter_attack_dial.setValue(int(adsr.filter_adsr['attack'] * 100))
             self.filter_attack_label.setText(f"{adsr.filter_adsr['attack']:.2f} s")
             filter_adsr_changed = True
 
-        if self.filter_decay_slider.value() != int(adsr.filter_adsr['decay'] * 100):
-            self.filter_decay_slider.setValue(int(adsr.filter_adsr['decay'] * 100))
+        if self.filter_decay_dial.value() != int(adsr.filter_adsr['decay'] * 100):
+            self.filter_decay_dial.setValue(int(adsr.filter_adsr['decay'] * 100))
             self.filter_decay_label.setText(f"{adsr.filter_adsr['decay']:.2f} s")
             filter_adsr_changed = True
 
-        if self.filter_sustain_slider.value() != int(adsr.filter_adsr['sustain'] * 100):
-            self.filter_sustain_slider.setValue(int(adsr.filter_adsr['sustain'] * 100))
+        if self.filter_sustain_dial.value() != int(adsr.filter_adsr['sustain'] * 100):
+            self.filter_sustain_dial.setValue(int(adsr.filter_adsr['sustain'] * 100))
             self.filter_sustain_label.setText(f"{adsr.filter_adsr['sustain']:.2f}")
             filter_adsr_changed = True
 
-        if self.filter_release_slider.value() != int(adsr.filter_adsr['release'] * 100):
-            self.filter_release_slider.setValue(int(adsr.filter_adsr['release'] * 100))
+        if self.filter_release_dial.value() != int(adsr.filter_adsr['release'] * 100):
+            self.filter_release_dial.setValue(int(adsr.filter_adsr['release'] * 100))
             self.filter_release_label.setText(f"{adsr.filter_adsr['release']:.2f} s")
             filter_adsr_changed = True
 
         # Check if volume has changed
-        if self.volume_slider.value() != int(config.volume * 100):
-            self.volume_slider.setValue(int(config.volume * 100))
+        if self.volume_dial.value() != int(config.volume * 100):
+            self.volume_dial.setValue(int(config.volume * 100))
             self.volume_label.setText(f"{config.volume:.2f}")
 
         # Check if delay ping-pong status has changed and update GUI if needed
@@ -927,16 +1061,16 @@ class SynthGUI(QMainWindow):
         if self.chorus_enable_checkbox.isChecked() != config.chorus_enabled:
             self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
 
-        if self.chorus_rate_slider.value() != int(config.chorus_rate * 10):
-            self.chorus_rate_slider.setValue(int(config.chorus_rate * 10))
+        if self.chorus_rate_dial.value() != int(config.chorus_rate * 10):
+            self.chorus_rate_dial.setValue(int(config.chorus_rate * 10))
             self.chorus_rate_label.setText(f"{config.chorus_rate:.1f} Hz")
 
-        if self.chorus_depth_slider.value() != int(config.chorus_depth * 1000):
-            self.chorus_depth_slider.setValue(int(config.chorus_depth * 1000))
+        if self.chorus_depth_dial.value() != int(config.chorus_depth * 1000):
+            self.chorus_depth_dial.setValue(int(config.chorus_depth * 1000))
             self.chorus_depth_label.setText(f"{config.chorus_depth * 1000:.1f} ms")
 
-        if self.chorus_mix_slider.value() != int(config.chorus_mix * 100):
-            self.chorus_mix_slider.setValue(int(config.chorus_mix * 100))
+        if self.chorus_mix_dial.value() != int(config.chorus_mix * 100):
+            self.chorus_mix_dial.setValue(int(config.chorus_mix * 100))
             self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
 
         # Update ADSR curves if parameters changed
@@ -1142,7 +1276,7 @@ class SynthGUI(QMainWindow):
         # If enabling sync, update delay time from BPM
         if config.delay_sync_enabled:
             self.update_delay_from_bpm()
-            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
@@ -1151,8 +1285,8 @@ class SynthGUI(QMainWindow):
         # Show/hide sync controls based on sync checkbox state
         self.tempo_sync_frame.setVisible(config.delay_sync_enabled)
 
-        # Enable/disable manual time slider based on sync setting
-        self.delay_time_slider.setEnabled(not config.delay_sync_enabled)
+        # Enable/disable manual time dial based on sync setting
+        self.delay_time_dial.setEnabled(not config.delay_sync_enabled)
 
     def update_delay_time(self, value):
         """Update the delay time setting."""
@@ -1182,7 +1316,7 @@ class SynthGUI(QMainWindow):
             self.update_delay_from_bpm()
 
             # Update displayed values
-            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
@@ -1198,7 +1332,7 @@ class SynthGUI(QMainWindow):
             self.update_delay_from_bpm()
 
             # Update displayed values
-            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
@@ -1215,7 +1349,7 @@ class SynthGUI(QMainWindow):
             self.update_delay_from_bpm()
 
             # Update displayed delay time values
-            self.delay_time_slider.setValue(int(config.delay_time_ms))
+            self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
 
