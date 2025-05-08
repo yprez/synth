@@ -6,14 +6,7 @@ sense of multiple voices playing in unison.
 """
 
 import numpy as np
-from qwerty_synth.config import sample_rate
-
-# Default chorus parameters
-DEFAULT_RATE = 0.5  # Hz - speed of modulation
-DEFAULT_DEPTH = 0.007  # Seconds - depth of modulation (7ms is typical)
-DEFAULT_MIX = 0.5  # Dry/wet mix
-DEFAULT_VOICES = 1  # Number of chorus voices (reduced to 1 for CPU efficiency)
-
+from qwerty_synth.config import sample_rate, chorus_rate, chorus_depth, chorus_mix, chorus_voices
 
 class Chorus:
     """Chorus effect processor.
@@ -30,10 +23,10 @@ class Chorus:
             sample_rate: Sample rate in Hz
         """
         self.sample_rate = sample_rate
-        self.rate = DEFAULT_RATE
-        self.depth = DEFAULT_DEPTH
-        self.mix = DEFAULT_MIX
-        self.voices = DEFAULT_VOICES
+        self.rate = chorus_rate
+        self.depth = chorus_depth
+        self.mix = chorus_mix
+        self.voices = chorus_voices
 
         # LFO phase for each voice - for single voice, this is just one value
         self.phase = 0.0
