@@ -11,6 +11,7 @@ from qwerty_synth.chorus import Chorus
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
 
+
 # Initialize effects
 delay = Delay(config.sample_rate, config.delay_time_ms)
 chorus = Chorus(config.sample_rate)
@@ -47,6 +48,7 @@ def mark_delay_params_changed():
     global _delay_params_changed
     _delay_params_changed = True
 
+
 class Oscillator:
     """Oscillator that generates waveforms with ADSR envelope."""
 
@@ -79,11 +81,10 @@ class Oscillator:
         if self.done:
             return np.zeros(frames), np.zeros(frames)  # Return both amp and filter envs
 
-        # Generate LFO signal
-        lfo = self.lfo.generate(frames)
 
-        # Fast path for non-glide cases (most common scenario)
+        # Glide
         if self.freq == self.target_freq:
+            # Fast path for non-glide cases (most common scenario)
             # No glide needed, use constant frequency
             freq_array = np.full(frames, self.freq)
         else:
@@ -110,8 +111,11 @@ class Oscillator:
                 self.freq = self.target_freq
                 freq_array = np.full(frames, self.target_freq)
 
-        # Apply LFO modulation to pitch - only if LFO is actually doing something
-        if not np.all(lfo == 0):
+        # Generate LFO signal
+        lfo = self.lfo.generate(frames)
+
+        # Apply LFO modulation to pitch - only if LFO is enabled and actually doing something
+        if config.lfo_enabled and not np.all(lfo == 0):
             mod_freq_array = self.lfo.apply_pitch_modulation(freq_array, lfo)
         else:
             mod_freq_array = freq_array
