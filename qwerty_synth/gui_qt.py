@@ -869,26 +869,6 @@ class SynthGUI(QMainWindow):
         # Update visibility based on initial state
         self.update_visualization_visibility()
 
-        # Instructions and Exit button
-        bottom_layout = QHBoxLayout()
-        main_layout.addLayout(bottom_layout)
-
-        # # Instructions
-        # instruction_text = (
-        #     "Play notes using your keyboard (A-K, W,E,T,Y,U,O,P).\n"
-        #     "Z/X: Change octave down/up.\n"
-        #     "1-4: Change waveform (sine, square, triangle, sawtooth).\n"
-        #     "5-0, -, =: Adjust ADSR parameters.\n"
-        #     "[/]: Decrease/Increase volume."
-        # )
-        # instructions = QLabel(instruction_text)
-        # bottom_layout.addWidget(instructions, alignment=Qt.AlignLeft)
-
-        # Exit button
-        exit_button = QPushButton("Exit")
-        exit_button.clicked.connect(self.close)
-        bottom_layout.addWidget(exit_button, alignment=Qt.AlignRight)
-
         # Create the MIDI player tab
         midi_player_widget = QWidget()
         midi_player_layout = QVBoxLayout(midi_player_widget)
