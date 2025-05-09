@@ -322,15 +322,19 @@ class SynthGUI(QMainWindow):
         envelope_tabs = QTabWidget()
         main_layout.addWidget(envelope_tabs, stretch=1)
 
-        # Create the amplitude ADSR tab
+        # Create a combined envelopes tab (instead of separate amp and filter tabs)
+        envelopes_widget = QWidget()
+        envelopes_layout = QHBoxLayout(envelopes_widget)
+        envelope_tabs.addTab(envelopes_widget, "Envelopes")
+
+        # Create amp and filter envelope sections that will be placed side by side
         amp_env_widget = QWidget()
         amp_env_layout = QHBoxLayout(amp_env_widget)
-        envelope_tabs.addTab(amp_env_widget, "Amplitude Envelope")
+        envelopes_layout.addWidget(amp_env_widget)
 
-        # Create the filter ADSR tab
         filter_env_widget = QWidget()
         filter_env_layout = QHBoxLayout(filter_env_widget)
-        envelope_tabs.addTab(filter_env_widget, "Filter Envelope")
+        envelopes_layout.addWidget(filter_env_widget)
 
         # Create the LFO tab
         lfo_tab_widget = QWidget()
