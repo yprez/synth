@@ -138,16 +138,17 @@ class StepSequencer(QWidget):
 
     def setup_ui(self):
         """Set up the sequencer UI components."""
-        main_layout = QVBoxLayout(self)
+        main_layout = QHBoxLayout(self)
         self.setLayout(main_layout)
 
-        # Top controls in two rows for better organization
-        top_controls = QVBoxLayout()
-        main_layout.addLayout(top_controls)
+        # Left side controls in a vertical layout
+        controls_container = QWidget()
+        controls_layout = QVBoxLayout(controls_container)
+        main_layout.addWidget(controls_container)
 
         # First row of controls: BPM, Scale, Root Note
         controls_row1 = QHBoxLayout()
-        top_controls.addLayout(controls_row1)
+        controls_layout.addLayout(controls_row1)
 
         # BPM control
         controls_row1.addWidget(QLabel("BPM:"))
@@ -173,8 +174,14 @@ class StepSequencer(QWidget):
         self.scale_combo.currentTextChanged.connect(self.update_scale)
         controls_row1.addWidget(self.scale_combo)
 
+        controls_row1.addStretch(1)
+
+        # Second row of controls: Octave and Rows
+        controls_row2 = QHBoxLayout()
+        controls_layout.addLayout(controls_row2)
+
         # Octave selector
-        controls_row1.addWidget(QLabel("Octave:"))
+        controls_row2.addWidget(QLabel("Octave:"))
         self.octave_spinbox = QSpinBox()
         self.octave_spinbox.setRange(-3, 4)  # -3 to +4 octaves (C1 to C8)
         self.octave_spinbox.setValue(self.octave_offset)
@@ -186,49 +193,48 @@ class StepSequencer(QWidget):
         self.octave_spinbox.valueChanged.connect(self.update_octave)
         # Connect to the valueChanged signal to update the display prefix
         self.octave_spinbox.valueChanged.connect(self._update_octave_display)
-        controls_row1.addWidget(self.octave_spinbox)
+        controls_row2.addWidget(self.octave_spinbox)
 
         # Number of rows selector
-        controls_row1.addWidget(QLabel("Rows:"))
+        controls_row2.addWidget(QLabel("Rows:"))
         self.rows_spinbox = QSpinBox()
         self.rows_spinbox.setRange(4, 16)  # Allow 4 to 16 rows
         self.rows_spinbox.setValue(self.num_rows)
         self.rows_spinbox.valueChanged.connect(self.update_num_rows)
-        controls_row1.addWidget(self.rows_spinbox)
+        controls_row2.addWidget(self.rows_spinbox)
 
-        controls_row1.addStretch(1)
+        controls_row2.addStretch(1)
 
-        # Second row of controls: Start/Stop, Clear, Random
-        controls_row2 = QHBoxLayout()
-        top_controls.addLayout(controls_row2)
+        # Third row of controls: Start/Stop, Clear, Random
+        controls_row3 = QHBoxLayout()
+        controls_layout.addLayout(controls_row3)
 
         # Start/Stop button
         self.start_stop_button = QPushButton("Start")
         self.start_stop_button.clicked.connect(self.toggle_sequencer)
-        controls_row2.addWidget(self.start_stop_button)
+        controls_row3.addWidget(self.start_stop_button)
 
         # Clear button
         clear_button = QPushButton("Clear")
         clear_button.clicked.connect(self.clear_sequencer)
-        controls_row2.addWidget(clear_button)
+        controls_row3.addWidget(clear_button)
 
         # Random fill button
         random_button = QPushButton("Random")
         random_button.clicked.connect(self.random_fill_sequencer)
-        controls_row2.addWidget(random_button)
+        controls_row3.addWidget(random_button)
 
         # Add spacer to push controls to the left
-        controls_row2.addStretch(1)
+        controls_row3.addStretch(1)
 
-        # Add separator line
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        main_layout.addWidget(separator)
+        # Add spacer at the bottom of controls to push everything to the top
+        controls_layout.addStretch(1)
 
+        # Right side - Grid
         # Create a container for the grid that can be rebuilt
-        self.grid_container = QVBoxLayout()
-        main_layout.addLayout(self.grid_container)
+        grid_widget_container = QWidget()
+        self.grid_container = QVBoxLayout(grid_widget_container)
+        main_layout.addWidget(grid_widget_container, stretch=3)  # Give the grid more space
 
         # Create initial grid
         self.create_step_grid()
