@@ -103,7 +103,10 @@ class StepSequencer(QWidget):
         super().__init__(parent)
 
         # Initialize sequencer state
-        self.sequencer_steps = [[False for _ in range(16)] for _ in range(8)]
+        self.num_bars = 1  # Default to 1 bar (16 steps)
+        self.steps_per_bar = 16  # 16 steps per bar
+        self.total_steps = self.num_bars * self.steps_per_bar
+        self.sequencer_steps = [[False for _ in range(self.total_steps)] for _ in range(8)]
         self.current_step = -1  # No step active until started
         self.sequencer_running = False
 
@@ -176,7 +179,7 @@ class StepSequencer(QWidget):
 
         controls_row1.addStretch(1)
 
-        # Second row of controls: Octave and Rows
+        # Second row of controls: Octave, Rows, and Bars
         controls_row2 = QHBoxLayout()
         controls_layout.addLayout(controls_row2)
 
@@ -202,6 +205,14 @@ class StepSequencer(QWidget):
         self.rows_spinbox.setValue(self.num_rows)
         self.rows_spinbox.valueChanged.connect(self.update_num_rows)
         controls_row2.addWidget(self.rows_spinbox)
+
+        # Number of bars selector
+        controls_row2.addWidget(QLabel("Bars:"))
+        self.bars_spinbox = QSpinBox()
+        self.bars_spinbox.setRange(1, 2)  # Allow 1 or 2 bars
+        self.bars_spinbox.setValue(self.num_bars)
+        self.bars_spinbox.valueChanged.connect(self.update_num_bars)
+        controls_row2.addWidget(self.bars_spinbox)
 
         controls_row2.addStretch(1)
 
@@ -290,7 +301,7 @@ class StepSequencer(QWidget):
         self.step_buttons = []
         for row in range(self.num_rows):
             row_buttons = []
-            for col in range(16):
+            for col in range(self.total_steps):
                 button = QPushButton()
                 button.setCheckable(True)
                 button.setFixedSize(30, 30)
@@ -300,10 +311,21 @@ class StepSequencer(QWidget):
                 button.toggled.connect(self.toggle_step)
 
                 # Set color based on position (alternating groups of 4 for visual rhythm)
-                if (col // 4) % 2 == 0:
+                # Add a separator between bars by changing color pattern
+                bar_num = col // self.steps_per_bar
+                col_in_bar = col % self.steps_per_bar
+
+                if (col_in_bar // 4) % 2 == 0:
                     button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
                 else:
                     button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+
+                # Add slightly different color to 2nd bar for visual distinction
+                if bar_num == 1:
+                    if (col_in_bar // 4) % 2 == 0:
+                        button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                    else:
+                        button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
 
                 # Check if this step was active before
                 if row < len(self.sequencer_steps) and col < len(self.sequencer_steps[0]):
@@ -314,6 +336,12 @@ class StepSequencer(QWidget):
                 self.grid_layout.addWidget(button, row, col + 1)  # +1 for the note labels
                 row_buttons.append(button)
             self.step_buttons.append(row_buttons)
+
+        # Add bar number indicators
+        for bar in range(self.num_bars):
+            bar_label = QLabel(f"Bar {bar + 1}")
+            bar_label.setAlignment(Qt.AlignCenter)
+            self.grid_layout.addWidget(bar_label, self.num_rows, bar * self.steps_per_bar + 1, 1, self.steps_per_bar)
 
     def get_grid_state(self):
         """Get the current state of the grid buttons."""
@@ -327,13 +355,16 @@ class StepSequencer(QWidget):
         return state
 
     def resize_step_array(self):
-        """Resize the step array to match the current number of rows."""
+        """Resize the step array to match the current number of rows and bars."""
+        # Calculate the total steps based on bars
+        self.total_steps = self.num_bars * self.steps_per_bar
+
         # Create a new array with the right dimensions
-        new_steps = [[False for _ in range(16)] for _ in range(self.num_rows)]
+        new_steps = [[False for _ in range(self.total_steps)] for _ in range(self.num_rows)]
 
         # Copy existing states where possible
         for row in range(min(len(self.sequencer_steps), self.num_rows)):
-            for col in range(16):
+            for col in range(min(len(self.sequencer_steps[0]), self.total_steps)):
                 new_steps[row][col] = self.sequencer_steps[row][col]
 
         self.sequencer_steps = new_steps
@@ -460,6 +491,17 @@ class StepSequencer(QWidget):
         # Rebuild the entire grid
         self.create_step_grid()
 
+    def update_num_bars(self, num_bars):
+        """Update the number of bars and rebuild the grid."""
+        if num_bars == self.num_bars:
+            return  # No change
+
+        self.num_bars = num_bars
+        self.total_steps = self.num_bars * self.steps_per_bar
+
+        # Rebuild the entire grid
+        self.create_step_grid()
+
     def toggle_sequencer(self):
         """Start or stop the sequencer."""
         if self.sequencer_running:
@@ -470,23 +512,32 @@ class StepSequencer(QWidget):
 
             # Reset highlight on all buttons
             for row in range(self.num_rows):
-                for col in range(16):
+                for col in range(self.total_steps):
                     button = self.step_buttons[row][col]
                     if button.isChecked():
                         button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
                     else:
                         # Restore original color
-                        if (col // 4) % 2 == 0:
-                            button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                        bar_num = col // self.steps_per_bar
+                        col_in_bar = col % self.steps_per_bar
+
+                        if bar_num == 0:
+                            if (col_in_bar // 4) % 2 == 0:
+                                button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                            else:
+                                button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
                         else:
-                            button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                            if (col_in_bar // 4) % 2 == 0:
+                                button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                            else:
+                                button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
         else:
             # Start the sequencer
             # Calculate step interval based on BPM
             step_interval = int(60000 / self.bpm / 4)  # 16th notes
             self.sequencer_timer.setInterval(step_interval)
             self.sequencer_timer.setSingleShot(False)  # Ensure continuous timer
-            self.current_step = 15  # Will advance to 0 on first step
+            self.current_step = self.total_steps - 1  # Will advance to 0 on first step
             self.sequencer_timer.start()
             self.sequencer_running = True
             self.start_stop_button.setText("Stop")
@@ -494,20 +545,29 @@ class StepSequencer(QWidget):
     def advance_sequence(self):
         """Advance the sequencer to the next step and play notes."""
         # Clear highlight from the current step
-        if self.current_step >= 0:
+        if self.current_step >= 0 and self.current_step < self.total_steps:
             for row in range(self.num_rows):
                 button = self.step_buttons[row][self.current_step]
                 if button.isChecked():
                     button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
                 else:
                     # Restore original color
-                    if (self.current_step // 4) % 2 == 0:
-                        button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                    bar_num = self.current_step // self.steps_per_bar
+                    col_in_bar = self.current_step % self.steps_per_bar
+
+                    if bar_num == 0:
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                        else:
+                            button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
                     else:
-                        button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                        else:
+                            button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
 
         # Move to next step
-        self.current_step = (self.current_step + 1) % 16
+        self.current_step = (self.current_step + 1) % self.total_steps
 
         # Highlight the current step
         for row in range(self.num_rows):
@@ -527,20 +587,29 @@ class StepSequencer(QWidget):
     def clear_sequencer(self):
         """Clear all steps in the sequencer."""
         # Reset internal state - clear all steps
-        self.sequencer_steps = [[False for _ in range(16)] for _ in range(max(self.num_rows, len(self.sequencer_steps)))]
+        self.sequencer_steps = [[False for _ in range(self.total_steps)] for _ in range(max(self.num_rows, len(self.sequencer_steps)))]
 
         # Reset visual state - update all visible buttons
         for row in range(self.num_rows):
-            for col in range(16):
+            for col in range(self.total_steps):
                 button = self.step_buttons[row][col]
                 # Uncheck the button
                 button.setChecked(False)
 
                 # Reset to default color based on column position
-                if (col // 4) % 2 == 0:
-                    button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                bar_num = col // self.steps_per_bar
+                col_in_bar = col % self.steps_per_bar
+
+                if bar_num == 0:
+                    if (col_in_bar // 4) % 2 == 0:
+                        button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                    else:
+                        button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
                 else:
-                    button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                    if (col_in_bar // 4) % 2 == 0:
+                        button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                    else:
+                        button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
 
     def random_fill_sequencer(self):
         """Fill the sequencer with random steps."""
@@ -549,7 +618,7 @@ class StepSequencer(QWidget):
 
         # Randomly set about 15% of steps
         for row in range(self.num_rows):
-            for col in range(16):
+            for col in range(self.total_steps):
                 if np.random.random() < 0.15:
                     if row < len(self.sequencer_steps):
                         self.sequencer_steps[row][col] = True
@@ -583,7 +652,7 @@ class StepSequencer(QWidget):
             state = button.isChecked()
 
             # Ensure we're within the valid range
-            if row < len(self.sequencer_steps):
+            if row < len(self.sequencer_steps) and col < len(self.sequencer_steps[0]):
                 self.sequencer_steps[row][col] = state
 
                 # Update button appearance based on state
@@ -591,10 +660,19 @@ class StepSequencer(QWidget):
                     button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
                 else:
                     # Restore original color based on column position
-                    if (col // 4) % 2 == 0:
-                        button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                    bar_num = col // self.steps_per_bar
+                    col_in_bar = col % self.steps_per_bar
+
+                    if bar_num == 0:
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                        else:
+                            button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
                     else:
-                        button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                        else:
+                            button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
 
     def _update_octave_display(self, value):
         """Update the display format of the octave spinbox."""
