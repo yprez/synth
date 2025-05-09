@@ -12,13 +12,26 @@ from qwerty_synth import controller  # Import the controller module
 # Add a reference to store the GUI instance
 gui_instance = None
 
-# Note mapping
-key_note_map = {
-    'a': 261.63, 'w': 277.18, 's': 293.66, 'e': 311.13,
-    'd': 329.63, 'f': 349.23, 't': 369.99, 'g': 392.00,
-    'y': 415.30, 'h': 440.00, 'u': 466.16, 'j': 493.88,
-    'k': 523.25, 'o': 554.37, 'l': 587.33, 'p': 622.25,
-    ';': 659.25, "'": 698.46
+# MIDI note mapping (instead of direct frequency mapping)
+key_midi_map = {
+    'a': 60,  # C4 (middle C)
+    'w': 61,  # C#4
+    's': 62,  # D4
+    'e': 63,  # D#4
+    'd': 64,  # E4
+    'f': 65,  # F4
+    't': 66,  # F#4
+    'g': 67,  # G4
+    'y': 68,  # G#4
+    'h': 69,  # A4 (440Hz)
+    'u': 70,  # A#4
+    'j': 71,  # B4
+    'k': 72,  # C5
+    'o': 73,  # C#5
+    'l': 74,  # D5
+    'p': 75,  # D#5
+    ';': 76,  # E5
+    "'": 77,  # F5
 }
 
 
@@ -29,9 +42,9 @@ def on_press(key):
     try:
         k = key.char.lower()
 
-        if k in key_note_map:
-            base_freq = key_note_map[k]
-            freq = base_freq * (2 ** (config.octave_offset / 12))
+        if k in key_midi_map:
+            midi_note = key_midi_map[k] + config.octave_offset
+            freq = controller.midi_to_freq(midi_note)
 
             with config.notes_lock:
                 # Track the key press for mono mode
@@ -177,8 +190,8 @@ def on_release(key):
                     elif 'mono' in config.active_notes:
                         # Some keys still pressed - switch to the last pressed key
                         last_key = config.mono_pressed_keys[-1]
-                        base_freq = key_note_map[last_key]
-                        freq = base_freq * (2 ** (config.octave_offset / 12))
+                        midi_note = key_midi_map[last_key] + config.octave_offset
+                        freq = controller.midi_to_freq(midi_note)
 
                         # Update oscillator target frequency for glide to new note
                         osc = config.active_notes['mono']
