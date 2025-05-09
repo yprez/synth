@@ -7,9 +7,19 @@ import sounddevice as sd
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import synth
+from qwerty_synth import controller  # Import the controller module
 
 # Add a reference to store the GUI instance
 gui_instance = None
+
+# Note mapping
+key_note_map = {
+    'a': 261.63, 'w': 277.18, 's': 293.66, 'e': 311.13,
+    'd': 329.63, 'f': 349.23, 't': 369.99, 'g': 392.00,
+    'y': 415.30, 'h': 440.00, 'u': 466.16, 'j': 493.88,
+    'k': 523.25, 'o': 554.37, 'l': 587.33, 'p': 622.25,
+    ';': 659.25, "'": 698.46
+}
 
 
 def on_press(key):
@@ -19,8 +29,8 @@ def on_press(key):
     try:
         k = key.char.lower()
 
-        if k in config.key_note_map:
-            base_freq = config.key_note_map[k]
+        if k in key_note_map:
+            base_freq = key_note_map[k]
             freq = base_freq * (2 ** (config.octave_offset / 12))
 
             with config.notes_lock:
@@ -28,26 +38,17 @@ def on_press(key):
                 if k not in config.mono_pressed_keys:
                     config.mono_pressed_keys.append(k)
 
+                # Use controller to play note
                 if config.mono_mode:
-                    # In mono mode, we only keep one oscillator
-                    if 'mono' in config.active_notes:
-                        # Update existing oscillator's target frequency for glide
-                        osc = config.active_notes['mono']
-                        osc.target_freq = freq
-                        osc.key = k
-
-                        # If oscillator was released, un-release it
-                        if osc.released:
-                            osc.released = False
-                            osc.env_time = 0.0  # Reset envelope time to restart attack
-                            osc.lfo_env_time = 0.0  # Reset LFO envelope time to restart delay/attack
+                    # In mono mode, let controller handle the glide logic
+                    if 'mono' not in config.active_notes or config.active_notes['mono'].released:
+                        # No current note or released note - create new note
+                        controller.play_note(freq, duration=0)
                     else:
-                        # Create a new oscillator for the mono voice
-                        osc = synth.Oscillator(freq, config.waveform_type)
-                        osc.key = k
-                        config.active_notes['mono'] = osc
+                        # Update existing note's frequency
+                        controller.play_note(freq, duration=0)
                 else:
-                    # Polyphonic mode - normal behavior
+                    # Polyphonic mode
                     if k not in config.active_notes:
                         osc = synth.Oscillator(freq, config.waveform_type)
                         osc.key = k
@@ -176,7 +177,7 @@ def on_release(key):
                     elif 'mono' in config.active_notes:
                         # Some keys still pressed - switch to the last pressed key
                         last_key = config.mono_pressed_keys[-1]
-                        base_freq = config.key_note_map[last_key]
+                        base_freq = key_note_map[last_key]
                         freq = base_freq * (2 ** (config.octave_offset / 12))
 
                         # Update oscillator target frequency for glide to new note

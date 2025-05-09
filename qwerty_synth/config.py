@@ -16,15 +16,6 @@ waveform_buffer = np.zeros(visual_buffer_size)
 unfiltered_buffer = np.zeros(visual_buffer_size)  # Buffer for storing unfiltered waveform
 buffer_lock = threading.Lock()
 
-# Note mapping
-key_note_map = {
-    'a': 261.63, 'w': 277.18, 's': 293.66, 'e': 311.13,
-    'd': 329.63, 'f': 349.23, 't': 369.99, 'g': 392.00,
-    'y': 415.30, 'h': 440.00, 'u': 466.16, 'j': 493.88,
-    'k': 523.25, 'o': 554.37, 'l': 587.33, 'p': 622.25,
-    ';': 659.25, "'": 698.46
-}
-
 # Synth state
 active_notes = {}
 notes_lock = threading.Lock()
