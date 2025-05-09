@@ -337,11 +337,6 @@ class StepSequencer(QWidget):
                 row_buttons.append(button)
             self.step_buttons.append(row_buttons)
 
-        # Add bar number indicators
-        for bar in range(self.num_bars):
-            bar_label = QLabel(f"Bar {bar + 1}")
-            bar_label.setAlignment(Qt.AlignCenter)
-            self.grid_layout.addWidget(bar_label, self.num_rows, bar * self.steps_per_bar + 1, 1, self.steps_per_bar)
 
     def get_grid_state(self):
         """Get the current state of the grid buttons."""
