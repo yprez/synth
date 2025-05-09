@@ -244,7 +244,15 @@ class SynthGUI(QMainWindow):
         self.drive_enable_checkbox = QCheckBox("Enable Drive")
         self.drive_enable_checkbox.setChecked(config.drive_on)
         self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
-        drive_layout.addWidget(self.drive_enable_checkbox, 0, 0)
+        drive_layout.addWidget(self.drive_enable_checkbox, 0, 0, 1, 2)
+
+        # Drive type selector
+        drive_layout.addWidget(QLabel("Type:"), 0, 2)
+        self.drive_type_combo = QComboBox()
+        self.drive_type_combo.addItems(["tanh", "arctan", "cubic", "fuzz", "asymmetric"])
+        self.drive_type_combo.setCurrentText(config.drive_type)
+        self.drive_type_combo.currentTextChanged.connect(self.update_drive_type)
+        drive_layout.addWidget(self.drive_type_combo, 0, 3)
 
         # Drive gain control
         drive_gain_label = QLabel("Drive Gain")
@@ -261,6 +269,54 @@ class SynthGUI(QMainWindow):
         self.drive_label = QLabel(f"{config.drive_gain:.1f}")
         self.drive_label.setAlignment(Qt.AlignCenter)
         drive_layout.addWidget(self.drive_label, 3, 0)
+
+        # Drive tone control
+        tone_label = QLabel("Tone")
+        tone_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(tone_label, 1, 1)
+
+        self.drive_tone_dial = QDial()
+        self.drive_tone_dial.setRange(-95, 95)  # -0.95 to 0.95 (x100)
+        self.drive_tone_dial.setValue(int(config.drive_tone * 100))
+        self.drive_tone_dial.valueChanged.connect(self.update_drive_tone)
+        self.drive_tone_dial.setNotchesVisible(True)
+        drive_layout.addWidget(self.drive_tone_dial, 2, 1)
+
+        self.drive_tone_label = QLabel(f"{config.drive_tone:.2f}")
+        self.drive_tone_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(self.drive_tone_label, 3, 1)
+
+        # Drive mix control
+        mix_label = QLabel("Mix")
+        mix_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(mix_label, 1, 2)
+
+        self.drive_mix_dial = QDial()
+        self.drive_mix_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.drive_mix_dial.setValue(int(config.drive_mix * 100))
+        self.drive_mix_dial.valueChanged.connect(self.update_drive_mix)
+        self.drive_mix_dial.setNotchesVisible(True)
+        drive_layout.addWidget(self.drive_mix_dial, 2, 2)
+
+        self.drive_mix_label = QLabel(f"{config.drive_mix:.2f}")
+        self.drive_mix_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(self.drive_mix_label, 3, 2)
+
+        # Drive asymmetry control (only for asymmetric mode)
+        asym_label = QLabel("Asymmetry")
+        asym_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(asym_label, 1, 3)
+
+        self.drive_asym_dial = QDial()
+        self.drive_asym_dial.setRange(0, 90)  # 0.0 to 0.9 (x100)
+        self.drive_asym_dial.setValue(int(config.drive_asymmetry * 100))
+        self.drive_asym_dial.valueChanged.connect(self.update_drive_asymmetry)
+        self.drive_asym_dial.setNotchesVisible(True)
+        drive_layout.addWidget(self.drive_asym_dial, 2, 3)
+
+        self.drive_asym_label = QLabel(f"{config.drive_asymmetry:.2f}")
+        self.drive_asym_label.setAlignment(Qt.AlignCenter)
+        drive_layout.addWidget(self.drive_asym_label, 3, 3)
 
         # Create a tabbed widget for amp ADSR and filter ADSR
         envelope_tabs = QTabWidget()
@@ -976,6 +1032,21 @@ class SynthGUI(QMainWindow):
             self.drive_dial.setValue(int(config.drive_gain * 100))
             self.drive_label.setText(f"{config.drive_gain:.1f}")
 
+        if self.drive_type_combo.currentText() != config.drive_type:
+            self.drive_type_combo.setCurrentText(config.drive_type)
+
+        if self.drive_tone_dial.value() != int(config.drive_tone * 100):
+            self.drive_tone_dial.setValue(int(config.drive_tone * 100))
+            self.drive_tone_label.setText(f"{config.drive_tone:.2f}")
+
+        if self.drive_mix_dial.value() != int(config.drive_mix * 100):
+            self.drive_mix_dial.setValue(int(config.drive_mix * 100))
+            self.drive_mix_label.setText(f"{config.drive_mix:.2f}")
+
+        if self.drive_asym_dial.value() != int(config.drive_asymmetry * 100):
+            self.drive_asym_dial.setValue(int(config.drive_asymmetry * 100))
+            self.drive_asym_label.setText(f"{config.drive_asymmetry:.2f}")
+
         # Check if delay parameters have changed and update GUI if needed
         if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
             self.delay_enable_checkbox.setChecked(config.delay_enabled)
@@ -1261,6 +1332,28 @@ class SynthGUI(QMainWindow):
         gain = value / 100.0
         config.drive_gain = gain
         self.drive_label.setText(f"{gain:.1f}")
+
+    def update_drive_type(self, drive_type):
+        """Update the drive type setting."""
+        config.drive_type = drive_type
+
+    def update_drive_tone(self, value):
+        """Update the drive tone setting."""
+        tone = value / 100.0
+        config.drive_tone = tone
+        self.drive_tone_label.setText(f"{tone:.2f}")
+
+    def update_drive_mix(self, value):
+        """Update the drive mix setting."""
+        mix = value / 100.0
+        config.drive_mix = mix
+        self.drive_mix_label.setText(f"{mix:.2f}")
+
+    def update_drive_asymmetry(self, value):
+        """Update the drive asymmetry setting."""
+        asymmetry = value / 100.0
+        config.drive_asymmetry = asymmetry
+        self.drive_asym_label.setText(f"{asymmetry:.2f}")
 
     def update_delay_enabled(self, state):
         """Update the delay enabled setting."""
