@@ -39,7 +39,11 @@ waveform_type = 'sine'
 
 # Drive settings
 drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)
-drive_on = False         # master toggle
+drive_on = False        # master toggle
+drive_type = 'tanh'     # 'tanh', 'arctan', 'cubic', 'fuzz', 'asymmetric'
+drive_tone = 0.0        # -1.0 (dark) to 1.0 (bright)
+drive_mix = 1.0         # 0.0 (dry) to 1.0 (wet)
+drive_asymmetry = 0.2   # 0.0 (symmetric) to 0.9 (asymmetric) - for asymmetric mode
 
 # Mono mode and portamento settings
 mono_mode = False
