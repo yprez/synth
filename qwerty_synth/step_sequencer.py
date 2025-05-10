@@ -98,6 +98,14 @@ class StepSequencer(QWidget):
     # Flat keys (use flats for accidentals)
     FLAT_KEYS = ["F", "Bb/A#", "Eb/D#", "Ab/G#", "Db/C#", "Gb/F#", "Cb"]
 
+    # Note length options
+    NOTE_LENGTHS = {
+        "1/16": 1,    # Default 16th note (1 step)
+        "1/8": 2,     # 8th note (2 steps)
+        "1/4": 4,     # Quarter note (4 steps)
+        "1/2": 8,     # Half note (8 steps)
+    }
+
     def __init__(self, parent=None):
         """Initialize the step sequencer."""
         super().__init__(parent)
@@ -107,8 +115,10 @@ class StepSequencer(QWidget):
         self.steps_per_bar = 16  # 16 steps per bar
         self.total_steps = self.num_bars * self.steps_per_bar
         self.sequencer_steps = [[False for _ in range(self.total_steps)] for _ in range(8)]
+        self.sequencer_note_lengths = [[1 for _ in range(self.total_steps)] for _ in range(8)]  # Default all to 1/16 note
         self.current_step = -1  # No step active until started
         self.sequencer_running = False
+        self.current_note_length = "1/16"  # Default note length
 
         self.bpm = config.bpm
 
@@ -214,7 +224,19 @@ class StepSequencer(QWidget):
         self.bars_spinbox.valueChanged.connect(self.update_num_bars)
         controls_row2.addWidget(self.bars_spinbox)
 
-        controls_row2.addStretch(1)
+        # Add note length selector to controls
+        controls_row_length = QHBoxLayout()
+        controls_layout.addLayout(controls_row_length)
+
+        # Note length selector
+        controls_row_length.addWidget(QLabel("Note Length:"))
+        self.note_length_combo = QComboBox()
+        self.note_length_combo.addItems(list(self.NOTE_LENGTHS.keys()))
+        self.note_length_combo.setCurrentText(self.current_note_length)
+        self.note_length_combo.currentTextChanged.connect(self.update_current_note_length)
+        controls_row_length.addWidget(self.note_length_combo)
+
+        controls_row_length.addStretch(1)
 
         # Third row of controls: Start/Stop, Clear, Random
         controls_row3 = QHBoxLayout()
@@ -331,6 +353,14 @@ class StepSequencer(QWidget):
                 if row < len(self.sequencer_steps) and col < len(self.sequencer_steps[0]):
                     if self.sequencer_steps[self.num_rows - 1 - row][col]:
                         button.setChecked(True)
+
+                        # Get note length for this step and show it for longer notes
+                        note_length_val = self.sequencer_note_lengths[self.num_rows - 1 - row][col]
+                        # Find the note length name based on value
+                        length_name = next((k for k, v in self.NOTE_LENGTHS.items() if v == note_length_val), None)
+                        if length_name and note_length_val > 1:
+                            button.setText(length_name.replace("1/", ""))
+
                         button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
 
                 self.grid_layout.addWidget(button, row, col + 1)  # +1 for the note labels
@@ -356,13 +386,17 @@ class StepSequencer(QWidget):
 
         # Create a new array with the right dimensions
         new_steps = [[False for _ in range(self.total_steps)] for _ in range(self.num_rows)]
+        new_note_lengths = [[1 for _ in range(self.total_steps)] for _ in range(self.num_rows)]
 
         # Copy existing states where possible
         for row in range(min(len(self.sequencer_steps), self.num_rows)):
             for col in range(min(len(self.sequencer_steps[0]), self.total_steps)):
                 new_steps[row][col] = self.sequencer_steps[row][col]
+                if row < len(self.sequencer_note_lengths) and col < len(self.sequencer_note_lengths[0]):
+                    new_note_lengths[row][col] = self.sequencer_note_lengths[row][col]
 
         self.sequencer_steps = new_steps
+        self.sequencer_note_lengths = new_note_lengths
 
     def _generate_scale_notes(self):
         """Generate MIDI note values for the current scale and octave."""
@@ -440,7 +474,7 @@ class StepSequencer(QWidget):
         # We want 16th notes so divide by 4
         step_interval = int(60000 / bpm / 4)
         # Calculate step duration - use a slightly shorter duration to prevent overlap
-        self.step_duration = (step_interval / 1000) * 0.8  # 80% of step interval
+        self.step_duration = (step_interval / 1000) * 0.9  # 90% of step interval
 
         if self.sequencer_running:
             # Update timer if running
@@ -577,19 +611,26 @@ class StepSequencer(QWidget):
         for row in range(self.num_rows):
             if self.sequencer_steps[row][self.current_step]:
                 midi_note = self.sequencer_notes[row]
-                play_midi_note(midi_note, self.step_duration - note_release_buffer, 0.8)
+
+                # Get note length for this step (multiplier of base step duration)
+                note_length_multiplier = self.sequencer_note_lengths[row][self.current_step]
+                note_duration = self.step_duration * note_length_multiplier - note_release_buffer
+
+                play_midi_note(midi_note, note_duration, 0.8)
 
     def clear_sequencer(self):
         """Clear all steps in the sequencer."""
         # Reset internal state - clear all steps
         self.sequencer_steps = [[False for _ in range(self.total_steps)] for _ in range(max(self.num_rows, len(self.sequencer_steps)))]
+        self.sequencer_note_lengths = [[1 for _ in range(self.total_steps)] for _ in range(max(self.num_rows, len(self.sequencer_steps)))]
 
         # Reset visual state - update all visible buttons
         for row in range(self.num_rows):
             for col in range(self.total_steps):
                 button = self.step_buttons[row][col]
-                # Uncheck the button
+                # Uncheck the button and clear text
                 button.setChecked(False)
+                button.setText("")
 
                 # Reset to default color based on column position
                 bar_num = col // self.steps_per_bar
@@ -617,8 +658,20 @@ class StepSequencer(QWidget):
                 if np.random.random() < 0.15:
                     if row < len(self.sequencer_steps):
                         self.sequencer_steps[row][col] = True
+
+                        # Choose a random note length with higher probability for shorter notes
+                        length_keys = list(self.NOTE_LENGTHS.keys())
+                        weights = [0.6, 0.3, 0.1, 0.0, 0.0, 0.0]  # Higher probability for shorter notes
+                        rand_length = np.random.choice(length_keys, p=weights)
+                        self.sequencer_note_lengths[row][col] = self.NOTE_LENGTHS[rand_length]
+
                         button = self.step_buttons[row][col]
                         button.setChecked(True)
+
+                        # Show note length for longer notes
+                        if self.NOTE_LENGTHS[rand_length] > 1:
+                            button.setText(rand_length.replace("1/", ""))
+
                         button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
 
     def stop(self):
@@ -650,10 +703,21 @@ class StepSequencer(QWidget):
             if row < len(self.sequencer_steps) and col < len(self.sequencer_steps[0]):
                 self.sequencer_steps[row][col] = state
 
-                # Update button appearance based on state
+                # Apply current note length to this step if it's toggled on
                 if state:
+                    self.sequencer_note_lengths[row][col] = self.NOTE_LENGTHS[self.current_note_length]
+
+                    # Visual indicator of note length (modify button text)
+                    if self.NOTE_LENGTHS[self.current_note_length] > 1:
+                        button.setText(self.current_note_length.replace("1/", ""))
+                    else:
+                        button.setText("")
+
                     button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
                 else:
+                    # Clear the text when toggled off
+                    button.setText("")
+
                     # Restore original color based on column position
                     bar_num = col // self.steps_per_bar
                     col_in_bar = col % self.steps_per_bar
@@ -675,3 +739,7 @@ class StepSequencer(QWidget):
             self.octave_spinbox.setPrefix("+")
         else:
             self.octave_spinbox.setPrefix("")
+
+    def update_current_note_length(self, length):
+        """Update the current note length."""
+        self.current_note_length = length
