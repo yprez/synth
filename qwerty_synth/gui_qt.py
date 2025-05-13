@@ -453,7 +453,7 @@ class SynthGUI(QMainWindow):
         self.adsr_curve = self.adsr_plot.plot(
             np.arange(len(adsr.adsr_curve)),
             adsr.adsr_curve,
-            pen=pg.mkPen('b', width=2)
+            pen=pg.mkPen((100, 200, 255), width=2)
         )
         self.adsr_plot.setYRange(0, 1.1)
         self.adsr_plot.setXRange(0, len(adsr.adsr_curve))
@@ -841,7 +841,7 @@ class SynthGUI(QMainWindow):
         # Remove legend and unfiltered curve
         self.wave_curve = self.wave_plot.plot(
             np.zeros(self.window_size),
-            pen=pg.mkPen('b', width=2)
+            pen=pg.mkPen('g', width=2)
         )
         self.wave_plot.setYRange(-1, 1)
         self.wave_plot.setXRange(0, 500)
