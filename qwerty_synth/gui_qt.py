@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QFileDialog, QProgressBar, QDial
 )
 import pyqtgraph as pg
+import qdarkstyle
 
 from qwerty_synth import config
 from qwerty_synth import adsr
@@ -1663,9 +1664,13 @@ def start_gui():
     """Start the GUI and synth components."""
     app = QApplication(sys.argv)
 
-    # Apply white background theme for charts
-    pg.setConfigOption('background', 'w')
-    pg.setConfigOption('foreground', 'k')
+    # Apply QDarkStyle dark theme
+    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
+
+    # Apply dark theme for pyqtgraph
+    pg.setConfigOption('background', '#353535')  # Dark gray background
+    pg.setConfigOption('foreground', 'w')  # White foreground
+    pg.setConfigOption('antialias', True)
 
     # Create GUI
     gui = SynthGUI()
