@@ -51,15 +51,16 @@ def on_press(key):
                 if k not in config.mono_pressed_keys:
                     config.mono_pressed_keys.append(k)
 
-                # Use controller to play note
                 if config.mono_mode:
-                    # In mono mode, let controller handle the glide logic
+                    # In mono mode, create or update oscillator directly
                     if 'mono' not in config.active_notes or config.active_notes['mono'].released:
-                        # No current note or released note - create new note
-                        controller.play_note(freq, duration=0)
+                        # No current note or released note - create new oscillator
+                        osc = synth.Oscillator(freq, config.waveform_type)
+                        osc.key = 'mono'
+                        config.active_notes['mono'] = osc
                     else:
-                        # Update existing note's frequency
-                        controller.play_note(freq, duration=0)
+                        # Update existing oscillator's target frequency
+                        config.active_notes['mono'].target_freq = freq
                 else:
                     # Polyphonic mode
                     if k not in config.active_notes:
@@ -135,18 +136,6 @@ def on_press(key):
         elif k == ']':
             config.volume = min(1.0, config.volume + 0.05)
             print(f"Volume: {config.volume:.2f}")
-
-        # Toggle mono mode
-        elif k == 'm':
-            config.mono_mode = not config.mono_mode
-            print(f"Mono mode: {'ON' if config.mono_mode else 'OFF'}")
-            with config.notes_lock:
-                config.active_notes.clear()  # Clear notes to prevent stuck notes
-                config.mono_pressed_keys.clear()  # Clear pressed keys
-
-            # Update the GUI checkbox if GUI instance exists
-            if gui_instance is not None and gui_instance.running:
-                gui_instance.mono_checkbox.setChecked(config.mono_mode)
 
         adsr.update_adsr_curve()
 
