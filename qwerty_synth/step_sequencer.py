@@ -14,6 +14,17 @@ from qwerty_synth import config
 class StepSequencer(QWidget):
     """16-step sequencer with configurable note rows for QWERTY Synth."""
 
+    # Color constants for the dark theme
+    COLORS = {
+        'grid_primary': '#404040',      # Darker gray for first bar
+        'grid_secondary': '#353535',    # Darkest gray for first bar
+        'grid_primary_alt': '#383838',  # Darker gray for second bar
+        'grid_secondary_alt': '#2d2d2d', # Darkest gray for second bar
+        'active_step': '#2980b9',       # Blue for active steps
+        'current_step': '#4fc3f7',      # Bright cyan-blue for current playing step
+        'inactive_current': '#505050',  # Gray for inactive current step
+    }
+
     # Interval patterns for different scales (semitones)
     SCALES = {
         'Major': [0, 2, 4, 5, 7, 9, 11, 12],  # C, D, E, F, G, A, B, C
@@ -338,16 +349,16 @@ class StepSequencer(QWidget):
                 col_in_bar = col % self.steps_per_bar
 
                 if (col_in_bar // 4) % 2 == 0:
-                    button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                    button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
                 else:
-                    button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                    button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
 
                 # Add slightly different color to 2nd bar for visual distinction
                 if bar_num == 1:
                     if (col_in_bar // 4) % 2 == 0:
-                        button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                     else:
-                        button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
 
                 # Check if this step was active before
                 if row < len(self.sequencer_steps) and col < len(self.sequencer_steps[0]):
@@ -361,7 +372,7 @@ class StepSequencer(QWidget):
                         if length_name and note_length_val > 1:
                             button.setText(length_name.replace("1/", ""))
 
-                        button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
 
                 self.grid_layout.addWidget(button, row, col + 1)  # +1 for the note labels
                 row_buttons.append(button)
@@ -544,7 +555,7 @@ class StepSequencer(QWidget):
                 for col in range(self.total_steps):
                     button = self.step_buttons[row][col]
                     if button.isChecked():
-                        button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
                     else:
                         # Restore original color
                         bar_num = col // self.steps_per_bar
@@ -552,14 +563,14 @@ class StepSequencer(QWidget):
 
                         if bar_num == 0:
                             if (col_in_bar // 4) % 2 == 0:
-                                button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
                             else:
-                                button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
                         else:
                             if (col_in_bar // 4) % 2 == 0:
-                                button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                             else:
-                                button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
+                                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
         else:
             # Start the sequencer
             # Calculate step interval based on BPM
@@ -578,7 +589,7 @@ class StepSequencer(QWidget):
             for row in range(self.num_rows):
                 button = self.step_buttons[row][self.current_step]
                 if button.isChecked():
-                    button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
+                    button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
                 else:
                     # Restore original color
                     bar_num = self.current_step // self.steps_per_bar
@@ -586,14 +597,14 @@ class StepSequencer(QWidget):
 
                     if bar_num == 0:
                         if (col_in_bar // 4) % 2 == 0:
-                            button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
                         else:
-                            button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
                     else:
                         if (col_in_bar // 4) % 2 == 0:
-                            button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                         else:
-                            button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
 
         # Move to next step
         self.current_step = (self.current_step + 1) % self.total_steps
@@ -602,9 +613,9 @@ class StepSequencer(QWidget):
         for row in range(self.num_rows):
             button = self.step_buttons[row][self.current_step]
             if button.isChecked():
-                button.setStyleSheet("QPushButton { background-color: #4080ff; font-weight: bold; }")
+                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['current_step']}; font-weight: bold; }}")
             else:
-                button.setStyleSheet("QPushButton { background-color: #a0a0a0; }")
+                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['inactive_current']}; }}")
 
         # Play notes for the current step
         note_release_buffer = 0.02  # Small buffer to prevent notes from overlapping
@@ -638,14 +649,14 @@ class StepSequencer(QWidget):
 
                 if bar_num == 0:
                     if (col_in_bar // 4) % 2 == 0:
-                        button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
                     else:
-                        button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
                 else:
                     if (col_in_bar // 4) % 2 == 0:
-                        button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                     else:
-                        button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
 
     def random_fill_sequencer(self):
         """Fill the sequencer with random steps."""
@@ -672,7 +683,7 @@ class StepSequencer(QWidget):
                         if self.NOTE_LENGTHS[rand_length] > 1:
                             button.setText(rand_length.replace("1/", ""))
 
-                        button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
+                        button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
 
     def stop(self):
         """Stop the sequencer and clean up."""
@@ -713,7 +724,7 @@ class StepSequencer(QWidget):
                     else:
                         button.setText("")
 
-                    button.setStyleSheet("QPushButton { background-color: #80b0ff; }")
+                    button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
                 else:
                     # Clear the text when toggled off
                     button.setText("")
@@ -724,14 +735,14 @@ class StepSequencer(QWidget):
 
                     if bar_num == 0:
                         if (col_in_bar // 4) % 2 == 0:
-                            button.setStyleSheet("QPushButton { background-color: #e0e0e0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
                         else:
-                            button.setStyleSheet("QPushButton { background-color: #f0f0f0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
                     else:
                         if (col_in_bar // 4) % 2 == 0:
-                            button.setStyleSheet("QPushButton { background-color: #d0d0e0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                         else:
-                            button.setStyleSheet("QPushButton { background-color: #e0e0f0; }")
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
 
     def _update_octave_display(self, value):
         """Update the display format of the octave spinbox."""
