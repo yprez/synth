@@ -30,6 +30,26 @@ gui_instance = None
 class SynthGUI(QMainWindow):
     """GUI for controlling QWERTY Synth parameters using PyQt."""
 
+    # Stylesheet for toggle buttons
+    TOGGLE_BUTTON_STYLE = """
+        QPushButton {
+            background-color: #353535;
+            border: 1px solid #555555;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        QPushButton:checked {
+            background-color: #2d7d32;
+            border: 1px solid #4caf50;
+        }
+        QPushButton:hover {
+            border: 1px solid #777777;
+        }
+        QPushButton:checked:hover {
+            border: 1px solid #66bb6a;
+        }
+    """
+
     def __init__(self):
         """Initialize the GUI with PyQt5."""
         super().__init__()
@@ -156,11 +176,13 @@ class SynthGUI(QMainWindow):
         mono_layout = QHBoxLayout(mono_group)
         control_layout.addWidget(mono_group, stretch=1)
 
-        # Mono mode checkbox
-        self.mono_checkbox = QCheckBox("Mono Mode")
-        self.mono_checkbox.setChecked(config.mono_mode)
-        self.mono_checkbox.stateChanged.connect(self.update_mono_mode)
-        mono_layout.addWidget(self.mono_checkbox)
+        # Mono mode toggle button
+        self.mono_button = QPushButton("Mono Mode")
+        self.mono_button.setCheckable(True)
+        self.mono_button.setChecked(config.mono_mode)
+        self.mono_button.clicked.connect(self.update_mono_mode)
+        self.mono_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        mono_layout.addWidget(self.mono_button)
 
         # Glide time slider
         mono_layout.addWidget(QLabel("Glide"))
@@ -182,11 +204,13 @@ class SynthGUI(QMainWindow):
         filter_layout = QGridLayout(filter_group)
         filter_drive_layout.addWidget(filter_group)
 
-        # Filter enable checkbox
-        self.filter_enable_checkbox = QCheckBox("Enable Filter")
-        self.filter_enable_checkbox.setChecked(filter.filter_enabled)
-        self.filter_enable_checkbox.stateChanged.connect(self.update_filter_enabled)
-        filter_layout.addWidget(self.filter_enable_checkbox, 0, 0, 1, 3)
+        # Filter enable toggle button
+        self.filter_enable_button = QPushButton("Enable Filter")
+        self.filter_enable_button.setCheckable(True)
+        self.filter_enable_button.setChecked(filter.filter_enabled)
+        self.filter_enable_button.clicked.connect(self.update_filter_enabled)
+        self.filter_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        filter_layout.addWidget(self.filter_enable_button, 0, 0, 1, 1)
 
         # Cutoff control
         cutoff_label = QLabel("Cutoff")
@@ -241,11 +265,13 @@ class SynthGUI(QMainWindow):
         drive_layout = QGridLayout(drive_group)
         filter_drive_layout.addWidget(drive_group)
 
-        # Drive enable checkbox
-        self.drive_enable_checkbox = QCheckBox("Enable Drive")
-        self.drive_enable_checkbox.setChecked(config.drive_on)
-        self.drive_enable_checkbox.stateChanged.connect(self.update_drive_enabled)
-        drive_layout.addWidget(self.drive_enable_checkbox, 0, 0, 1, 2)
+        # Drive enable toggle button
+        self.drive_enable_button = QPushButton("Enable Drive")
+        self.drive_enable_button.setCheckable(True)
+        self.drive_enable_button.setChecked(config.drive_on)
+        self.drive_enable_button.clicked.connect(self.update_drive_enabled)
+        self.drive_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        drive_layout.addWidget(self.drive_enable_button, 0, 0, 1, 1)
 
         # Drive type selector
         drive_layout.addWidget(QLabel("Type:"), 0, 2)
@@ -565,10 +591,12 @@ class SynthGUI(QMainWindow):
         control_row = QHBoxLayout()
         lfo_layout.addLayout(control_row, 0, 0, 1, 4)
 
-        self.lfo_enable_checkbox = QCheckBox("Enable LFO")
-        self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
-        self.lfo_enable_checkbox.stateChanged.connect(self.update_lfo_enabled)
-        control_row.addWidget(self.lfo_enable_checkbox)
+        self.lfo_enable_button = QPushButton("Enable LFO")
+        self.lfo_enable_button.setCheckable(True)
+        self.lfo_enable_button.setChecked(config.lfo_enabled)
+        self.lfo_enable_button.clicked.connect(self.update_lfo_enabled)
+        self.lfo_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        control_row.addWidget(self.lfo_enable_button)
 
         control_row.addWidget(QLabel("Target:"))
         self.lfo_target_combo = QComboBox()
@@ -650,23 +678,29 @@ class SynthGUI(QMainWindow):
         control_row = QHBoxLayout()
         delay_layout.addLayout(control_row, 0, 0, 1, 4)
 
-        # Delay enable checkbox
-        self.delay_enable_checkbox = QCheckBox("Enable Delay")
-        self.delay_enable_checkbox.setChecked(config.delay_enabled)
-        self.delay_enable_checkbox.stateChanged.connect(self.update_delay_enabled)
-        control_row.addWidget(self.delay_enable_checkbox)
+        # Delay enable toggle button
+        self.delay_enable_button = QPushButton("Enable Delay")
+        self.delay_enable_button.setCheckable(True)
+        self.delay_enable_button.setChecked(config.delay_enabled)
+        self.delay_enable_button.clicked.connect(self.update_delay_enabled)
+        self.delay_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        control_row.addWidget(self.delay_enable_button)
 
-        # Ping-pong checkbox
-        self.pingpong_checkbox = QCheckBox("Ping-Pong (Stereo)")
-        self.pingpong_checkbox.setChecked(config.delay_pingpong)
-        self.pingpong_checkbox.stateChanged.connect(self.update_delay_pingpong)
-        control_row.addWidget(self.pingpong_checkbox)
+        # Ping-pong toggle button
+        self.pingpong_button = QPushButton("Ping-Pong (Stereo)")
+        self.pingpong_button.setCheckable(True)
+        self.pingpong_button.setChecked(config.delay_pingpong)
+        self.pingpong_button.clicked.connect(self.update_delay_pingpong)
+        self.pingpong_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        control_row.addWidget(self.pingpong_button)
 
-        # Tempo sync checkbox
-        self.delay_sync_checkbox = QCheckBox("Sync to Tempo")
-        self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
-        self.delay_sync_checkbox.stateChanged.connect(self.update_delay_sync)
-        control_row.addWidget(self.delay_sync_checkbox)
+        # Tempo sync toggle button
+        self.delay_sync_button = QPushButton("Sync to Tempo")
+        self.delay_sync_button.setCheckable(True)
+        self.delay_sync_button.setChecked(config.delay_sync_enabled)
+        self.delay_sync_button.clicked.connect(self.update_delay_sync)
+        self.delay_sync_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        control_row.addWidget(self.delay_sync_button)
 
         # Create frame for tempo-sync controls
         self.tempo_sync_frame = QFrame()
@@ -754,12 +788,14 @@ class SynthGUI(QMainWindow):
 
         # Chorus enable checkbox in top row
         control_row = QHBoxLayout()
-        chorus_layout.addLayout(control_row, 0, 0, 1, 3)
+        chorus_layout.addLayout(control_row, 0, 0, 1, 1)
 
-        self.chorus_enable_checkbox = QCheckBox("Enable Chorus")
-        self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
-        self.chorus_enable_checkbox.stateChanged.connect(self.update_chorus_enabled)
-        control_row.addWidget(self.chorus_enable_checkbox)
+        self.chorus_enable_button = QPushButton("Enable Chorus")
+        self.chorus_enable_button.setCheckable(True)
+        self.chorus_enable_button.setChecked(config.chorus_enabled)
+        self.chorus_enable_button.clicked.connect(self.update_chorus_enabled)
+        self.chorus_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        control_row.addWidget(self.chorus_enable_button)
 
         # Chorus rate control
         rate_label = QLabel("Rate")
@@ -813,10 +849,12 @@ class SynthGUI(QMainWindow):
         viz_toggle_layout = QHBoxLayout()
         main_layout.addLayout(viz_toggle_layout)
 
-        self.viz_enable_checkbox = QCheckBox("Enable Waveform and Spectrum Visualization (requires more CPU)")
-        self.viz_enable_checkbox.setChecked(self.visualization_enabled)
-        self.viz_enable_checkbox.stateChanged.connect(self.update_visualization_enabled)
-        viz_toggle_layout.addWidget(self.viz_enable_checkbox)
+        self.viz_enable_button = QPushButton("Enable Visualization (requires more CPU)")
+        self.viz_enable_button.setCheckable(True)
+        self.viz_enable_button.setChecked(self.visualization_enabled)
+        self.viz_enable_button.clicked.connect(self.update_visualization_enabled)
+        self.viz_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        viz_toggle_layout.addWidget(self.viz_enable_button)
 
         # Create a layout for visualization frames
         viz_layout = QHBoxLayout()
@@ -1002,16 +1040,16 @@ class SynthGUI(QMainWindow):
             self.lfo_delay_label.setText(f"{config.lfo_delay_time:.1f} s")
 
         # Check if LFO enabled status has changed and update GUI if needed
-        if self.lfo_enable_checkbox.isChecked() != config.lfo_enabled:
-            self.lfo_enable_checkbox.setChecked(config.lfo_enabled)
+        if self.lfo_enable_button.isChecked() != config.lfo_enabled:
+            self.lfo_enable_button.setChecked(config.lfo_enabled)
 
         # Check if filter enabled status has changed and update GUI if needed
-        if self.filter_enable_checkbox.isChecked() != filter.filter_enabled:
-            self.filter_enable_checkbox.setChecked(filter.filter_enabled)
+        if self.filter_enable_button.isChecked() != filter.filter_enabled:
+            self.filter_enable_button.setChecked(filter.filter_enabled)
 
         # Check if drive settings have changed and update GUI if needed
-        if self.drive_enable_checkbox.isChecked() != config.drive_on:
-            self.drive_enable_checkbox.setChecked(config.drive_on)
+        if self.drive_enable_button.isChecked() != config.drive_on:
+            self.drive_enable_button.setChecked(config.drive_on)
 
         if self.drive_dial.value() != int(config.drive_gain * 100):
             self.drive_dial.setValue(int(config.drive_gain * 100))
@@ -1033,10 +1071,10 @@ class SynthGUI(QMainWindow):
             self.drive_asym_label.setText(f"{config.drive_asymmetry:.2f}")
 
         # Check if delay parameters have changed and update GUI if needed
-        if self.delay_enable_checkbox.isChecked() != config.delay_enabled:
-            self.delay_enable_checkbox.setChecked(config.delay_enabled)
-        if self.delay_sync_checkbox.isChecked() != config.delay_sync_enabled:
-            self.delay_sync_checkbox.setChecked(config.delay_sync_enabled)
+        if self.delay_enable_button.isChecked() != config.delay_enabled:
+            self.delay_enable_button.setChecked(config.delay_enabled)
+        if self.delay_sync_button.isChecked() != config.delay_sync_enabled:
+            self.delay_sync_button.setChecked(config.delay_sync_enabled)
             self.update_delay_sync_controls()
 
         if self.delay_time_dial.value() != int(config.delay_time_ms):
@@ -1110,12 +1148,12 @@ class SynthGUI(QMainWindow):
             self.volume_label.setText(f"{config.volume:.2f}")
 
         # Check if delay ping-pong status has changed and update GUI if needed
-        if self.pingpong_checkbox.isChecked() != config.delay_pingpong:
-            self.pingpong_checkbox.setChecked(config.delay_pingpong)
+        if self.pingpong_button.isChecked() != config.delay_pingpong:
+            self.pingpong_button.setChecked(config.delay_pingpong)
 
         # Check if chorus parameters have changed and update GUI if needed
-        if self.chorus_enable_checkbox.isChecked() != config.chorus_enabled:
-            self.chorus_enable_checkbox.setChecked(config.chorus_enabled)
+        if self.chorus_enable_button.isChecked() != config.chorus_enabled:
+            self.chorus_enable_button.setChecked(config.chorus_enabled)
 
         if self.chorus_rate_dial.value() != int(config.chorus_rate * 10):
             self.chorus_rate_dial.setValue(int(config.chorus_rate * 10))
@@ -1261,7 +1299,8 @@ class SynthGUI(QMainWindow):
 
     def update_mono_mode(self, state):
         """Update the mono mode setting."""
-        config.mono_mode = (state == Qt.Checked)
+        config.mono_mode = state
+        self.mono_button.setChecked(state)
         # Clear active notes to prevent stuck notes when switching modes
         with config.notes_lock:
             config.active_notes.clear()
@@ -1302,15 +1341,18 @@ class SynthGUI(QMainWindow):
 
     def update_lfo_enabled(self, state):
         """Update the LFO enabled setting."""
-        config.lfo_enabled = (state == Qt.Checked)
+        config.lfo_enabled = state
+        self.lfo_enable_button.setChecked(state)
 
     def update_filter_enabled(self, state):
         """Update the filter enabled setting."""
-        filter.filter_enabled = (state == Qt.Checked)
+        filter.filter_enabled = state
+        self.filter_enable_button.setChecked(state)
 
     def update_drive_enabled(self, state):
         """Update the drive enabled setting."""
-        config.drive_on = (state == Qt.Checked)
+        config.drive_on = state
+        self.drive_enable_button.setChecked(state)
 
     def update_drive_gain(self, value):
         """Update the drive gain setting."""
@@ -1342,13 +1384,15 @@ class SynthGUI(QMainWindow):
 
     def update_delay_enabled(self, state):
         """Update the delay enabled setting."""
-        config.delay_enabled = (state == Qt.Checked)
+        config.delay_enabled = state
+        self.delay_enable_button.setChecked(state)
         if not config.delay_enabled:
             synth.delay.clear_cache()
 
     def update_delay_sync(self, state):
         """Update whether delay time is synced to BPM."""
-        config.delay_sync_enabled = (state == Qt.Checked)
+        config.delay_sync_enabled = state
+        self.delay_sync_button.setChecked(state)
         self.update_delay_sync_controls()
 
         # If enabling sync, update delay time from BPM
@@ -1360,7 +1404,7 @@ class SynthGUI(QMainWindow):
 
     def update_delay_sync_controls(self):
         """Show/hide appropriate controls based on sync setting."""
-        # Show/hide sync controls based on sync checkbox state
+        # Show/hide sync controls based on sync button state
         self.tempo_sync_frame.setVisible(config.delay_sync_enabled)
 
         # Enable/disable manual time dial based on sync setting
@@ -1459,13 +1503,15 @@ class SynthGUI(QMainWindow):
 
     def update_delay_pingpong(self, state):
         """Update the delay ping-pong setting."""
-        config.delay_pingpong = (state == Qt.Checked)
+        config.delay_pingpong = state
+        self.pingpong_button.setChecked(state)
         if config.delay_enabled:
             synth.delay.clear_cache()  # Clear buffers to avoid artifacts when switching modes
 
     def update_chorus_enabled(self, state):
         """Update the chorus enabled setting."""
-        config.chorus_enabled = (state == Qt.Checked)
+        config.chorus_enabled = state
+        self.chorus_enable_button.setChecked(state)
         if not config.chorus_enabled:
             synth.chorus.clear_cache()  # Clear buffers when disabling
 
@@ -1492,7 +1538,8 @@ class SynthGUI(QMainWindow):
 
     def update_visualization_enabled(self, state):
         """Update visualization enabled status and visibility."""
-        self.visualization_enabled = (state == Qt.Checked)
+        self.visualization_enabled = state
+        self.viz_enable_button.setChecked(state)
         self.update_visualization_visibility()
 
     def update_visualization_visibility(self):

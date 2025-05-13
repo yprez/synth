@@ -1,6 +1,7 @@
 """Wave folder / soft-clip drive implementation with multiple algorithms and tone control."""
 
 import numpy as np
+from scipy.signal import lfilter
 from qwerty_synth import config
 
 # Filter state for tone control (persists between buffer calls)
@@ -73,19 +74,10 @@ def apply_drive(samples):
 
         alpha = _prev_alpha
 
-        # Initialize filtered output array
-        filtered = np.zeros_like(wet_samples)
-
-        # Apply filter with state maintained between calls
-        filtered[0] = alpha * wet_samples[0] + (1 - alpha) * _prev_filtered_sample
-
-        for i in range(1, len(wet_samples)):
-            filtered[i] = alpha * wet_samples[i] + (1 - alpha) * filtered[i-1]
-
-        # Store last sample for next buffer
-        _prev_filtered_sample = filtered[-1]
-
-        wet_samples = filtered
+        # Apply vectorized filter
+        filtered_result = lfilter([alpha], [1, alpha - 1], wet_samples, zi=[_prev_filtered_sample])
+        wet_samples = filtered_result[0]  # filtered output
+        _prev_filtered_sample = filtered_result[1][0]  # updated filter state
     else:
         # Reset filter state when not using tone
         _prev_filtered_sample = 0.0

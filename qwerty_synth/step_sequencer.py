@@ -4,7 +4,7 @@ import numpy as np
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QSpinBox, QComboBox, QFrame
+    QLabel, QPushButton, QSpinBox, QComboBox
 )
 
 from qwerty_synth.controller import play_midi_note
