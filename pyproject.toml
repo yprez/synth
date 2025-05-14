@@ -12,7 +12,11 @@ dependencies = [
     "pyqt5>=5.15.11",
     "pyqtgraph>=0.13.7",
     "qdarkstyle>=3.2.3",
-    "ruff>=0.11.4",
     "scipy>=1.15.3",
     "sounddevice>=0.5.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.11.4",
 ]
