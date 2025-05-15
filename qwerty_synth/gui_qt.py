@@ -23,6 +23,7 @@ from qwerty_synth import filter
 from qwerty_synth.delay import DIV2MULT
 from qwerty_synth.step_sequencer import StepSequencer
 from qwerty_synth.controller import play_midi_file
+from qwerty_synth import record
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
@@ -980,6 +981,75 @@ class SynthGUI(QMainWindow):
         # Add spacer to push controls to the top
         midi_player_layout.addStretch(1)
 
+        # Create the recording tab
+        recording_widget = QWidget()
+        recording_layout = QVBoxLayout(recording_widget)
+        envelope_tabs.addTab(recording_widget, "Recording")
+
+        # Recording controls
+        recording_controls_group = QGroupBox("Recording Controls")
+        recording_controls_layout = QHBoxLayout(recording_controls_group)
+        recording_layout.addWidget(recording_controls_group)
+
+        # Record button
+        self.record_button = QPushButton("Start Recording")
+        self.record_button.setCheckable(True)
+        self.record_button.clicked.connect(self.toggle_recording)
+        self.record_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        recording_controls_layout.addWidget(self.record_button)
+
+        # Bit depth selector
+        recording_controls_layout.addWidget(QLabel("Bit Depth:"))
+        self.bit_depth_combo = QComboBox()
+        self.bit_depth_combo.addItems(["16-bit", "24-bit"])
+        self.bit_depth_combo.setCurrentIndex(1 if config.recording_bit_depth == 24 else 0)
+        self.bit_depth_combo.currentTextChanged.connect(self.update_bit_depth)
+        recording_controls_layout.addWidget(self.bit_depth_combo)
+
+        # Save location button
+        self.save_location_button = QPushButton("Choose Save Location...")
+        self.save_location_button.clicked.connect(self.choose_recording_location)
+        recording_controls_layout.addWidget(self.save_location_button)
+
+        # Recording status
+        recording_status_group = QGroupBox("Recording Status")
+        recording_status_layout = QVBoxLayout(recording_status_group)
+        recording_layout.addWidget(recording_status_group)
+
+        # Status label
+        self.recording_status_label = QLabel("Ready to record")
+        recording_status_layout.addWidget(self.recording_status_label)
+
+        # Current recording path
+        self.recording_path_label = QLabel("Recording will be saved automatically")
+        self.recording_path_label.setWordWrap(True)
+        recording_status_layout.addWidget(self.recording_path_label)
+
+        # Recording time
+        time_layout = QHBoxLayout()
+        recording_status_layout.addLayout(time_layout)
+
+        time_layout.addWidget(QLabel("Recording Time:"))
+        self.recording_time_label = QLabel("00:00")
+        time_layout.addWidget(self.recording_time_label)
+        time_layout.addStretch(1)
+
+        # Add a timer to update recording time
+        self.recording_timer = QTimer()
+        self.recording_timer.timeout.connect(self.update_recording_time)
+        self.recording_timer.setInterval(500)  # Update every 500ms
+
+        # Recent recordings list
+        recent_recordings_group = QGroupBox("Recent Recordings")
+        recent_recordings_layout = QVBoxLayout(recent_recordings_group)
+        recording_layout.addWidget(recent_recordings_group)
+
+        self.recent_recordings_list = QLabel("No recordings yet")
+        recent_recordings_layout.addWidget(self.recent_recordings_list)
+
+        # Add spacer to push controls to the top
+        recording_layout.addStretch(1)
+
     def start_animation(self):
         """Start the QTimer for updating plots."""
         self.timer = QTimer()
@@ -1692,6 +1762,92 @@ class SynthGUI(QMainWindow):
             progress = min(100, int((elapsed / config.midi_playback_duration) * 100))
             self.midi_progress_bar.setValue(progress)
 
+    def toggle_recording(self):
+        """Start or stop recording based on button state."""
+        if self.record_button.isChecked():
+            # Start recording
+            bit_depth = 24 if "24" in self.bit_depth_combo.currentText() else 16
+
+            if hasattr(self, 'selected_recording_path') and self.selected_recording_path:
+                # Use user-selected path if available
+                output_path = self.selected_recording_path
+            else:
+                # Let the record module generate a path
+                output_path = None
+
+            path = record.start_recording(output_path)
+
+            # Update UI
+            self.record_button.setText("Stop Recording")
+            self.recording_status_label.setText("Recording in progress")
+            self.recording_path_label.setText(f"Will be saved to: {path}")
+
+            # Start timer to update recording time
+            self.recording_timer.start()
+
+            # Disable save location button while recording
+            self.save_location_button.setEnabled(False)
+
+            # Clear the selected path
+            self.selected_recording_path = None
+        else:
+            # Stop recording
+            bit_depth = 24 if "24" in self.bit_depth_combo.currentText() else 16
+            saved_path = record.stop_recording(config.sample_rate, bit_depth)
+
+            # Update UI
+            self.record_button.setText("Start Recording")
+            self.recording_status_label.setText("Recording saved")
+            if saved_path:
+                self.recording_path_label.setText(f"Saved to: {saved_path}")
+
+                # Update recent recordings list
+                current_text = self.recent_recordings_list.text()
+                if current_text == "No recordings yet":
+                    self.recent_recordings_list.setText(os.path.basename(saved_path))
+                else:
+                    lines = current_text.split('\n')
+                    if len(lines) >= 5:  # Keep only the 5 most recent
+                        lines.pop()
+                    lines.insert(0, os.path.basename(saved_path))
+                    self.recent_recordings_list.setText('\n'.join(lines))
+
+            # Stop timer
+            self.recording_timer.stop()
+            self.recording_time_label.setText("00:00")
+
+            # Re-enable save location button
+            self.save_location_button.setEnabled(True)
+
+    def update_bit_depth(self, text):
+        """Update the recording bit depth setting."""
+        config.recording_bit_depth = 24 if "24" in text else 16
+
+    def choose_recording_location(self):
+        """Open file dialog to choose where to save the next recording."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Recording As", "", "WAV Files (*.wav);;All Files (*)"
+        )
+
+        if file_path:
+            # Add .wav extension if not present
+            if not file_path.lower().endswith('.wav'):
+                file_path += '.wav'
+
+            self.selected_recording_path = file_path
+            self.recording_path_label.setText(f"Will be saved to: {file_path}")
+
+    def update_recording_time(self):
+        """Update the recording time display."""
+        if record.is_recording():
+            # Get recording time in seconds
+            seconds = int(record.get_recording_time())
+            minutes = seconds // 60
+            seconds = seconds % 60
+
+            # Update label
+            self.recording_time_label.setText(f"{minutes:02d}:{seconds:02d}")
+
     def closeEvent(self, event):
         """Clean up when window is closed."""
         self.animation_running = False
@@ -1705,6 +1861,10 @@ class SynthGUI(QMainWindow):
         # Stop sequencer if running
         if self.sequencer:
             self.sequencer.stop()
+
+        # Stop recording if active
+        if record.is_recording():
+            record.stop_recording(config.sample_rate, config.recording_bit_depth)
 
         event.accept()
 

@@ -37,6 +37,7 @@ A minimalist real-time synthesizer built in Python using your keyboard as a pian
   - Delay effect with tempo sync and ping-pong mode
   - LFO for creating vibrato, tremolo, or filter wobble effects
   - Step sequencer with customizable scales and patterns
+  - Audio recording to WAV files (16-bit or 24-bit)
 - Real-time plots:
   - Waveform view
   - Frequency spectrum

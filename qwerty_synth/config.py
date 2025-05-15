@@ -74,3 +74,9 @@ midi_playback_active = False
 midi_playback_start_time = 0
 midi_playback_duration = 0
 midi_tempo_scale = 1.0
+
+# Recording settings
+recording_enabled = False
+recorded_audio = []
+recording_path = None
+recording_bit_depth = 24  # 16 or 24 bit

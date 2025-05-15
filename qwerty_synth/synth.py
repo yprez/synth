@@ -10,6 +10,7 @@ from qwerty_synth.delay import Delay
 from qwerty_synth.chorus import Chorus
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
+from qwerty_synth import record
 
 
 # Initialize effects
@@ -304,9 +305,9 @@ def audio_callback(outdata, frames, time_info, status):
         # Optional safety clip to prevent extreme peaks after drive
         np.clip(buffer, -1.2, 1.2, out=buffer)
 
-    # Create stereo buffers from mono buffer
-    buffer_L = buffer
-    buffer_R = buffer
+    # Start with mono signal
+    buffer_L = buffer.copy()  # Use copy to prevent unintended shared references
+    buffer_R = buffer.copy()
 
     # Apply chorus effect if enabled - before the delay
     if config.chorus_enabled:
@@ -335,12 +336,20 @@ def audio_callback(outdata, frames, time_info, status):
                 config.delay_feedback,
                 config.delay_mix
             )
-            buffer_L = buffer_R = mono_delayed
+            buffer_L = mono_delayed.copy()  # Use copy to prevent shared references
+            buffer_R = mono_delayed.copy()
 
-    # Output stereo audio - avoid unnecessary copy operations
+    # Apply volume and output to the audio device
     outdata[:, 0] = config.volume * buffer_L
     outdata[:, 1] = config.volume * buffer_R
 
+    # Add audio to recording buffer if recording is enabled
+    if record.is_recording():
+        # Create a copy of the stereo output for recording
+        stereo_frame = np.column_stack((outdata[:, 0], outdata[:, 1]))
+        record.add_audio_block(stereo_frame)
+
+    # Update visualization buffer - use mono version for simplicity
     with config.buffer_lock:
         config.waveform_buffer = np.roll(config.waveform_buffer, -frames)
         config.waveform_buffer[-frames:] = buffer
