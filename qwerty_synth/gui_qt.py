@@ -59,7 +59,7 @@ class SynthGUI(QMainWindow):
 
         # Animation control variables
         self.animation_running = True
-        self.visualization_enabled = False
+        self.visualization_enabled = True
 
         # Keep track of the last GUI update time
         self.last_update_time = time.time()
@@ -849,12 +849,10 @@ class SynthGUI(QMainWindow):
         viz_toggle_layout = QHBoxLayout()
         main_layout.addLayout(viz_toggle_layout)
 
-        self.viz_enable_button = QPushButton("Enable Visualization (requires more CPU)")
-        self.viz_enable_button.setCheckable(True)
-        self.viz_enable_button.setChecked(self.visualization_enabled)
-        self.viz_enable_button.clicked.connect(self.update_visualization_enabled)
-        self.viz_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
-        viz_toggle_layout.addWidget(self.viz_enable_button)
+        self.viz_enable_checkbox = QCheckBox("Enable Visualization (requires more CPU)")
+        self.viz_enable_checkbox.setChecked(self.visualization_enabled)
+        self.viz_enable_checkbox.toggled.connect(self.update_visualization_enabled)
+        viz_toggle_layout.addWidget(self.viz_enable_checkbox)
 
         # Create a layout for visualization frames
         viz_layout = QHBoxLayout()
@@ -1215,6 +1213,10 @@ class SynthGUI(QMainWindow):
         spectrum = np.abs(np.fft.rfft(fft_data)) / self.fft_size
         self.spec_curve.setData(self.freqs, spectrum)
 
+        # Check if visualization enabled status has changed
+        if self.viz_enable_checkbox.isChecked() != self.visualization_enabled:
+            self.viz_enable_checkbox.setChecked(self.visualization_enabled)
+
     def plot_adsr_curve(self):
         """Update the ADSR curve in the plot."""
         self.adsr_curve.setData(
@@ -1539,7 +1541,7 @@ class SynthGUI(QMainWindow):
     def update_visualization_enabled(self, state):
         """Update visualization enabled status and visibility."""
         self.visualization_enabled = state
-        self.viz_enable_button.setChecked(state)
+        self.viz_enable_checkbox.setChecked(state)
         self.update_visualization_visibility()
 
     def update_visualization_visibility(self):
