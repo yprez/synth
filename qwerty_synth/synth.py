@@ -296,7 +296,7 @@ def audio_callback(outdata, frames, time_info, status):
 
         # Apply filter with envelope modulation
         # Only apply if we have a valid cutoff (below Nyquist)
-        if filter.cutoff < config.sample_rate / 2:
+        if config.filter_cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
 
         # Apply drive effect (wave folding/soft clipping) after filter

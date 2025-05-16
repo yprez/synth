@@ -1,11 +1,8 @@
 import numpy as np
-from qwerty_synth.config import sample_rate, filter_env_amount
+from qwerty_synth import config
 from qwerty_synth import adsr
 
 
-cutoff = 10000  # Default cutoff frequency in Hz
-resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
-filter_enabled = False  # Flag to enable/disable the filter
 _last_output_1 = 0.0  # Internal state for continuity (first stage)
 _last_output_2 = 0.0  # Internal state for continuity (second stage)
 _last_input = 0.0  # Previous input sample
@@ -26,7 +23,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     global _last_output_1, _last_output_2, _last_input
 
     # If filter is disabled, return the original samples
-    if not filter_enabled:
+    if not config.filter_enabled:
         return samples
 
     # Skip processing empty arrays
@@ -34,7 +31,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
         return samples
 
     # Start with base cutoff value
-    modulated_cutoff = np.full(len(samples), cutoff)
+    modulated_cutoff = np.full(len(samples), config.filter_cutoff)
 
     # Apply LFO modulation if provided
     if lfo_modulation is not None:
@@ -44,17 +41,17 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     # Apply filter envelope modulation if provided
     if filter_envelope is not None:
         # Add the envelope contribution (envelope * amount)
-        modulated_cutoff = modulated_cutoff + (filter_envelope * filter_env_amount)
+        modulated_cutoff = modulated_cutoff + (filter_envelope * config.filter_env_amount)
 
     # Ensure the cutoff stays within reasonable bounds (20Hz to just below Nyquist)
-    modulated_cutoff = np.clip(modulated_cutoff, 20, sample_rate / 2.1)
+    modulated_cutoff = np.clip(modulated_cutoff, 20, config.sample_rate / 2.1)
 
     # Skip filtering if all cutoff values are too high
-    if np.min(modulated_cutoff) >= sample_rate / 2:
+    if np.min(modulated_cutoff) >= config.sample_rate / 2:
         return samples
 
     # Skip filtering if resonance is zero and cutoff is very high (optimization)
-    if resonance < 0.01 and np.min(modulated_cutoff) > sample_rate / 3:
+    if config.filter_resonance < 0.01 and np.min(modulated_cutoff) > config.sample_rate / 3:
         return samples
 
     # Use a faster filter implementation when cutoff is constant across all samples
@@ -71,12 +68,12 @@ def apply_filter_constant_cutoff(samples, cutoff_freq):
 
     # Calculate filter coefficient for constant cutoff
     rc = 1.0 / (2 * np.pi * cutoff_freq)
-    dt = 1.0 / sample_rate
+    dt = 1.0 / config.sample_rate
     alpha = dt / (rc + dt)
     alpha = max(0.001, min(alpha, 0.999))  # Clamp alpha for stability
 
     # Limit resonance to safe values to prevent instability
-    safe_resonance = min(resonance, 0.99)
+    safe_resonance = min(config.filter_resonance, 0.99)
     feedback = safe_resonance**2 * 0.98
 
     # Apply filter in one pass
@@ -105,12 +102,12 @@ def apply_filter_variable_cutoff(samples, modulated_cutoff):
 
     # Calculate all filter coefficients at once
     rc = 1.0 / (2 * np.pi * modulated_cutoff)
-    dt = 1.0 / sample_rate
+    dt = 1.0 / config.sample_rate
     alpha = dt / (rc + dt)
     alpha = np.clip(alpha, 0.001, 0.999)  # Clamp alpha for stability
 
     # Limit resonance to safe values to prevent instability
-    safe_resonance = min(resonance, 0.99)
+    safe_resonance = min(config.filter_resonance, 0.99)
     feedback = safe_resonance**2 * 0.98
 
     filtered = np.zeros_like(samples)

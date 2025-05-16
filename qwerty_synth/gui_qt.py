@@ -208,7 +208,7 @@ class SynthGUI(QMainWindow):
         # Filter enable toggle button
         self.filter_enable_button = QPushButton("Enable Filter")
         self.filter_enable_button.setCheckable(True)
-        self.filter_enable_button.setChecked(filter.filter_enabled)
+        self.filter_enable_button.setChecked(config.filter_enabled)
         self.filter_enable_button.clicked.connect(self.update_filter_enabled)
         self.filter_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
         filter_layout.addWidget(self.filter_enable_button, 0, 0, 1, 1)
@@ -220,12 +220,12 @@ class SynthGUI(QMainWindow):
 
         self.cutoff_dial = QDial()
         self.cutoff_dial.setRange(100, 10000)
-        self.cutoff_dial.setValue(int(filter.cutoff))
+        self.cutoff_dial.setValue(int(config.filter_cutoff))
         self.cutoff_dial.valueChanged.connect(self.update_filter_cutoff)
         self.cutoff_dial.setNotchesVisible(True)
         filter_layout.addWidget(self.cutoff_dial, 2, 0)
 
-        self.cutoff_label = QLabel(f"{filter.cutoff:.0f} Hz")
+        self.cutoff_label = QLabel(f"{config.filter_cutoff:.0f} Hz")
         self.cutoff_label.setAlignment(Qt.AlignCenter)
         filter_layout.addWidget(self.cutoff_label, 3, 0)
 
@@ -236,12 +236,12 @@ class SynthGUI(QMainWindow):
 
         self.resonance_dial = QDial()
         self.resonance_dial.setRange(0, 95)  # 0.0 to 0.95 (x100)
-        self.resonance_dial.setValue(int(filter.resonance * 100))
+        self.resonance_dial.setValue(int(config.filter_resonance * 100))
         self.resonance_dial.valueChanged.connect(self.update_filter_resonance)
         self.resonance_dial.setNotchesVisible(True)
         filter_layout.addWidget(self.resonance_dial, 2, 1)
 
-        self.resonance_label = QLabel(f"{filter.resonance:.2f}")
+        self.resonance_label = QLabel(f"{config.filter_resonance:.2f}")
         self.resonance_label.setAlignment(Qt.AlignCenter)
         filter_layout.addWidget(self.resonance_label, 3, 1)
 
@@ -1076,14 +1076,14 @@ class SynthGUI(QMainWindow):
             self.octave_label.setText(current_octave_text)
 
         # Check if filter cutoff has changed and update GUI if needed
-        if self.cutoff_dial.value() != filter.cutoff:
-            self.cutoff_dial.setValue(int(filter.cutoff))
-            self.cutoff_label.setText(f"{filter.cutoff:.0f} Hz")
+        if self.cutoff_dial.value() != config.filter_cutoff:
+            self.cutoff_dial.setValue(int(config.filter_cutoff))
+            self.cutoff_label.setText(f"{config.filter_cutoff:.0f} Hz")
 
         # Check if filter resonance has changed and update GUI if needed
-        if self.resonance_dial.value() != int(filter.resonance * 100):
-            self.resonance_dial.setValue(int(filter.resonance * 100))
-            self.resonance_label.setText(f"{filter.resonance:.2f}")
+        if self.resonance_dial.value() != int(config.filter_resonance * 100):
+            self.resonance_dial.setValue(int(config.filter_resonance * 100))
+            self.resonance_label.setText(f"{config.filter_resonance:.2f}")
 
         # Check if filter envelope amount has changed and update GUI
         if self.filter_env_amount_dial.value() != config.filter_env_amount:
@@ -1112,8 +1112,8 @@ class SynthGUI(QMainWindow):
             self.lfo_enable_button.setChecked(config.lfo_enabled)
 
         # Check if filter enabled status has changed and update GUI if needed
-        if self.filter_enable_button.isChecked() != filter.filter_enabled:
-            self.filter_enable_button.setChecked(filter.filter_enabled)
+        if self.filter_enable_button.isChecked() != config.filter_enabled:
+            self.filter_enable_button.setChecked(config.filter_enabled)
 
         # Check if drive settings have changed and update GUI if needed
         if self.drive_enable_button.isChecked() != config.drive_on:
@@ -1354,13 +1354,13 @@ class SynthGUI(QMainWindow):
     def update_filter_cutoff(self, value):
         """Update the low-pass filter cutoff frequency."""
         cutoff = float(value)
-        filter.cutoff = cutoff
+        config.filter_cutoff = cutoff
         self.cutoff_label.setText(f"{cutoff:.0f} Hz")
 
     def update_filter_resonance(self, value):
         """Update the filter resonance."""
         resonance = value / 100.0
-        filter.resonance = resonance
+        config.filter_resonance = resonance
         self.resonance_label.setText(f"{resonance:.2f}")
 
     def update_filter_env_amount(self, value):
@@ -1418,7 +1418,7 @@ class SynthGUI(QMainWindow):
 
     def update_filter_enabled(self, state):
         """Update the filter enabled setting."""
-        filter.filter_enabled = state
+        config.filter_enabled = state
         self.filter_enable_button.setChecked(state)
 
     def update_drive_enabled(self, state):

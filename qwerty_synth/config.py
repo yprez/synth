@@ -47,6 +47,11 @@ filter_adsr = {
 # Filter envelope amount (how much the envelope affects the cutoff)
 filter_env_amount = 5000  # Hz
 
+# Filter settings
+filter_cutoff = 10000  # Default cutoff frequency in Hz
+filter_resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
+filter_enabled = False  # Flag to enable/disable the filter
+
 # Drive settings
 drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)
 drive_on = False        # master toggle
