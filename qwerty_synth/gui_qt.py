@@ -10,8 +10,10 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSlider, QRadioButton, QPushButton, QGroupBox, QGridLayout,
     QCheckBox, QComboBox, QTabWidget, QSpinBox, QFrame,
-    QFileDialog, QProgressBar, QDial
+    QFileDialog, QProgressBar, QDial, QListWidget, QListWidgetItem, QLineEdit,
+    QMessageBox, QInputDialog, QShortcut
 )
+from PyQt5.QtGui import QKeySequence
 import pyqtgraph as pg
 import qdarkstyle
 
@@ -24,6 +26,7 @@ from qwerty_synth.delay import DIV2MULT
 from qwerty_synth.step_sequencer import StepSequencer
 from qwerty_synth.controller import play_midi_file
 from qwerty_synth import record
+from qwerty_synth import patch
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
@@ -74,6 +77,10 @@ class SynthGUI(QMainWindow):
         self.midi_playback_thread = None
         self.midi_paused = False
 
+        # Current patch name
+        self.current_patch_name = "Untitled"
+        self.current_patch_path = None
+
         # Set up the user interface
         self.setup_ui()
         self.running = True
@@ -83,6 +90,19 @@ class SynthGUI(QMainWindow):
 
         # Handle window close event
         self.showMaximized()  # Start maximized but with window controls
+
+        # Set up keyboard shortcuts
+        self.setup_shortcuts()
+
+    def setup_shortcuts(self):
+        """Set up keyboard shortcuts for patch management."""
+        # Ctrl+S for quick save
+        self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.save_shortcut.activated.connect(self.quick_save_patch)
+
+        # Ctrl+L for load
+        self.load_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
+        self.load_shortcut.activated.connect(self.show_load_patch_dialog)
 
     def setup_ui(self):
         """Set up the user interface components."""
@@ -382,6 +402,60 @@ class SynthGUI(QMainWindow):
         # Create the sequencer tab
         self.sequencer = StepSequencer()
         envelope_tabs.addTab(self.sequencer, "Step Sequencer")
+
+        # Create the patch management tab - add it after Step Sequencer
+        patches_widget = QWidget()
+        patches_layout = QVBoxLayout(patches_widget)
+        envelope_tabs.addTab(patches_widget, "Patches")
+
+        # Create the patch list
+        patch_list_group = QGroupBox("Available Patches")
+        patch_list_layout = QVBoxLayout(patch_list_group)
+        patches_layout.addWidget(patch_list_group)
+
+        # Search box
+        search_layout = QHBoxLayout()
+        patch_list_layout.addLayout(search_layout)
+        search_layout.addWidget(QLabel("Search:"))
+        self.patch_search = QLineEdit()
+        self.patch_search.setPlaceholderText("Filter patches...")
+        self.patch_search.textChanged.connect(self.filter_patches)
+        search_layout.addWidget(self.patch_search)
+
+        # List widget
+        self.patch_list = QListWidget()
+        self.patch_list.itemDoubleClicked.connect(self.load_selected_patch)
+        patch_list_layout.addWidget(self.patch_list)
+
+        # Current patch info
+        current_patch_layout = QHBoxLayout()
+        patch_list_layout.addLayout(current_patch_layout)
+        current_patch_layout.addWidget(QLabel("Current Patch:"))
+        self.current_patch_label = QLabel(self.current_patch_name)
+        current_patch_layout.addWidget(self.current_patch_label, stretch=1)
+
+        # Patch management buttons
+        button_layout = QHBoxLayout()
+        patch_list_layout.addLayout(button_layout)
+
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_patch)
+        button_layout.addWidget(self.save_button)
+
+        self.load_button = QPushButton("Load")
+        self.load_button.clicked.connect(self.load_selected_patch)
+        button_layout.addWidget(self.load_button)
+
+        self.rename_button = QPushButton("Rename")
+        self.rename_button.clicked.connect(self.rename_patch)
+        button_layout.addWidget(self.rename_button)
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.clicked.connect(self.delete_patch)
+        button_layout.addWidget(self.delete_button)
+
+        # Populate the patch list
+        self.refresh_patch_list()
 
         # Connect sequencer BPM to the global BPM
         if hasattr(self.sequencer, 'bpm_spinbox'):
@@ -1866,7 +1940,201 @@ class SynthGUI(QMainWindow):
         if record.is_recording():
             record.stop_recording(config.sample_rate, config.recording_bit_depth)
 
+        # Add prompt to save current settings if they've changed
+        if self.current_patch_name == "Untitled" or self.current_patch_path is None:
+            confirm = QMessageBox.question(
+                self, "Save Settings?",
+                "Would you like to save your current settings before exiting?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Yes
+            )
+
+            if confirm == QMessageBox.Cancel:
+                event.ignore()
+                return
+            elif confirm == QMessageBox.Yes:
+                self.save_patch()
+
         event.accept()
+
+    def quick_save_patch(self):
+        """Quick save with the current patch name (or prompt if untitled)."""
+        if self.current_patch_name == "Untitled":
+            self.save_patch()  # This will prompt for a name
+        else:
+            try:
+                path = patch.save_patch(self.current_patch_name)
+                self.current_patch_path = path
+                self.refresh_patch_list()
+                QMessageBox.information(self, "Patch Saved", f"Patch '{self.current_patch_name}' saved successfully.")
+            except patch.PatchError as e:
+                QMessageBox.warning(self, "Save Error", f"Error saving patch: {str(e)}")
+
+    def save_patch(self):
+        """Save current settings as a patch."""
+        name, ok = QInputDialog.getText(
+            self, "Save Patch", "Enter a name for this patch:",
+            QLineEdit.Normal, self.current_patch_name
+        )
+
+        if ok and name:
+            # Check if patch with this name already exists
+            patches = patch.list_patches()
+            for p in patches:
+                if p["name"] == name and (not self.current_patch_path or p["path"] != self.current_patch_path):
+                    # Ask for confirmation to overwrite
+                    confirm = QMessageBox.question(
+                        self, "Confirm Overwrite",
+                        f"A patch named '{name}' already exists. Overwrite?",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                    )
+                    if confirm == QMessageBox.No:
+                        return
+
+            try:
+                path = patch.save_patch(name)
+                self.current_patch_name = name
+                self.current_patch_path = path
+                self.current_patch_label.setText(name)
+                self.refresh_patch_list()
+                QMessageBox.information(self, "Patch Saved", f"Patch '{name}' saved successfully.")
+            except patch.PatchError as e:
+                QMessageBox.warning(self, "Save Error", f"Error saving patch: {str(e)}")
+
+    def load_selected_patch(self):
+        """Load the currently selected patch."""
+        selected_items = self.patch_list.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "No Selection", "Please select a patch to load.")
+            return
+
+        selected_item = selected_items[0]
+        patch_path = selected_item.data(Qt.UserRole)
+
+        self.load_patch_from_path(patch_path)
+
+    def load_patch_from_path(self, path):
+        """Load a patch from the specified path."""
+        try:
+            patch_data = patch.load_patch(path)
+            self.current_patch_name = patch_data.get("name", "Unnamed")
+            self.current_patch_path = path
+            self.current_patch_label.setText(self.current_patch_name)
+
+            # Refresh all controls to reflect loaded settings
+            # The update_plots method will automatically update the GUI controls
+            # based on the new config values on the next animation frame
+            # QMessageBox.information(self, "Patch Loaded", f"Patch '{self.current_patch_name}' loaded successfully.")
+        except patch.PatchError as e:
+            QMessageBox.warning(self, "Load Error", f"Error loading patch: {str(e)}")
+
+    def show_load_patch_dialog(self):
+        """Show a dialog to load a patch."""
+        # Simply show the patches tab
+        for i in range(self.findChild(QTabWidget).count()):
+            if self.findChild(QTabWidget).tabText(i) == "Patches":
+                self.findChild(QTabWidget).setCurrentIndex(i)
+                break
+
+    def rename_patch(self):
+        """Rename the selected patch."""
+        selected_items = self.patch_list.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "No Selection", "Please select a patch to rename.")
+            return
+
+        selected_item = selected_items[0]
+        patch_path = selected_item.data(Qt.UserRole)
+        current_name = selected_item.text()
+
+        new_name, ok = QInputDialog.getText(
+            self, "Rename Patch", "Enter a new name for this patch:",
+            QLineEdit.Normal, current_name
+        )
+
+        if ok and new_name:
+            try:
+                new_path = patch.rename_patch(patch_path, new_name)
+
+                # Update current patch name if this is the loaded patch
+                if self.current_patch_path == patch_path:
+                    self.current_patch_name = new_name
+                    self.current_patch_path = new_path
+                    self.current_patch_label.setText(new_name)
+
+                self.refresh_patch_list()
+                QMessageBox.information(self, "Patch Renamed", f"Patch renamed to '{new_name}' successfully.")
+            except patch.PatchError as e:
+                QMessageBox.warning(self, "Rename Error", f"Error renaming patch: {str(e)}")
+
+    def delete_patch(self):
+        """Delete the selected patch."""
+        selected_items = self.patch_list.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "No Selection", "Please select a patch to delete.")
+            return
+
+        selected_item = selected_items[0]
+        patch_path = selected_item.data(Qt.UserRole)
+        patch_name = selected_item.text()
+
+        confirm = QMessageBox.question(
+            self, "Confirm Delete",
+            f"Are you sure you want to delete the patch '{patch_name}'?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+
+        if confirm == QMessageBox.Yes:
+            try:
+                patch.delete_patch(patch_path)
+
+                # Reset current patch name if this was the loaded patch
+                if self.current_patch_path == patch_path:
+                    self.current_patch_name = "Untitled"
+                    self.current_patch_path = None
+                    self.current_patch_label.setText("Untitled")
+
+                self.refresh_patch_list()
+                QMessageBox.information(self, "Patch Deleted", f"Patch '{patch_name}' deleted successfully.")
+            except patch.PatchError as e:
+                QMessageBox.warning(self, "Delete Error", f"Error deleting patch: {str(e)}")
+
+    def refresh_patch_list(self):
+        """Refresh the list of available patches."""
+        self.patch_list.clear()
+
+        try:
+            patches = patch.list_patches()
+
+            for p in patches:
+                item = QListWidgetItem(p["name"])
+                item.setData(Qt.UserRole, p["path"])
+                # Use created date as tooltip
+                if "created" in p:
+                    try:
+                        # Try to format the ISO timestamp nicely
+                        created = p["created"].replace("T", " ").replace("Z", " UTC")
+                        item.setToolTip(f"Created: {created}")
+                    except:
+                        item.setToolTip(f"Created: {p['created']}")
+                self.patch_list.addItem(item)
+
+                # Select current patch if it exists
+                if self.current_patch_path and p["path"] == self.current_patch_path:
+                    self.patch_list.setCurrentItem(item)
+        except Exception as e:
+            print(f"Error refreshing patch list: {e}")
+
+    def filter_patches(self, search_text):
+        """Filter the patches list based on search text."""
+        search_text = search_text.lower()
+
+        for i in range(self.patch_list.count()):
+            item = self.patch_list.item(i)
+            if not search_text or search_text in item.text().lower():
+                item.setHidden(False)
+            else:
+                item.setHidden(True)
 
 
 def start_gui():

@@ -11,6 +11,7 @@ dependencies = [
     "pynput>=1.8.1",
     "pyqt5>=5.15.11",
     "pyqtgraph>=0.13.7",
+    "pyyaml>=6.0.2",
     "qdarkstyle>=3.2.3",
     "scipy>=1.15.3",
     "sounddevice>=0.5.1",

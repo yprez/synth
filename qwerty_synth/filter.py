@@ -1,6 +1,5 @@
 import numpy as np
 from qwerty_synth import config
-from qwerty_synth import adsr
 
 
 _last_output_1 = 0.0  # Internal state for continuity (first stage)

@@ -12,6 +12,7 @@ A minimalist real-time synthesizer built in Python using your keyboard as a pian
 - LFO modulation for pitch, volume, and filter cutoff
 - Step sequencer with scale and rhythm controls
 - Live waveform, frequency spectrum, and ADSR curve visualization
+- Patch management for saving and loading sound presets
 - A graphical user interface
 
 ## Features
@@ -54,11 +55,6 @@ A minimalist real-time synthesizer built in Python using your keyboard as a pian
 uv sync
 ```
 
-#### Or using pip:
-
-```bash
-pip install numpy sounddevice pynput matplotlib pyqt5 pyqtgraph
-```
 
 ## Running
 
@@ -87,5 +83,4 @@ Then press keys on your keyboard to play or use the GUI controls.
 ### TODO
 
 * MIDI input support
-* Save/load patches
 * Audio recording to WAV
