@@ -672,7 +672,7 @@ class StepSequencer(QWidget):
 
                         # Choose a random note length with higher probability for shorter notes
                         length_keys = list(self.NOTE_LENGTHS.keys())
-                        weights = [0.6, 0.3, 0.1, 0.0, 0.0, 0.0]  # Higher probability for shorter notes
+                        weights = [0.6, 0.3, 0.07, 0.03]  # Higher probability for shorter notes
                         rand_length = np.random.choice(length_keys, p=weights)
                         self.sequencer_note_lengths[row][col] = self.NOTE_LENGTHS[rand_length]
 
