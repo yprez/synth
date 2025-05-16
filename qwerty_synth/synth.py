@@ -134,44 +134,44 @@ class Oscillator:
 
         # Check if we're in a simple case for envelope (no release, past attack/decay)
         simple_env_case = (not self.released and
-                           self.env_time > adsr.adsr['attack'] + adsr.adsr['decay'])
+                           self.env_time > config.adsr['attack'] + config.adsr['decay'])
 
         # Fast path for sustained notes
         if simple_env_case:
-            env = np.full(frames, adsr.adsr['sustain'])
+            env = np.full(frames, config.adsr['sustain'])
             self.env_time += frames / config.sample_rate
-            self.last_env_level = adsr.adsr['sustain']
+            self.last_env_level = config.adsr['sustain']
         else:
             # Vectorized ADSR envelope generation
             time_array = self.env_time + np.arange(frames) / config.sample_rate
 
             if not self.released:
                 # Attack phase
-                attack_mask = time_array < adsr.adsr['attack']
+                attack_mask = time_array < config.adsr['attack']
                 env = np.where(attack_mask,
-                               time_array / adsr.adsr['attack'],
+                               time_array / config.adsr['attack'],
                                0)
 
                 # Decay phase
-                decay_start = adsr.adsr['attack']
-                decay_end = decay_start + adsr.adsr['decay']
+                decay_start = config.adsr['attack']
+                decay_end = decay_start + config.adsr['decay']
                 decay_mask = (time_array >= decay_start) & (time_array < decay_end)
                 env = np.where(decay_mask,
-                             1 - (1 - adsr.adsr['sustain']) * ((time_array - decay_start) / adsr.adsr['decay']),
+                             1 - (1 - config.adsr['sustain']) * ((time_array - decay_start) / config.adsr['decay']),
                              env)
 
                 # Sustain phase
                 sustain_mask = time_array >= decay_end
                 env = np.where(sustain_mask,
-                               adsr.adsr['sustain'],
+                               config.adsr['sustain'],
                                env)
             else:
                 # Release phase
-                release_mask = time_array < adsr.adsr['release']
+                release_mask = time_array < config.adsr['release']
                 env = np.where(release_mask,
-                             self.last_env_level * (1 - time_array / adsr.adsr['release']),
+                             self.last_env_level * (1 - time_array / config.adsr['release']),
                              0)
-                self.done = time_array[-1] >= adsr.adsr['release']
+                self.done = time_array[-1] >= config.adsr['release']
 
             # Update envelope trackers
             self.env_time += frames / config.sample_rate
@@ -180,45 +180,45 @@ class Oscillator:
         # Similar approach for filter envelope
         simple_filter_env_case = (
             not self.released and
-            self.filter_env_time > adsr.filter_adsr['attack'] + adsr.filter_adsr['decay']
+            self.filter_env_time > config.filter_adsr['attack'] + config.filter_adsr['decay']
         )
 
         if simple_filter_env_case:
-            filter_env = np.full(frames, adsr.filter_adsr['sustain'])
+            filter_env = np.full(frames, config.filter_adsr['sustain'])
             self.filter_env_time += frames / config.sample_rate
-            self.last_filter_env_level = adsr.filter_adsr['sustain']
+            self.last_filter_env_level = config.filter_adsr['sustain']
         else:
             # Vectorized filter ADSR envelope generation
             time_array = self.filter_env_time + np.arange(frames) / config.sample_rate
 
             if not self.released:
                 # Attack phase
-                attack_mask = time_array < adsr.filter_adsr['attack']
+                attack_mask = time_array < config.filter_adsr['attack']
                 filter_env = np.where(attack_mask,
-                                      time_array / adsr.filter_adsr['attack'],
+                                      time_array / config.filter_adsr['attack'],
                                       0)
 
                 # Decay phase
-                decay_start = adsr.filter_adsr['attack']
-                decay_end = decay_start + adsr.filter_adsr['decay']
+                decay_start = config.filter_adsr['attack']
+                decay_end = decay_start + config.filter_adsr['decay']
                 decay_mask = (time_array >= decay_start) & (time_array < decay_end)
                 filter_env = np.where(
                     decay_mask,
-                    1 - (1 - adsr.filter_adsr['sustain']) * ((time_array - decay_start) / adsr.filter_adsr['decay']),
+                    1 - (1 - config.filter_adsr['sustain']) * ((time_array - decay_start) / config.filter_adsr['decay']),
                     filter_env
                 )
 
                 # Sustain phase
                 sustain_mask = time_array >= decay_end
                 filter_env = np.where(sustain_mask,
-                                    adsr.filter_adsr['sustain'],
+                                    config.filter_adsr['sustain'],
                                     filter_env)
             else:
                 # Release phase
-                release_mask = time_array < adsr.filter_adsr['release']
+                release_mask = time_array < config.filter_adsr['release']
                 filter_env = np.where(
                     release_mask,
-                    self.last_filter_env_level * (1 - time_array / adsr.filter_adsr['release']),
+                    self.last_filter_env_level * (1 - time_array / config.filter_adsr['release']),
                     0
                 )
 

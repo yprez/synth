@@ -252,12 +252,12 @@ class SynthGUI(QMainWindow):
 
         self.filter_env_amount_dial = QDial()
         self.filter_env_amount_dial.setRange(0, 10000)
-        self.filter_env_amount_dial.setValue(int(adsr.filter_env_amount))
+        self.filter_env_amount_dial.setValue(int(config.filter_env_amount))
         self.filter_env_amount_dial.valueChanged.connect(self.update_filter_env_amount)
         self.filter_env_amount_dial.setNotchesVisible(True)
         filter_layout.addWidget(self.filter_env_amount_dial, 2, 2)
 
-        self.filter_env_amount_label = QLabel(f"{adsr.filter_env_amount:.0f} Hz")
+        self.filter_env_amount_label = QLabel(f"{config.filter_env_amount:.0f} Hz")
         self.filter_env_amount_label.setAlignment(Qt.AlignCenter)
         filter_layout.addWidget(self.filter_env_amount_label, 3, 2)
 
@@ -399,14 +399,14 @@ class SynthGUI(QMainWindow):
 
         self.attack_dial = QDial()
         self.attack_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.attack_dial.setValue(int(adsr.adsr['attack'] * 100))
+        self.attack_dial.setValue(int(config.adsr['attack'] * 100))
         self.attack_dial.valueChanged.connect(
             lambda v: self.update_adsr('attack', v/100.0)
         )
         self.attack_dial.setNotchesVisible(True)
         adsr_controls.addWidget(self.attack_dial, 1, 0)
 
-        self.attack_label = QLabel(f"{adsr.adsr['attack']:.2f} s")
+        self.attack_label = QLabel(f"{config.adsr['attack']:.2f} s")
         self.attack_label.setAlignment(Qt.AlignCenter)
         adsr_controls.addWidget(self.attack_label, 2, 0)
 
@@ -417,14 +417,14 @@ class SynthGUI(QMainWindow):
 
         self.decay_dial = QDial()
         self.decay_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.decay_dial.setValue(int(adsr.adsr['decay'] * 100))
+        self.decay_dial.setValue(int(config.adsr['decay'] * 100))
         self.decay_dial.valueChanged.connect(
             lambda v: self.update_adsr('decay', v/100.0)
         )
         self.decay_dial.setNotchesVisible(True)
         adsr_controls.addWidget(self.decay_dial, 1, 1)
 
-        self.decay_label = QLabel(f"{adsr.adsr['decay']:.2f} s")
+        self.decay_label = QLabel(f"{config.adsr['decay']:.2f} s")
         self.decay_label.setAlignment(Qt.AlignCenter)
         adsr_controls.addWidget(self.decay_label, 2, 1)
 
@@ -435,14 +435,14 @@ class SynthGUI(QMainWindow):
 
         self.sustain_dial = QDial()
         self.sustain_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.sustain_dial.setValue(int(adsr.adsr['sustain'] * 100))
+        self.sustain_dial.setValue(int(config.adsr['sustain'] * 100))
         self.sustain_dial.valueChanged.connect(
             lambda v: self.update_adsr('sustain', v/100.0)
         )
         self.sustain_dial.setNotchesVisible(True)
         adsr_controls.addWidget(self.sustain_dial, 1, 2)
 
-        self.sustain_label = QLabel(f"{adsr.adsr['sustain']:.2f}")
+        self.sustain_label = QLabel(f"{config.adsr['sustain']:.2f}")
         self.sustain_label.setAlignment(Qt.AlignCenter)
         adsr_controls.addWidget(self.sustain_label, 2, 2)
 
@@ -453,14 +453,14 @@ class SynthGUI(QMainWindow):
 
         self.release_dial = QDial()
         self.release_dial.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
-        self.release_dial.setValue(int(adsr.adsr['release'] * 100))
+        self.release_dial.setValue(int(config.adsr['release'] * 100))
         self.release_dial.valueChanged.connect(
             lambda v: self.update_adsr('release', v/100.0)
         )
         self.release_dial.setNotchesVisible(True)
         adsr_controls.addWidget(self.release_dial, 1, 3)
 
-        self.release_label = QLabel(f"{adsr.adsr['release']:.2f} s")
+        self.release_label = QLabel(f"{config.adsr['release']:.2f} s")
         self.release_label.setAlignment(Qt.AlignCenter)
         adsr_controls.addWidget(self.release_label, 2, 3)
 
@@ -497,14 +497,14 @@ class SynthGUI(QMainWindow):
 
         self.filter_attack_dial = QDial()
         self.filter_attack_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.filter_attack_dial.setValue(int(adsr.filter_adsr['attack'] * 100))
+        self.filter_attack_dial.setValue(int(config.filter_adsr['attack'] * 100))
         self.filter_attack_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('attack', v/100.0)
         )
         self.filter_attack_dial.setNotchesVisible(True)
         filter_adsr_controls.addWidget(self.filter_attack_dial, 1, 0)
 
-        self.filter_attack_label = QLabel(f"{adsr.filter_adsr['attack']:.2f} s")
+        self.filter_attack_label = QLabel(f"{config.filter_adsr['attack']:.2f} s")
         self.filter_attack_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_attack_label, 2, 0)
 
@@ -515,14 +515,14 @@ class SynthGUI(QMainWindow):
 
         self.filter_decay_dial = QDial()
         self.filter_decay_dial.setRange(1, 200)  # 0.01 to 2.0 seconds (x100)
-        self.filter_decay_dial.setValue(int(adsr.filter_adsr['decay'] * 100))
+        self.filter_decay_dial.setValue(int(config.filter_adsr['decay'] * 100))
         self.filter_decay_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('decay', v/100.0)
         )
         self.filter_decay_dial.setNotchesVisible(True)
         filter_adsr_controls.addWidget(self.filter_decay_dial, 1, 1)
 
-        self.filter_decay_label = QLabel(f"{adsr.filter_adsr['decay']:.2f} s")
+        self.filter_decay_label = QLabel(f"{config.filter_adsr['decay']:.2f} s")
         self.filter_decay_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_decay_label, 2, 1)
 
@@ -533,14 +533,14 @@ class SynthGUI(QMainWindow):
 
         self.filter_sustain_dial = QDial()
         self.filter_sustain_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
-        self.filter_sustain_dial.setValue(int(adsr.filter_adsr['sustain'] * 100))
+        self.filter_sustain_dial.setValue(int(config.filter_adsr['sustain'] * 100))
         self.filter_sustain_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('sustain', v/100.0)
         )
         self.filter_sustain_dial.setNotchesVisible(True)
         filter_adsr_controls.addWidget(self.filter_sustain_dial, 1, 2)
 
-        self.filter_sustain_label = QLabel(f"{adsr.filter_adsr['sustain']:.2f}")
+        self.filter_sustain_label = QLabel(f"{config.filter_adsr['sustain']:.2f}")
         self.filter_sustain_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_sustain_label, 2, 2)
 
@@ -551,14 +551,14 @@ class SynthGUI(QMainWindow):
 
         self.filter_release_dial = QDial()
         self.filter_release_dial.setRange(1, 300)  # 0.01 to 3.0 seconds (x100)
-        self.filter_release_dial.setValue(int(adsr.filter_adsr['release'] * 100))
+        self.filter_release_dial.setValue(int(config.filter_adsr['release'] * 100))
         self.filter_release_dial.valueChanged.connect(
             lambda v: self.update_filter_adsr('release', v/100.0)
         )
         self.filter_release_dial.setNotchesVisible(True)
         filter_adsr_controls.addWidget(self.filter_release_dial, 1, 3)
 
-        self.filter_release_label = QLabel(f"{adsr.filter_adsr['release']:.2f} s")
+        self.filter_release_label = QLabel(f"{config.filter_adsr['release']:.2f} s")
         self.filter_release_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_release_label, 2, 3)
 
@@ -1086,9 +1086,9 @@ class SynthGUI(QMainWindow):
             self.resonance_label.setText(f"{filter.resonance:.2f}")
 
         # Check if filter envelope amount has changed and update GUI
-        if self.filter_env_amount_dial.value() != adsr.filter_env_amount:
-            self.filter_env_amount_dial.setValue(int(adsr.filter_env_amount))
-            self.filter_env_amount_label.setText(f"{adsr.filter_env_amount:.0f} Hz")
+        if self.filter_env_amount_dial.value() != config.filter_env_amount:
+            self.filter_env_amount_dial.setValue(int(config.filter_env_amount))
+            self.filter_env_amount_label.setText(f"{config.filter_env_amount:.0f} Hz")
 
         # Check if LFO parameters have changed and update GUI if needed
         if self.lfo_rate_dial.value() != int(config.lfo_rate * 10):
@@ -1167,47 +1167,47 @@ class SynthGUI(QMainWindow):
         # Check if ADSR parameters have changed and update GUI if needed
         adsr_changed = False
 
-        if self.attack_dial.value() != int(adsr.adsr['attack'] * 100):
-            self.attack_dial.setValue(int(adsr.adsr['attack'] * 100))
-            self.attack_label.setText(f"{adsr.adsr['attack']:.2f} s")
+        if self.attack_dial.value() != int(config.adsr['attack'] * 100):
+            self.attack_dial.setValue(int(config.adsr['attack'] * 100))
+            self.attack_label.setText(f"{config.adsr['attack']:.2f} s")
             adsr_changed = True
 
-        if self.decay_dial.value() != int(adsr.adsr['decay'] * 100):
-            self.decay_dial.setValue(int(adsr.adsr['decay'] * 100))
-            self.decay_label.setText(f"{adsr.adsr['decay']:.2f} s")
+        if self.decay_dial.value() != int(config.adsr['decay'] * 100):
+            self.decay_dial.setValue(int(config.adsr['decay'] * 100))
+            self.decay_label.setText(f"{config.adsr['decay']:.2f} s")
             adsr_changed = True
 
-        if self.sustain_dial.value() != int(adsr.adsr['sustain'] * 100):
-            self.sustain_dial.setValue(int(adsr.adsr['sustain'] * 100))
-            self.sustain_label.setText(f"{adsr.adsr['sustain']:.2f}")
+        if self.sustain_dial.value() != int(config.adsr['sustain'] * 100):
+            self.sustain_dial.setValue(int(config.adsr['sustain'] * 100))
+            self.sustain_label.setText(f"{config.adsr['sustain']:.2f}")
             adsr_changed = True
 
-        if self.release_dial.value() != int(adsr.adsr['release'] * 100):
-            self.release_dial.setValue(int(adsr.adsr['release'] * 100))
-            self.release_label.setText(f"{adsr.adsr['release']:.2f} s")
+        if self.release_dial.value() != int(config.adsr['release'] * 100):
+            self.release_dial.setValue(int(config.adsr['release'] * 100))
+            self.release_label.setText(f"{config.adsr['release']:.2f} s")
             adsr_changed = True
 
         # Check if filter ADSR parameters have changed
         filter_adsr_changed = False
 
-        if self.filter_attack_dial.value() != int(adsr.filter_adsr['attack'] * 100):
-            self.filter_attack_dial.setValue(int(adsr.filter_adsr['attack'] * 100))
-            self.filter_attack_label.setText(f"{adsr.filter_adsr['attack']:.2f} s")
+        if self.filter_attack_dial.value() != int(config.filter_adsr['attack'] * 100):
+            self.filter_attack_dial.setValue(int(config.filter_adsr['attack'] * 100))
+            self.filter_attack_label.setText(f"{config.filter_adsr['attack']:.2f} s")
             filter_adsr_changed = True
 
-        if self.filter_decay_dial.value() != int(adsr.filter_adsr['decay'] * 100):
-            self.filter_decay_dial.setValue(int(adsr.filter_adsr['decay'] * 100))
-            self.filter_decay_label.setText(f"{adsr.filter_adsr['decay']:.2f} s")
+        if self.filter_decay_dial.value() != int(config.filter_adsr['decay'] * 100):
+            self.filter_decay_dial.setValue(int(config.filter_adsr['decay'] * 100))
+            self.filter_decay_label.setText(f"{config.filter_adsr['decay']:.2f} s")
             filter_adsr_changed = True
 
-        if self.filter_sustain_dial.value() != int(adsr.filter_adsr['sustain'] * 100):
-            self.filter_sustain_dial.setValue(int(adsr.filter_adsr['sustain'] * 100))
-            self.filter_sustain_label.setText(f"{adsr.filter_adsr['sustain']:.2f}")
+        if self.filter_sustain_dial.value() != int(config.filter_adsr['sustain'] * 100):
+            self.filter_sustain_dial.setValue(int(config.filter_adsr['sustain'] * 100))
+            self.filter_sustain_label.setText(f"{config.filter_adsr['sustain']:.2f}")
             filter_adsr_changed = True
 
-        if self.filter_release_dial.value() != int(adsr.filter_adsr['release'] * 100):
-            self.filter_release_dial.setValue(int(adsr.filter_adsr['release'] * 100))
-            self.filter_release_label.setText(f"{adsr.filter_adsr['release']:.2f} s")
+        if self.filter_release_dial.value() != int(config.filter_adsr['release'] * 100):
+            self.filter_release_dial.setValue(int(config.filter_adsr['release'] * 100))
+            self.filter_release_label.setText(f"{config.filter_adsr['release']:.2f} s")
             filter_adsr_changed = True
 
         # Check if volume has changed
@@ -1311,7 +1311,7 @@ class SynthGUI(QMainWindow):
 
     def update_adsr(self, param, value):
         """Update the specified ADSR parameter."""
-        adsr.adsr[param] = value
+        config.adsr[param] = value
         adsr.update_adsr_curve()
 
         # Update the ADSR curve visualization
@@ -1329,7 +1329,7 @@ class SynthGUI(QMainWindow):
 
     def update_filter_adsr(self, param, value):
         """Update the specified filter ADSR parameter."""
-        adsr.filter_adsr[param] = value
+        config.filter_adsr[param] = value
         adsr.update_filter_adsr_curve()
 
         # Update the filter ADSR curve visualization
@@ -1366,7 +1366,7 @@ class SynthGUI(QMainWindow):
     def update_filter_env_amount(self, value):
         """Update the filter envelope amount."""
         amount = float(value)
-        adsr.filter_env_amount = amount
+        config.filter_env_amount = amount
         self.filter_env_amount_label.setText(f"{amount:.0f} Hz")
 
     def update_mono_mode(self, state):

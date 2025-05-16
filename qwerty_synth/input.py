@@ -105,29 +105,29 @@ def on_press(key):
         step = adsr.get_adsr_parameter_steps()
 
         if k == '5':
-            adsr.adsr['attack'] += step['attack']
-            print(f"Attack: {adsr.adsr['attack']:.2f}s")
+            config.adsr['attack'] += step['attack']
+            print(f"Attack: {config.adsr['attack']:.2f}s")
         elif k == '6':
-            adsr.adsr['attack'] = max(0.001, adsr.adsr['attack'] - step['attack'])
-            print(f"Attack: {adsr.adsr['attack']:.2f}s")
+            config.adsr['attack'] = max(0.001, config.adsr['attack'] - step['attack'])
+            print(f"Attack: {config.adsr['attack']:.2f}s")
         elif k == '7':
-            adsr.adsr['decay'] += step['decay']
-            print(f"Decay: {adsr.adsr['decay']:.2f}s")
+            config.adsr['decay'] += step['decay']
+            print(f"Decay: {config.adsr['decay']:.2f}s")
         elif k == '8':
-            adsr.adsr['decay'] = max(0.01, adsr.adsr['decay'] - step['decay'])
-            print(f"Decay: {adsr.adsr['decay']:.2f}s")
+            config.adsr['decay'] = max(0.01, config.adsr['decay'] - step['decay'])
+            print(f"Decay: {config.adsr['decay']:.2f}s")
         elif k == '9':
-            adsr.adsr['sustain'] = min(1.0, adsr.adsr['sustain'] + step['sustain'])
-            print(f"Sustain: {adsr.adsr['sustain']:.2f}")
+            config.adsr['sustain'] = min(1.0, config.adsr['sustain'] + step['sustain'])
+            print(f"Sustain: {config.adsr['sustain']:.2f}")
         elif k == '0':
-            adsr.adsr['sustain'] = max(0.0, adsr.adsr['sustain'] - step['sustain'])
-            print(f"Sustain: {adsr.adsr['sustain']:.2f}")
+            config.adsr['sustain'] = max(0.0, config.adsr['sustain'] - step['sustain'])
+            print(f"Sustain: {config.adsr['sustain']:.2f}")
         elif k == '-':
-            adsr.adsr['release'] += step['release']
-            print(f"Release: {adsr.adsr['release']:.2f}s")
+            config.adsr['release'] += step['release']
+            print(f"Release: {config.adsr['release']:.2f}s")
         elif k == '=':
-            adsr.adsr['release'] = max(0.01, adsr.adsr['release'] - step['release'])
-            print(f"Release: {adsr.adsr['release']:.2f}s")
+            config.adsr['release'] = max(0.01, config.adsr['release'] - step['release'])
+            print(f"Release: {config.adsr['release']:.2f}s")
 
         # Volume control
         elif k == '[':

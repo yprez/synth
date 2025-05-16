@@ -28,6 +28,25 @@ octave_max = 3
 # Waveform settings
 waveform_type = 'sine'
 
+# ADSR envelope parameters for amplitude
+adsr = {
+    'attack': 0.01,
+    'decay': 0.02,
+    'sustain': 0.1,
+    'release': 0.2,
+}
+
+# ADSR envelope parameters for filter cutoff
+filter_adsr = {
+    'attack': 0.05,
+    'decay': 0.1,
+    'sustain': 0.4,
+    'release': 0.3,
+}
+
+# Filter envelope amount (how much the envelope affects the cutoff)
+filter_env_amount = 5000  # Hz
+
 # Drive settings
 drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)
 drive_on = False        # master toggle

@@ -1,5 +1,5 @@
 import numpy as np
-from qwerty_synth.config import sample_rate
+from qwerty_synth.config import sample_rate, filter_env_amount
 from qwerty_synth import adsr
 
 
@@ -44,7 +44,7 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     # Apply filter envelope modulation if provided
     if filter_envelope is not None:
         # Add the envelope contribution (envelope * amount)
-        modulated_cutoff = modulated_cutoff + (filter_envelope * adsr.filter_env_amount)
+        modulated_cutoff = modulated_cutoff + (filter_envelope * filter_env_amount)
 
     # Ensure the cutoff stays within reasonable bounds (20Hz to just below Nyquist)
     modulated_cutoff = np.clip(modulated_cutoff, 20, sample_rate / 2.1)
