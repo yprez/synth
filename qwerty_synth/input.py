@@ -89,55 +89,6 @@ def on_press(key):
                 gui_instance.octave_slider.setValue(config.octave_offset // 12)
                 gui_instance.octave_slider.blockSignals(False)
 
-        elif k == '1':
-            config.waveform_type = 'sine'
-            print('Waveform: sine')
-        elif k == '2':
-            config.waveform_type = 'square'
-            print('Waveform: square')
-        elif k == '3':
-            config.waveform_type = 'triangle'
-            print('Waveform: triangle')
-        elif k == '4':
-            config.waveform_type = 'sawtooth'
-            print('Waveform: sawtooth')
-
-        step = adsr.get_adsr_parameter_steps()
-
-        if k == '5':
-            config.adsr['attack'] += step['attack']
-            print(f"Attack: {config.adsr['attack']:.2f}s")
-        elif k == '6':
-            config.adsr['attack'] = max(0.001, config.adsr['attack'] - step['attack'])
-            print(f"Attack: {config.adsr['attack']:.2f}s")
-        elif k == '7':
-            config.adsr['decay'] += step['decay']
-            print(f"Decay: {config.adsr['decay']:.2f}s")
-        elif k == '8':
-            config.adsr['decay'] = max(0.01, config.adsr['decay'] - step['decay'])
-            print(f"Decay: {config.adsr['decay']:.2f}s")
-        elif k == '9':
-            config.adsr['sustain'] = min(1.0, config.adsr['sustain'] + step['sustain'])
-            print(f"Sustain: {config.adsr['sustain']:.2f}")
-        elif k == '0':
-            config.adsr['sustain'] = max(0.0, config.adsr['sustain'] - step['sustain'])
-            print(f"Sustain: {config.adsr['sustain']:.2f}")
-        elif k == '-':
-            config.adsr['release'] += step['release']
-            print(f"Release: {config.adsr['release']:.2f}s")
-        elif k == '=':
-            config.adsr['release'] = max(0.01, config.adsr['release'] - step['release'])
-            print(f"Release: {config.adsr['release']:.2f}s")
-
-        # Volume control
-        elif k == '[':
-            config.volume = max(0.0, config.volume - 0.05)
-            print(f"Volume: {config.volume:.2f}")
-        elif k == ']':
-            config.volume = min(1.0, config.volume + 0.05)
-            print(f"Volume: {config.volume:.2f}")
-
-        adsr.update_adsr_curve()
 
     except AttributeError:
         if key == keyboard.Key.esc:
