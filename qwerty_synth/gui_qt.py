@@ -539,25 +539,43 @@ class SynthGUI(QMainWindow):
         adsr_controls.addWidget(self.release_label, 2, 3)
 
         # ADSR visualization for amplitude
-        adsr_viz_group = QGroupBox("ADSR Curve")
+        adsr_viz_group = QGroupBox("ADSR Curves")
         adsr_viz_layout = QVBoxLayout(adsr_viz_group)
         amp_env_layout.addWidget(adsr_viz_group)
 
-        # Set up pyqtgraph plot for ADSR curve
+        # Set up pyqtgraph plot for ADSR curves (both amp and filter)
         self.adsr_plot = pg.PlotWidget()
         self.adsr_plot.setLabel('left', 'Amplitude')
         self.adsr_plot.setLabel('bottom', 'Time (normalized)')
         self.adsr_plot.showGrid(x=True, y=True, alpha=0.3)
         adsr_viz_layout.addWidget(self.adsr_plot)
 
-        # Initialize ADSR curve plot
+        # Initialize ADSR curves plot
         self.adsr_curve = self.adsr_plot.plot(
             np.arange(len(adsr.adsr_curve)),
             adsr.adsr_curve,
-            pen=pg.mkPen((100, 200, 255), width=2)
+            pen=pg.mkPen((100, 200, 255), width=2),
+            name="Amp Envelope"
         )
+
+        # Add filter ADSR curve to the same plot
+        self.filter_adsr_curve = self.adsr_plot.plot(
+            np.arange(len(adsr.filter_adsr_curve)),
+            adsr.filter_adsr_curve,
+            pen=pg.mkPen('r', width=2),
+            name="Filter Envelope"
+        )
+
+        # Add legend to distinguish between curves
+        self.adsr_plot.addLegend()
+
         self.adsr_plot.setYRange(0, 1.1)
         self.adsr_plot.setXRange(0, len(adsr.adsr_curve))
+
+        # Filter ADSR visualization - Create an empty QFrame as a spacer
+        filter_adsr_viz_group = QFrame()
+        filter_adsr_viz_layout = QVBoxLayout(filter_adsr_viz_group)
+        filter_env_layout.addWidget(filter_adsr_viz_group)
 
         # ADSR controls for filter envelope
         filter_adsr_group = QGroupBox("Filter ADSR Envelope")
@@ -635,27 +653,6 @@ class SynthGUI(QMainWindow):
         self.filter_release_label = QLabel(f"{config.filter_adsr['release']:.2f} s")
         self.filter_release_label.setAlignment(Qt.AlignCenter)
         filter_adsr_controls.addWidget(self.filter_release_label, 2, 3)
-
-        # Filter ADSR visualization
-        filter_adsr_viz_group = QGroupBox("Filter ADSR Curve")
-        filter_adsr_viz_layout = QVBoxLayout(filter_adsr_viz_group)
-        filter_env_layout.addWidget(filter_adsr_viz_group)
-
-        # Set up pyqtgraph plot for filter ADSR curve
-        self.filter_adsr_plot = pg.PlotWidget()
-        self.filter_adsr_plot.setLabel('left', 'Amplitude')
-        self.filter_adsr_plot.setLabel('bottom', 'Time (normalized)')
-        self.filter_adsr_plot.showGrid(x=True, y=True, alpha=0.3)
-        filter_adsr_viz_layout.addWidget(self.filter_adsr_plot)
-
-        # Initialize filter ADSR curve plot
-        self.filter_adsr_curve = self.filter_adsr_plot.plot(
-            np.arange(len(adsr.filter_adsr_curve)),
-            adsr.filter_adsr_curve,
-            pen=pg.mkPen('r', width=2)
-        )
-        self.filter_adsr_plot.setYRange(0, 1.1)
-        self.filter_adsr_plot.setXRange(0, len(adsr.filter_adsr_curve))
 
         # LFO Controls
         lfo_group = QGroupBox("LFO Parameters")
