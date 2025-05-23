@@ -241,6 +241,25 @@ class SynthGUI(QMainWindow):
         self.filter_type_combo.currentTextChanged.connect(self.update_filter_type)
         filter_layout.addWidget(self.filter_type_combo, 0, 2)
 
+        # Filter topology selector
+        filter_layout.addWidget(QLabel("Topology:"), 1, 3)
+        self.filter_topology_combo = QComboBox()
+        self.filter_topology_combo.addItems(["svf", "biquad"])
+        self.filter_topology_combo.setCurrentText(config.filter_topology)
+        self.filter_topology_combo.currentTextChanged.connect(self.update_filter_topology)
+        filter_layout.addWidget(self.filter_topology_combo, 1, 4)
+
+        # Filter slope selector (only for biquad)
+        filter_layout.addWidget(QLabel("Slope:"), 2, 3)
+        self.filter_slope_combo = QComboBox()
+        self.filter_slope_combo.addItems(["12 dB/oct", "24 dB/oct"])
+        self.filter_slope_combo.setCurrentText("24 dB/oct" if config.filter_slope == 24 else "12 dB/oct")
+        self.filter_slope_combo.currentTextChanged.connect(self.update_filter_slope)
+        filter_layout.addWidget(self.filter_slope_combo, 2, 4)
+
+        # Enable/disable slope control based on initial topology
+        self.filter_slope_combo.setEnabled(config.filter_topology == 'biquad')
+
         # Cutoff control
         cutoff_label = QLabel("Cutoff")
         cutoff_label.setAlignment(Qt.AlignCenter)
@@ -1198,6 +1217,17 @@ class SynthGUI(QMainWindow):
         if self.filter_type_combo.currentText() != config.filter_type:
             self.filter_type_combo.setCurrentText(config.filter_type)
 
+        # Check if filter topology has changed and update GUI if needed
+        if self.filter_topology_combo.currentText() != config.filter_topology:
+            self.filter_topology_combo.setCurrentText(config.filter_topology)
+            # Enable/disable slope control based on topology
+            self.filter_slope_combo.setEnabled(config.filter_topology == 'biquad')
+
+        # Check if filter slope has changed and update GUI if needed
+        expected_slope_text = "24 dB/oct" if config.filter_slope == 24 else "12 dB/oct"
+        if self.filter_slope_combo.currentText() != expected_slope_text:
+            self.filter_slope_combo.setCurrentText(expected_slope_text)
+
         # Check if drive settings have changed and update GUI if needed
         if self.drive_enable_button.isChecked() != config.drive_on:
             self.drive_enable_button.setChecked(config.drive_on)
@@ -1508,6 +1538,20 @@ class SynthGUI(QMainWindow):
         """Update the filter type setting."""
         config.filter_type = filter_type
         # Reset filter state when changing types to avoid artifacts
+        filter.reset_filter_state()
+
+    def update_filter_topology(self, topology):
+        """Update the filter topology setting."""
+        config.filter_topology = topology
+        # Reset filter state when changing topology to avoid artifacts
+        filter.reset_filter_state()
+        # Enable/disable slope control based on topology
+        self.filter_slope_combo.setEnabled(topology == 'biquad')
+
+    def update_filter_slope(self, slope_text):
+        """Update the filter slope setting."""
+        config.filter_slope = 24 if "24" in slope_text else 12
+        # Reset filter state when changing slope to avoid artifacts
         filter.reset_filter_state()
 
     def update_drive_enabled(self, state):
