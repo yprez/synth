@@ -106,8 +106,8 @@ def _apply_svf(samples, modulated_cutoff):
 
     # Pre-calculate resonance parameters
     safe_resonance = min(config.filter_resonance, _MAX_RESONANCE)
-    q = 1.0 / (2.0 * safe_resonance + _MIN_Q)
-    r = 1.0 / (2.0 * q)
+    q = 1.0 / (safe_resonance + _MIN_Q)
+    r = 1.0 / q
 
     # Get filter output type as integer for faster switching
     output_type = _SVF_OUTPUT_MAP.get(config.filter_type, 0)
@@ -212,7 +212,7 @@ def _apply_biquad(samples, modulated_cutoff):
 
     # Pre-calculate Q factor
     safe_resonance = min(config.filter_resonance, _MAX_RESONANCE)
-    q = 1.0 / (2.0 * safe_resonance + _MIN_Q)
+    q = 1.0 / (safe_resonance + _MIN_Q)
 
     # Check if cutoff is constant for optimization
     if isinstance(modulated_cutoff, (int, float)):
