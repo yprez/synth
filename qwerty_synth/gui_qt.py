@@ -266,7 +266,7 @@ class SynthGUI(QMainWindow):
         filter_layout.addWidget(cutoff_label, 1, 0)
 
         self.cutoff_dial = QDial()
-        self.cutoff_dial.setRange(100, 10000)
+        self.cutoff_dial.setRange(20, 20000)
         self.cutoff_dial.setValue(int(config.filter_cutoff))
         self.cutoff_dial.valueChanged.connect(self.update_filter_cutoff)
         self.cutoff_dial.setNotchesVisible(True)
