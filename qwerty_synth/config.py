@@ -51,6 +51,9 @@ filter_env_amount = 5000  # Hz
 filter_cutoff = 10000  # Default cutoff frequency in Hz
 filter_resonance = 0.0  # Default resonance (0.0-1.0), higher values create more pronounced peaks
 filter_enabled = False  # Flag to enable/disable the filter
+filter_type = 'lowpass'  # 'lowpass', 'highpass', 'bandpass', 'notch'
+filter_topology = 'svf'  # 'svf' (State Variable Filter) or 'biquad'
+filter_slope = 24  # Filter rolloff slope: 12 or 24 dB/octave
 
 # Drive settings
 drive_gain = 1.2        # 0.0 (clean) – 3.0 (heavy)

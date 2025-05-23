@@ -46,6 +46,7 @@ def collect_params() -> Dict[str, Any]:
 
         # Filter settings
         "filter_enabled": config.filter_enabled,
+        "filter_type": config.filter_type,
         "filter_cutoff": config.filter_cutoff,
         "filter_resonance": config.filter_resonance,
         "filter_env_amount": config.filter_env_amount,
@@ -119,6 +120,8 @@ def apply_params(params: Dict[str, Any]) -> None:
         # Filter settings
         if "filter_enabled" in params:
             config.filter_enabled = bool(params["filter_enabled"])
+        if "filter_type" in params:
+            config.filter_type = params["filter_type"]
         if "filter_cutoff" in params:
             config.filter_cutoff = float(params["filter_cutoff"])
         if "filter_resonance" in params:

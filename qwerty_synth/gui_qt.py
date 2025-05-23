@@ -233,6 +233,14 @@ class SynthGUI(QMainWindow):
         self.filter_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
         filter_layout.addWidget(self.filter_enable_button, 0, 0, 1, 1)
 
+        # Filter type selector
+        filter_layout.addWidget(QLabel("Type:"), 0, 1)
+        self.filter_type_combo = QComboBox()
+        self.filter_type_combo.addItems(["lowpass", "highpass", "bandpass", "notch"])
+        self.filter_type_combo.setCurrentText(config.filter_type)
+        self.filter_type_combo.currentTextChanged.connect(self.update_filter_type)
+        filter_layout.addWidget(self.filter_type_combo, 0, 2)
+
         # Cutoff control
         cutoff_label = QLabel("Cutoff")
         cutoff_label.setAlignment(Qt.AlignCenter)
@@ -1186,6 +1194,10 @@ class SynthGUI(QMainWindow):
         if self.filter_enable_button.isChecked() != config.filter_enabled:
             self.filter_enable_button.setChecked(config.filter_enabled)
 
+        # Check if filter type has changed and update GUI if needed
+        if self.filter_type_combo.currentText() != config.filter_type:
+            self.filter_type_combo.setCurrentText(config.filter_type)
+
         # Check if drive settings have changed and update GUI if needed
         if self.drive_enable_button.isChecked() != config.drive_on:
             self.drive_enable_button.setChecked(config.drive_on)
@@ -1491,6 +1503,12 @@ class SynthGUI(QMainWindow):
         """Update the filter enabled setting."""
         config.filter_enabled = state
         self.filter_enable_button.setChecked(state)
+
+    def update_filter_type(self, filter_type):
+        """Update the filter type setting."""
+        config.filter_type = filter_type
+        # Reset filter state when changing types to avoid artifacts
+        filter.reset_filter_state()
 
     def update_drive_enabled(self, state):
         """Update the drive enabled setting."""
