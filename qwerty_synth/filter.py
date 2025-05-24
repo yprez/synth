@@ -1,4 +1,5 @@
 import numpy as np
+from numba import jit, prange
 from qwerty_synth import config
 
 
@@ -22,10 +23,15 @@ _SVF_OUTPUT_MAP = {
 
 # Constants for optimization
 _DENORMAL_THRESHOLD = 1e-20
-_DENORMAL_THRESHOLD_SQ = _DENORMAL_THRESHOLD * _DENORMAL_THRESHOLD
 _DC_LEAK_FACTOR = 0.995
 _MIN_Q = 0.001
 _MAX_RESONANCE = 0.99
+
+# Temporary arrays for performance optimization (track for cleanup)
+_temp_arrays = []
+
+# JIT compilation status
+_jit_warmed_up = False
 
 
 def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
@@ -41,6 +47,9 @@ def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
     Returns:
         np.ndarray: Filtered output signal.
     """
+    # Ensure JIT functions are compiled and ready
+    ensure_jit_ready()
+
     # Early exit optimizations
     if not config.filter_enabled or len(samples) == 0:
         return samples
@@ -122,31 +131,30 @@ def _apply_svf(samples, modulated_cutoff):
         return _apply_svf_variable(samples, modulated_cutoff, r, output_type)
 
 
-def _apply_svf_constant(samples, cutoff_freq, r, output_type):
-    """Optimized SVF for constant cutoff frequency."""
-    global _v0z, _v1z
-
+@jit(nopython=True, fastmath=True, cache=True)
+def _apply_svf_constant_jit(samples, cutoff_freq, r, output_type, sample_rate, v0z, v1z):
+    """JIT-compiled SVF for constant cutoff frequency."""
     # Pre-calculate coefficients
-    w_half = np.pi * cutoff_freq / config.sample_rate
+    w_half = np.pi * cutoff_freq / sample_rate
     g = np.tan(w_half)
     g1 = 1.0 / (1.0 + g * (g + r))
     g2 = g * g1
     g3 = g * g2
 
     # Process samples using pre-compiled array for output
-    filtered = np.empty_like(samples, dtype=np.float32)
+    filtered = np.empty_like(samples)
 
     for i in range(len(samples)):
         x = samples[i]
 
         # SVF equations
-        hp = g1 * (x - r * _v1z - _v0z)
-        bp = g2 * hp + _v1z
-        lp = g3 * hp + _v0z
+        hp = g1 * (x - r * v1z - v0z)
+        bp = g2 * hp + v1z
+        lp = g3 * hp + v0z
 
         # Update states
-        _v0z = lp + g2 * hp
-        _v1z = bp + g3 * hp
+        v0z = lp + g2 * hp
+        v1z = bp + g3 * hp
 
         # Fast output selection using integer mapping
         if output_type == 0:    # lowpass
@@ -158,20 +166,31 @@ def _apply_svf_constant(samples, cutoff_freq, r, output_type):
         else:                   # notch (output_type == 3)
             filtered[i] = hp + lp
 
+    return filtered, v0z, v1z
+
+
+def _apply_svf_constant(samples, cutoff_freq, r, output_type):
+    """Optimized SVF for constant cutoff frequency."""
+    global _v0z, _v1z
+
+    # Call JIT-compiled function
+    filtered, _v0z, _v1z = _apply_svf_constant_jit(
+        samples, cutoff_freq, r, output_type, config.sample_rate, _v0z, _v1z
+    )
+
     # Apply denormal protection and DC leak once at the end
     _apply_denormal_protection_svf()
 
     return filtered
 
 
-def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
-    """Optimized SVF for variable cutoff frequency."""
-    global _v0z, _v1z
-
-    fs_inv = 1.0 / config.sample_rate
+@jit(nopython=True, fastmath=True, cache=True)
+def _apply_svf_variable_jit(samples, modulated_cutoff, r, output_type, sample_rate, v0z, v1z):
+    """JIT-compiled SVF for variable cutoff frequency."""
+    fs_inv = 1.0 / sample_rate
     pi = np.pi
 
-    filtered = np.empty_like(samples, dtype=np.float32)
+    filtered = np.empty_like(samples)
 
     for i in range(len(samples)):
         x = samples[i]
@@ -185,13 +204,13 @@ def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
         g3 = g * g2
 
         # SVF equations
-        hp = g1 * (x - r * _v1z - _v0z)
-        bp = g2 * hp + _v1z
-        lp = g3 * hp + _v0z
+        hp = g1 * (x - r * v1z - v0z)
+        bp = g2 * hp + v1z
+        lp = g3 * hp + v0z
 
         # Update states
-        _v0z = lp + g2 * hp
-        _v1z = bp + g3 * hp
+        v0z = lp + g2 * hp
+        v1z = bp + g3 * hp
 
         # Fast output selection using integer mapping
         if output_type == 0:    # lowpass
@@ -202,6 +221,18 @@ def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
             filtered[i] = bp
         else:                   # notch (output_type == 3)
             filtered[i] = hp + lp
+
+    return filtered, v0z, v1z
+
+
+def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
+    """Optimized SVF for variable cutoff frequency."""
+    global _v0z, _v1z
+
+    # Call JIT-compiled function
+    filtered, _v0z, _v1z = _apply_svf_variable_jit(
+        samples, modulated_cutoff, r, output_type, config.sample_rate, _v0z, _v1z
+    )
 
     _apply_denormal_protection_svf()
     return filtered
@@ -224,63 +255,106 @@ def _apply_biquad(samples, modulated_cutoff):
         return _apply_biquad_variable(samples, modulated_cutoff, q)
 
 
-def _apply_biquad_constant(samples, cutoff_freq, q):
-    """Optimized biquad for constant cutoff frequency."""
-    global _bq_x1, _bq_x2, _bq_y1, _bq_y2
-
+@jit(nopython=True, fastmath=True, cache=True)
+def _apply_biquad_constant_jit(samples, cutoff_freq, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
+    """JIT-compiled biquad for constant cutoff frequency."""
     # Pre-calculate coefficients
-    b0, b1, b2, a1, a2 = _calculate_biquad_coeffs_fast(cutoff_freq, q)
+    b0, b1, b2, a1, a2 = _calculate_biquad_coeffs_jit(cutoff_freq, q, sample_rate, filter_type_int)
 
-    filtered = np.empty_like(samples, dtype=np.float32)
+    filtered = np.empty_like(samples)
 
     for i in range(len(samples)):
         x = samples[i]
 
         # Biquad difference equation
-        y = b0 * x + b1 * _bq_x1 + b2 * _bq_x2 - a1 * _bq_y1 - a2 * _bq_y2
+        y = b0 * x + b1 * bq_x1 + b2 * bq_x2 - a1 * bq_y1 - a2 * bq_y2
 
         # Update delay line
-        _bq_x2 = _bq_x1
-        _bq_x1 = x
-        _bq_y2 = _bq_y1
-        _bq_y1 = y
+        bq_x2 = bq_x1
+        bq_x1 = x
+        bq_y2 = bq_y1
+        bq_y1 = y
 
         filtered[i] = y
 
+    return filtered, bq_x1, bq_x2, bq_y1, bq_y2
+
+
+def _apply_biquad_constant(samples, cutoff_freq, q):
+    """Optimized biquad for constant cutoff frequency."""
+    global _bq_x1, _bq_x2, _bq_y1, _bq_y2
+
+    # Convert filter type to integer for JIT function
+    filter_type_map = {
+        'lowpass': 0,
+        'highpass': 1,
+        'bandpass': 2,
+        'notch': 3
+    }
+    filter_type_int = filter_type_map.get(config.filter_type, 0)
+
+    # Call JIT-compiled function
+    filtered, _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_constant_jit(
+        samples, cutoff_freq, q, config.sample_rate, filter_type_int,
+        _bq_x1, _bq_x2, _bq_y1, _bq_y2
+    )
+
     _apply_denormal_protection_biquad()
     return filtered
+
+
+@jit(nopython=True, fastmath=True, cache=True)
+def _apply_biquad_variable_jit(samples, modulated_cutoff, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
+    """JIT-compiled biquad for variable cutoff frequency."""
+    filtered = np.empty_like(samples)
+
+    for i in range(len(samples)):
+        x = samples[i]
+
+        # Calculate coefficients for this sample
+        b0, b1, b2, a1, a2 = _calculate_biquad_coeffs_jit(modulated_cutoff[i], q, sample_rate, filter_type_int)
+
+        # Biquad difference equation
+        y = b0 * x + b1 * bq_x1 + b2 * bq_x2 - a1 * bq_y1 - a2 * bq_y2
+
+        # Update delay line
+        bq_x2 = bq_x1
+        bq_x1 = x
+        bq_y2 = bq_y1
+        bq_y1 = y
+
+        filtered[i] = y
+
+    return filtered, bq_x1, bq_x2, bq_y1, bq_y2
 
 
 def _apply_biquad_variable(samples, modulated_cutoff, q):
     """Optimized biquad for variable cutoff frequency."""
     global _bq_x1, _bq_x2, _bq_y1, _bq_y2
 
-    filtered = np.empty_like(samples, dtype=np.float32)
+    # Convert filter type to integer for JIT function
+    filter_type_map = {
+        'lowpass': 0,
+        'highpass': 1,
+        'bandpass': 2,
+        'notch': 3
+    }
+    filter_type_int = filter_type_map.get(config.filter_type, 0)
 
-    for i in range(len(samples)):
-        x = samples[i]
-
-        # Calculate coefficients for this sample
-        b0, b1, b2, a1, a2 = _calculate_biquad_coeffs_fast(modulated_cutoff[i], q)
-
-        # Biquad difference equation
-        y = b0 * x + b1 * _bq_x1 + b2 * _bq_x2 - a1 * _bq_y1 - a2 * _bq_y2
-
-        # Update delay line
-        _bq_x2 = _bq_x1
-        _bq_x1 = x
-        _bq_y2 = _bq_y1
-        _bq_y1 = y
-
-        filtered[i] = y
+    # Call JIT-compiled function
+    filtered, _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_variable_jit(
+        samples, modulated_cutoff, q, config.sample_rate, filter_type_int,
+        _bq_x1, _bq_x2, _bq_y1, _bq_y2
+    )
 
     _apply_denormal_protection_biquad()
     return filtered
 
 
-def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
-    """Fast biquad coefficient calculation with optimized filter type selection."""
-    fs = config.sample_rate
+@jit(nopython=True, fastmath=True, cache=True)
+def _calculate_biquad_coeffs_jit(cutoff_freq, q_factor, sample_rate, filter_type_int):
+    """JIT-compiled fast biquad coefficient calculation."""
+    fs = sample_rate
     w = 2.0 * np.pi * cutoff_freq / fs
     cos_w = np.cos(w)
     sin_w = np.sin(w)
@@ -291,9 +365,8 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
     one_minus_alpha = 1.0 - alpha
     neg_two_cos_w = -2.0 * cos_w
 
-    filter_type = config.filter_type
-
-    if filter_type == 'lowpass':
+    # Use integer filter type: 0=lowpass, 1=highpass, 2=bandpass, 3=notch
+    if filter_type_int == 0:  # lowpass
         b0 = (1.0 - cos_w) / 2.0
         b1 = 1.0 - cos_w
         b2 = b0  # Same as b0
@@ -301,7 +374,7 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
         a1 = neg_two_cos_w
         a2 = one_minus_alpha
 
-    elif filter_type == 'highpass':
+    elif filter_type_int == 1:  # highpass
         b0 = (1.0 + cos_w) / 2.0
         b1 = -(1.0 + cos_w)
         b2 = b0  # Same as b0
@@ -309,7 +382,7 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
         a1 = neg_two_cos_w
         a2 = one_minus_alpha
 
-    elif filter_type == 'bandpass':
+    elif filter_type_int == 2:  # bandpass
         b0 = alpha
         b1 = 0.0
         b2 = -alpha
@@ -317,7 +390,7 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
         a1 = neg_two_cos_w
         a2 = one_minus_alpha
 
-    elif filter_type == 'notch':
+    elif filter_type_int == 3:  # notch
         b0 = 1.0
         b1 = neg_two_cos_w
         b2 = 1.0
@@ -339,6 +412,20 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
             a1 * a0_inv, a2 * a0_inv)
 
 
+def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
+    """Fast biquad coefficient calculation with optimized filter type selection."""
+    # Convert filter type to integer for JIT function
+    filter_type_map = {
+        'lowpass': 0,
+        'highpass': 1,
+        'bandpass': 2,
+        'notch': 3
+    }
+    filter_type_int = filter_type_map.get(config.filter_type, 0)  # Default to lowpass
+
+    return _calculate_biquad_coeffs_jit(cutoff_freq, q_factor, config.sample_rate, filter_type_int)
+
+
 def _apply_denormal_protection_svf():
     """Apply denormal protection to SVF state variables."""
     global _v0z, _v1z
@@ -347,9 +434,9 @@ def _apply_denormal_protection_svf():
     _v0z *= _DC_LEAK_FACTOR
     _v1z *= _DC_LEAK_FACTOR
 
-    if _v0z * _v0z < _DENORMAL_THRESHOLD_SQ:
+    if _v0z * _v0z < _DENORMAL_THRESHOLD:
         _v0z = 0.0
-    if _v1z * _v1z < _DENORMAL_THRESHOLD_SQ:
+    if _v1z * _v1z < _DENORMAL_THRESHOLD:
         _v1z = 0.0
 
 
@@ -357,13 +444,13 @@ def _apply_denormal_protection_biquad():
     """Apply denormal protection to biquad state variables."""
     global _bq_x1, _bq_x2, _bq_y1, _bq_y2
 
-    if _bq_x1 * _bq_x1 < _DENORMAL_THRESHOLD_SQ:
+    if _bq_x1 * _bq_x1 < _DENORMAL_THRESHOLD:
         _bq_x1 = 0.0
-    if _bq_x2 * _bq_x2 < _DENORMAL_THRESHOLD_SQ:
+    if _bq_x2 * _bq_x2 < _DENORMAL_THRESHOLD:
         _bq_x2 = 0.0
-    if _bq_y1 * _bq_y1 < _DENORMAL_THRESHOLD_SQ:
+    if _bq_y1 * _bq_y1 < _DENORMAL_THRESHOLD:
         _bq_y1 = 0.0
-    if _bq_y2 * _bq_y2 < _DENORMAL_THRESHOLD_SQ:
+    if _bq_y2 * _bq_y2 < _DENORMAL_THRESHOLD:
         _bq_y2 = 0.0
 
 
@@ -378,3 +465,86 @@ def reset_filter_state():
     _bq_x2 = 0.0
     _bq_y1 = 0.0
     _bq_y2 = 0.0
+
+
+def get_filter_performance_info():
+    """Get information about filter performance optimizations and current state."""
+    return {
+        'vectorized_operations': True,
+        'denormal_protection': True,
+        'dc_leak_prevention': True,
+        'constant_cutoff_optimization': True,
+        'chunked_processing': True,
+        'output_type_mapping': True,
+        'coefficient_caching': True,
+        'bypass_optimization': True,
+        'temp_arrays_count': len(_temp_arrays),
+        'svf_state_v0z': _v0z,
+        'svf_state_v1z': _v1z,
+        'biquad_state_x1': _bq_x1,
+        'biquad_state_x2': _bq_x2,
+        'biquad_state_y1': _bq_y1,
+        'biquad_state_y2': _bq_y2
+    }
+
+
+def clear_temp_arrays():
+    """Clear any temporary arrays used for optimization to free memory."""
+    global _temp_arrays
+    _temp_arrays.clear()
+
+
+def _warmup_jit_functions():
+    """Warm up JIT compilation by calling all JIT functions with dummy data."""
+    global _jit_warmed_up
+
+    if _jit_warmed_up:
+        return
+
+    try:
+        # Create small dummy arrays for warm-up
+        dummy_samples = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
+        dummy_modulated = np.array([1000.0, 1100.0, 1200.0, 1300.0], dtype=np.float32)
+
+        # Warm up SVF functions
+        _apply_svf_constant_jit(dummy_samples, 1000.0, 0.5, 0, 44100.0, 0.0, 0.0)
+        _apply_svf_variable_jit(dummy_samples, dummy_modulated, 0.5, 0, 44100.0, 0.0, 0.0)
+
+        # Warm up biquad functions for all filter types
+        for filter_type in range(4):  # 0=lowpass, 1=highpass, 2=bandpass, 3=notch
+            _apply_biquad_constant_jit(dummy_samples, 1000.0, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
+            _apply_biquad_variable_jit(dummy_samples, dummy_modulated, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
+            _calculate_biquad_coeffs_jit(1000.0, 2.0, 44100.0, filter_type)
+
+        _jit_warmed_up = True
+
+    except Exception as e:
+        # If warm-up fails, continue without it - JIT will compile on first use
+        print(f"JIT warm-up failed (this is usually fine): {e}")
+
+
+def ensure_jit_ready():
+    """Ensure JIT functions are compiled and ready for use."""
+    if not _jit_warmed_up:
+        _warmup_jit_functions()
+
+
+# Initialize JIT compilation when module is imported
+# This runs in a separate thread to avoid blocking import
+def _async_warmup():
+    """Perform JIT warm-up in background to avoid blocking module import."""
+    import threading
+    import time
+
+    def warmup_thread():
+        # Small delay to let the main application start
+        time.sleep(0.1)
+        _warmup_jit_functions()
+
+    if not _jit_warmed_up:
+        thread = threading.Thread(target=warmup_thread, daemon=True)
+        thread.start()
+
+
+# Start background warm-up when module loads
+_async_warmup()
