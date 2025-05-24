@@ -944,6 +944,22 @@ class SynthGUI(QMainWindow):
         self.chorus_mix_label.setAlignment(Qt.AlignCenter)
         chorus_layout.addWidget(self.chorus_mix_label, 3, 2)
 
+        # Chorus voices control
+        voices_label = QLabel("Voices")
+        voices_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(voices_label, 1, 3)
+
+        self.chorus_voices_dial = QDial()
+        self.chorus_voices_dial.setRange(1, 4)  # 1 to 4 voices
+        self.chorus_voices_dial.setValue(config.chorus_voices)
+        self.chorus_voices_dial.valueChanged.connect(self.update_chorus_voices)
+        self.chorus_voices_dial.setNotchesVisible(True)
+        chorus_layout.addWidget(self.chorus_voices_dial, 2, 3)
+
+        self.chorus_voices_label = QLabel(f"{config.chorus_voices}")
+        self.chorus_voices_label.setAlignment(Qt.AlignCenter)
+        chorus_layout.addWidget(self.chorus_voices_label, 3, 3)
+
         # Visualization toggle and visualizations at the bottom
         viz_toggle_layout = QHBoxLayout()
         main_layout.addLayout(viz_toggle_layout)
@@ -1348,6 +1364,10 @@ class SynthGUI(QMainWindow):
             self.chorus_mix_dial.setValue(int(config.chorus_mix * 100))
             self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
 
+        if self.chorus_voices_dial.value() != config.chorus_voices:
+            self.chorus_voices_dial.setValue(config.chorus_voices)
+            self.chorus_voices_label.setText(f"{config.chorus_voices}")
+
         # Update ADSR curves if parameters changed
         if adsr_changed:
             self.plot_adsr_curve()
@@ -1740,6 +1760,12 @@ class SynthGUI(QMainWindow):
         config.chorus_mix = mix
         synth.chorus.set_mix(mix)
         self.chorus_mix_label.setText(f"{config.chorus_mix:.2f}")
+
+    def update_chorus_voices(self, value):
+        """Update the chorus voices setting."""
+        config.chorus_voices = value
+        synth.chorus.set_voices(value)
+        self.chorus_voices_label.setText(f"{value}")
 
     def update_visualization_enabled(self, state):
         """Update visualization enabled status and visibility."""
