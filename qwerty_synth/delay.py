@@ -1,6 +1,7 @@
 """Delay/echo effect"""
 
 import numpy as np
+from numba import jit
 from qwerty_synth.config import sample_rate, delay_time_ms
 
 
@@ -14,6 +15,101 @@ DIV2MULT = {
     '1/16' : 0.0625,  # Sixteenth note
     '1/16t': 0.0416667  # Triplet sixteenth (1/16 × 2/3)
 }
+
+
+@jit(nopython=True, cache=True, fastmath=True)
+def _process_delay_interpolated(x, delayed, buffer, delay_samples_f,
+                               write_idx, mask, fb):
+    """JIT-compiled delay processing with interpolation."""
+    buffer_len = len(x)
+
+    for i in range(buffer_len):
+        # Linear interpolation for fractional sample accuracy
+        idx_f = write_idx - delay_samples_f
+        idx_i = int(np.floor(idx_f)) & mask
+        frac = idx_f - np.floor(idx_f)
+        delayed[i] = ((1.0 - frac) * buffer[idx_i] +
+                      frac * buffer[(idx_i + 1) & mask])
+
+        # Process sample
+        buffer[write_idx] = x[i] + delayed[i] * fb
+        write_idx = (write_idx + 1) & mask
+
+    return write_idx
+
+
+@jit(nopython=True, cache=True, fastmath=True)
+def _process_delay_simple(x, delayed, buffer, delay_samples,
+                         write_idx, mask, fb):
+    """JIT-compiled delay processing without interpolation."""
+    buffer_len = len(x)
+
+    for i in range(buffer_len):
+        # Simple integer sample delay
+        read_idx = (write_idx - delay_samples) & mask
+        delayed[i] = buffer[read_idx]
+
+        # Process sample
+        buffer[write_idx] = x[i] + delayed[i] * fb
+        write_idx = (write_idx + 1) & mask
+
+    return write_idx
+
+
+@jit(nopython=True, cache=True, fastmath=True)
+def _process_pingpong_interpolated(L, R, delayed_L, delayed_R,
+                                  buffer_L, buffer_R, delay_samples_f,
+                                  write_idx_L, write_idx_R, mask, fb):
+    """JIT-compiled ping-pong delay processing with interpolation."""
+    buffer_len = len(L)
+
+    for i in range(buffer_len):
+        # Linear interpolation for L channel
+        idx_f_L = write_idx_L - delay_samples_f
+        idx_i_L = int(np.floor(idx_f_L)) & mask
+        frac_L = idx_f_L - np.floor(idx_f_L)
+        delayed_L[i] = ((1.0 - frac_L) * buffer_L[idx_i_L] +
+                       frac_L * buffer_L[(idx_i_L + 1) & mask])
+
+        # Linear interpolation for R channel
+        idx_f_R = write_idx_R - delay_samples_f
+        idx_i_R = int(np.floor(idx_f_R)) & mask
+        frac_R = idx_f_R - np.floor(idx_f_R)
+        delayed_R[i] = ((1.0 - frac_R) * buffer_R[idx_i_R] +
+                       frac_R * buffer_R[(idx_i_R + 1) & mask])
+
+        # Cross-feedback: L feeds R buffer and vice-versa
+        buffer_L[write_idx_L] = L[i] + delayed_R[i] * fb
+        buffer_R[write_idx_R] = R[i] + delayed_L[i] * fb
+
+        write_idx_L = (write_idx_L + 1) & mask
+        write_idx_R = (write_idx_R + 1) & mask
+
+    return write_idx_L, write_idx_R
+
+
+@jit(nopython=True, cache=True, fastmath=True)
+def _process_pingpong_simple(L, R, delayed_L, delayed_R,
+                            buffer_L, buffer_R, delay_samples,
+                            write_idx_L, write_idx_R, mask, fb):
+    """JIT-compiled ping-pong delay processing without interpolation."""
+    buffer_len = len(L)
+
+    for i in range(buffer_len):
+        # Simple integer sample delay
+        read_idx_L = (write_idx_L - delay_samples) & mask
+        read_idx_R = (write_idx_R - delay_samples) & mask
+        delayed_L[i] = buffer_L[read_idx_L]
+        delayed_R[i] = buffer_R[read_idx_R]
+
+        # Cross-feedback: L feeds R buffer and vice-versa
+        buffer_L[write_idx_L] = L[i] + delayed_R[i] * fb
+        buffer_R[write_idx_R] = R[i] + delayed_L[i] * fb
+
+        write_idx_L = (write_idx_L + 1) & mask
+        write_idx_R = (write_idx_R + 1) & mask
+
+    return write_idx_L, write_idx_R
 
 
 class Delay:
@@ -32,6 +128,12 @@ class Delay:
         self._write_idx_L = 0
         self._write_idx_R = 0
         self._mask = 0
+
+        # Pre-allocated temporary arrays for performance
+        self._temp_delayed = None
+        self._temp_delayed_L = None
+        self._temp_delayed_R = None
+        self._max_block_size = 1024  # Initial size, will grow as needed
 
         # Initialize with default delay time
         self.set_time(delay_ms)
@@ -58,6 +160,15 @@ class Delay:
         self._write_idx = 0
         self._write_idx_L = 0
         self._write_idx_R = 0
+
+    def _ensure_temp_arrays(self, block_size):
+        """Ensure temporary arrays are large enough for the block size."""
+        if (self._temp_delayed is None or
+            len(self._temp_delayed) < block_size):
+            self._max_block_size = max(self._max_block_size, block_size)
+            self._temp_delayed = np.empty(self._max_block_size, dtype=np.float32)
+            self._temp_delayed_L = np.empty(self._max_block_size, dtype=np.float32)
+            self._temp_delayed_R = np.empty(self._max_block_size, dtype=np.float32)
 
     def set_time(self, ms, use_interpolation=True):
         """Set delay time in milliseconds."""
@@ -108,40 +219,26 @@ class Delay:
         # Safety clamp feedback to prevent runaway gain
         fb = np.clip(fb, 0.0, 0.99)
 
-        # Pre-allocate output array
         buffer_len = len(x)
-        y = np.empty_like(x)
-        delayed = np.empty_like(x)
+        self._ensure_temp_arrays(buffer_len)
 
-        # Pre-calculate dry component (can be vectorized)
+        # Use pre-allocated slice of temporary array
+        delayed = self._temp_delayed[:buffer_len]
+
+        # Pre-calculate dry component (vectorized)
         dry_component = x * (1.0 - mix)
 
         if use_interpolation:
-            for i in range(buffer_len):
-                # Linear interpolation for fractional sample accuracy
-                idx_f = self._write_idx - self.delay_samples_f
-                idx_i = int(np.floor(idx_f)) & self._mask
-                frac = idx_f - np.floor(idx_f)
-                delayed[i] = ((1.0 - frac) * self._buffer[idx_i] +
-                              frac * self._buffer[(idx_i + 1) & self._mask])
-
-                # Process sample
-                self._buffer[self._write_idx] = x[i] + delayed[i] * fb
-                self._write_idx = (self._write_idx + 1) & self._mask
+            self._write_idx = _process_delay_interpolated(
+                x, delayed, self._buffer, self.delay_samples_f,
+                self._write_idx, self._mask, fb)
         else:
-            for i in range(buffer_len):
-                # Simple integer sample delay
-                read_idx = (self._write_idx - self.delay_samples) & self._mask
-                delayed[i] = self._buffer[read_idx]
+            self._write_idx = _process_delay_simple(
+                x, delayed, self._buffer, self.delay_samples,
+                self._write_idx, self._mask, fb)
 
-                # Process sample
-                self._buffer[self._write_idx] = x[i] + delayed[i] * fb
-                self._write_idx = (self._write_idx + 1) & self._mask
-
-        # Vectorize the wet/dry mix (can be done outside the loop)
-        y = dry_component + delayed * mix
-
-        return y
+        # Vectorized wet/dry mix
+        return dry_component + delayed * mix
 
     def pingpong(self, L, R, mix, fb, use_interpolation=True):
         """Process stereo audio with ping-pong delay effect.
@@ -159,59 +256,30 @@ class Delay:
         # Safety clamp feedback to prevent runaway gain
         fb = np.clip(fb, 0.0, 0.99)
 
-        # Pre-allocate output arrays
         buffer_len = len(L)
-        out_L = np.empty_like(L)
-        out_R = np.empty_like(R)
-        delayed_L = np.empty_like(L)
-        delayed_R = np.empty_like(R)
+        self._ensure_temp_arrays(buffer_len)
 
-        # Pre-calculate dry components (can be vectorized)
+        # Use pre-allocated slices of temporary arrays
+        delayed_L = self._temp_delayed_L[:buffer_len]
+        delayed_R = self._temp_delayed_R[:buffer_len]
+
+        # Pre-calculate dry components (vectorized)
         dry_L = L * (1.0 - mix)
         dry_R = R * (1.0 - mix)
 
         if use_interpolation:
-            for i in range(buffer_len):
-                # Linear interpolation for L channel
-                idx_f_L = self._write_idx_L - self.delay_samples_f
-                idx_i_L = int(np.floor(idx_f_L)) & self._mask
-                frac_L = idx_f_L - np.floor(idx_f_L)
-                delayed_L[i] = ((1.0 - frac_L) * self._buffer_L[idx_i_L] +
-                               frac_L * self._buffer_L[(idx_i_L + 1) & self._mask])
-
-                # Linear interpolation for R channel
-                idx_f_R = self._write_idx_R - self.delay_samples_f
-                idx_i_R = int(np.floor(idx_f_R)) & self._mask
-                frac_R = idx_f_R - np.floor(idx_f_R)
-                delayed_R[i] = ((1.0 - frac_R) * self._buffer_R[idx_i_R] +
-                               frac_R * self._buffer_R[(idx_i_R + 1) & self._mask])
-
-                # Cross-feedback: L feeds R buffer and vice-versa
-                self._buffer_L[self._write_idx_L] = L[i] + delayed_R[i] * fb
-                self._buffer_R[self._write_idx_R] = R[i] + delayed_L[i] * fb
-
-                self._write_idx_L = (self._write_idx_L + 1) & self._mask
-                self._write_idx_R = (self._write_idx_R + 1) & self._mask
+            self._write_idx_L, self._write_idx_R = _process_pingpong_interpolated(
+                L, R, delayed_L, delayed_R, self._buffer_L, self._buffer_R,
+                self.delay_samples_f, self._write_idx_L, self._write_idx_R,
+                self._mask, fb)
         else:
-            for i in range(buffer_len):
-                # Simple integer sample delay
-                read_idx_L = (self._write_idx_L - self.delay_samples) & self._mask
-                read_idx_R = (self._write_idx_R - self.delay_samples) & self._mask
-                delayed_L[i] = self._buffer_L[read_idx_L]
-                delayed_R[i] = self._buffer_R[read_idx_R]
+            self._write_idx_L, self._write_idx_R = _process_pingpong_simple(
+                L, R, delayed_L, delayed_R, self._buffer_L, self._buffer_R,
+                self.delay_samples, self._write_idx_L, self._write_idx_R,
+                self._mask, fb)
 
-                # Cross-feedback: L feeds R buffer and vice-versa
-                self._buffer_L[self._write_idx_L] = L[i] + delayed_R[i] * fb
-                self._buffer_R[self._write_idx_R] = R[i] + delayed_L[i] * fb
-
-                self._write_idx_L = (self._write_idx_L + 1) & self._mask
-                self._write_idx_R = (self._write_idx_R + 1) & self._mask
-
-        # Vectorize the wet/dry mix (can be done outside the loop)
-        out_L = dry_L + delayed_L * mix
-        out_R = dry_R + delayed_R * mix
-
-        return out_L, out_R
+        # Vectorized wet/dry mix
+        return dry_L + delayed_L * mix, dry_R + delayed_R * mix
 
     def clear_cache(self):
         """Clear the delay buffers and reset write indices."""
