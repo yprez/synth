@@ -25,16 +25,13 @@ class LFO:
         Returns:
             numpy array of LFO values
         """
-        # Always update timing even when disabled
+        # Always update timing and phase even when disabled or in delay
         self.env_time += frames / config.sample_rate
         self.phase += frames / config.sample_rate
 
         # Skip generation entirely if disabled or depth is zero
-        if not config.lfo_enabled or config.lfo_depth <= 0.001:
+        if not config.lfo_enabled or abs(config.lfo_depth) <= 0.001:
             return np.zeros(frames)
-
-        # Generate time array for LFO
-        t = np.arange(frames) / config.sample_rate + self.phase
 
         # Quick envelope processing based on current state
         if self.env_time < config.lfo_delay_time:
@@ -49,6 +46,15 @@ class LFO:
         else:
             # After attack - full envelope
             lfo_env = 1.0
+
+        # Handle zero rate case - return constant value
+        if config.lfo_rate <= 0.001:
+            return np.full(frames, lfo_env * config.lfo_depth)
+
+        # Generate time array for this block of frames
+        # Subtract the frames we just added to get the time at the start of this block
+        start_time = self.phase - frames / config.sample_rate
+        t = (np.arange(frames) / config.sample_rate) + start_time
 
         # Generate LFO signal with envelope - vectorized
         lfo = lfo_env * config.lfo_depth * np.sin(2 * np.pi * config.lfo_rate * t)
