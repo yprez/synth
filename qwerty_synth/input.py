@@ -5,7 +5,6 @@ from pynput import keyboard
 import sounddevice as sd
 
 from qwerty_synth import config
-from qwerty_synth import adsr
 from qwerty_synth import synth
 from qwerty_synth import controller  # Import the controller module
 

@@ -4,7 +4,6 @@ import numpy as np
 import sounddevice as sd
 
 from qwerty_synth import config
-from qwerty_synth import adsr
 from qwerty_synth import filter
 from qwerty_synth.delay import Delay
 from qwerty_synth.chorus import Chorus

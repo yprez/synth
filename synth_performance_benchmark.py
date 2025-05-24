@@ -9,7 +9,6 @@ and optimize the audio processing pipeline.
 
 import numpy as np
 import time
-import threading
 
 # Import synth modules
 from qwerty_synth import config
@@ -19,7 +18,6 @@ from qwerty_synth.drive import apply_drive
 from qwerty_synth.delay import Delay
 from qwerty_synth.chorus import Chorus
 from qwerty_synth.lfo import LFO
-from qwerty_synth import adsr
 
 
 class PerformanceBenchmark:
@@ -427,7 +425,7 @@ class PerformanceBenchmark:
                 print(f"  Worst performer: {tests[worst_idx]} ({rt_factors[worst_idx]:.1f}x RT)")
 
         # Overall performance analysis
-        print(f"\nOVERALL ANALYSIS:")
+        print("\nOVERALL ANALYSIS:")
         print("-" * 40)
         all_rt_factors = [result['realtime_factor'] for result in self.results.values()]
         all_cpu_usages = [result['cpu_usage_percent'] for result in self.results.values()]
@@ -441,7 +439,7 @@ class PerformanceBenchmark:
         problematic_tests = [name for name, result in self.results.items()
                            if result['realtime_factor'] < 1.0]
         if problematic_tests:
-            print(f"\nPROBLEMATIC TESTS (< 1x RT):")
+            print("\nPROBLEMATIC TESTS (< 1x RT):")
             for test in problematic_tests:
                 result = self.results[test]
                 print(f"  {test}: {result['realtime_factor']:.2f}x RT ({result['cpu_usage_percent']:.1f}% CPU)")

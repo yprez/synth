@@ -5,11 +5,10 @@ which are snapshots of all synth parameters.
 """
 
 import os
-import shutil
 import yaml
 import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 from qwerty_synth import config
 

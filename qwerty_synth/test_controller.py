@@ -3,7 +3,6 @@
 
 import time
 import signal
-import threading
 import sys
 
 from qwerty_synth import synth

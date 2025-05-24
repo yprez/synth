@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit, prange
+from numba import jit
 from qwerty_synth import config
 
 
