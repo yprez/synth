@@ -27,11 +27,58 @@ _DC_LEAK_FACTOR = 0.995
 _MIN_Q = 0.001
 _MAX_RESONANCE = 0.99
 
+# Trigonometric lookup tables for fast approximation
+_LUT_SIZE = 8192
+_LUT_SCALE = _LUT_SIZE / (2.0 * np.pi)
+_sin_lut = np.sin(np.linspace(0, 2*np.pi, _LUT_SIZE, endpoint=False)).astype(np.float32)
+_cos_lut = np.cos(np.linspace(0, 2*np.pi, _LUT_SIZE, endpoint=False)).astype(np.float32)
+_tan_lut = np.tan(np.linspace(0, np.pi/2 * 0.99, _LUT_SIZE)).astype(np.float32)  # 0 to almost π/2
+_tan_scale = _LUT_SIZE / (np.pi/2 * 0.99)
+
 # Temporary arrays for performance optimization (track for cleanup)
 _temp_arrays = []
 
 # JIT compilation status
 _jit_warmed_up = False
+
+
+@jit(nopython=True, fastmath=True, cache=True)
+def _fast_sin_lut(x):
+    """Fast sine approximation using lookup table with linear interpolation."""
+    # Normalize to [0, 2π) range
+    x_norm = (x % (2.0 * np.pi)) * _LUT_SCALE
+    idx = int(x_norm)
+    frac = x_norm - idx
+
+    # Linear interpolation
+    return _sin_lut[idx] * (1.0 - frac) + _sin_lut[(idx + 1) % _LUT_SIZE] * frac
+
+
+@jit(nopython=True, fastmath=True, cache=True)
+def _fast_cos_lut(x):
+    """Fast cosine approximation using lookup table with linear interpolation."""
+    # Normalize to [0, 2π) range
+    x_norm = (x % (2.0 * np.pi)) * _LUT_SCALE
+    idx = int(x_norm)
+    frac = x_norm - idx
+
+    # Linear interpolation
+    return _cos_lut[idx] * (1.0 - frac) + _cos_lut[(idx + 1) % _LUT_SIZE] * frac
+
+
+@jit(nopython=True, fastmath=True, cache=True)
+def _fast_tan_lut(x):
+    """Fast tangent approximation using lookup table for small angles."""
+    # Clamp to valid range [0, π/2 * 0.99)
+    x_clamped = min(abs(x), np.pi/2 * 0.99)
+    x_norm = x_clamped * _tan_scale
+    idx = int(x_norm)
+    frac = x_norm - idx
+
+    # Linear interpolation
+    if idx >= _LUT_SIZE - 1:
+        return _tan_lut[_LUT_SIZE - 1]
+    return _tan_lut[idx] * (1.0 - frac) + _tan_lut[idx + 1] * frac
 
 
 def apply_filter(samples, lfo_modulation=None, filter_envelope=None):
@@ -136,7 +183,7 @@ def _apply_svf_constant_jit(samples, cutoff_freq, r, output_type, sample_rate, v
     """JIT-compiled SVF for constant cutoff frequency."""
     # Pre-calculate coefficients
     w_half = np.pi * cutoff_freq / sample_rate
-    g = np.tan(w_half)
+    g = _fast_tan_lut(w_half)
     g1 = 1.0 / (1.0 + g * (g + r))
     g2 = g * g1
     g3 = g * g2
@@ -198,7 +245,7 @@ def _apply_svf_variable_jit(samples, modulated_cutoff, r, output_type, sample_ra
 
         # Calculate coefficients for this sample
         w_half = pi * f * fs_inv
-        g = np.tan(w_half)
+        g = _fast_tan_lut(w_half)
         g1 = 1.0 / (1.0 + g * (g + r))
         g2 = g * g1
         g3 = g * g2
@@ -356,8 +403,8 @@ def _calculate_biquad_coeffs_jit(cutoff_freq, q_factor, sample_rate, filter_type
     """JIT-compiled fast biquad coefficient calculation."""
     fs = sample_rate
     w = 2.0 * np.pi * cutoff_freq / fs
-    cos_w = np.cos(w)
-    sin_w = np.sin(w)
+    cos_w = _fast_cos_lut(w)
+    sin_w = _fast_sin_lut(w)
     alpha = sin_w / (2.0 * q_factor)
 
     # Pre-compute common values
@@ -505,6 +552,11 @@ def _warmup_jit_functions():
         # Create small dummy arrays for warm-up
         dummy_samples = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
         dummy_modulated = np.array([1000.0, 1100.0, 1200.0, 1300.0], dtype=np.float32)
+
+        # Warm up trigonometric lookup functions
+        _fast_sin_lut(1.0)
+        _fast_cos_lut(1.0)
+        _fast_tan_lut(0.5)
 
         # Warm up SVF functions
         _apply_svf_constant_jit(dummy_samples, 1000.0, 0.5, 0, 44100.0, 0.0, 0.0)
