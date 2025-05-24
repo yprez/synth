@@ -38,6 +38,9 @@ _tan_scale = _LUT_SIZE / (np.pi/2 * 0.99)
 # Temporary arrays for performance optimization (track for cleanup)
 _temp_arrays = []
 
+# Pre-allocated output buffer for filter processing (avoids repeated allocation)
+_output_buffer = np.zeros(0, dtype=np.float32)
+
 # JIT compilation status
 _jit_warmed_up = False
 
@@ -179,8 +182,8 @@ def _apply_svf(samples, modulated_cutoff):
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def _apply_svf_constant_jit(samples, cutoff_freq, r, output_type, sample_rate, v0z, v1z):
-    """JIT-compiled SVF for constant cutoff frequency."""
+def _apply_svf_constant_jit(samples, output_buffer, cutoff_freq, r, output_type, sample_rate, v0z, v1z):
+    """JIT-compiled SVF for constant cutoff frequency with pre-allocated output."""
     # Pre-calculate coefficients
     w_half = np.pi * cutoff_freq / sample_rate
     g = _fast_tan_lut(w_half)
@@ -188,9 +191,7 @@ def _apply_svf_constant_jit(samples, cutoff_freq, r, output_type, sample_rate, v
     g2 = g * g1
     g3 = g * g2
 
-    # Process samples using pre-compiled array for output
-    filtered = np.empty_like(samples)
-
+    # Process samples directly into the output buffer
     for i in range(len(samples)):
         x = samples[i]
 
@@ -205,39 +206,40 @@ def _apply_svf_constant_jit(samples, cutoff_freq, r, output_type, sample_rate, v
 
         # Fast output selection using integer mapping
         if output_type == 0:    # lowpass
-            filtered[i] = lp
+            output_buffer[i] = lp
         elif output_type == 1:  # highpass
-            filtered[i] = hp
+            output_buffer[i] = hp
         elif output_type == 2:  # bandpass
-            filtered[i] = bp
+            output_buffer[i] = bp
         else:                   # notch (output_type == 3)
-            filtered[i] = hp + lp
+            output_buffer[i] = hp + lp
 
-    return filtered, v0z, v1z
+    return v0z, v1z
 
 
 def _apply_svf_constant(samples, cutoff_freq, r, output_type):
     """Optimized SVF for constant cutoff frequency."""
     global _v0z, _v1z
 
+    # Get pre-allocated output buffer
+    output_buffer = _ensure_output_buffer(len(samples))
+
     # Call JIT-compiled function
-    filtered, _v0z, _v1z = _apply_svf_constant_jit(
-        samples, cutoff_freq, r, output_type, config.sample_rate, _v0z, _v1z
+    _v0z, _v1z = _apply_svf_constant_jit(
+        samples, output_buffer, cutoff_freq, r, output_type, config.sample_rate, _v0z, _v1z
     )
 
     # Apply denormal protection and DC leak once at the end
     _apply_denormal_protection_svf()
 
-    return filtered
+    return output_buffer.copy()  # Return a copy to avoid buffer reuse issues
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def _apply_svf_variable_jit(samples, modulated_cutoff, r, output_type, sample_rate, v0z, v1z):
-    """JIT-compiled SVF for variable cutoff frequency."""
+def _apply_svf_variable_jit(samples, output_buffer, modulated_cutoff, r, output_type, sample_rate, v0z, v1z):
+    """JIT-compiled SVF for variable cutoff frequency with pre-allocated output."""
     fs_inv = 1.0 / sample_rate
     pi = np.pi
-
-    filtered = np.empty_like(samples)
 
     for i in range(len(samples)):
         x = samples[i]
@@ -261,28 +263,31 @@ def _apply_svf_variable_jit(samples, modulated_cutoff, r, output_type, sample_ra
 
         # Fast output selection using integer mapping
         if output_type == 0:    # lowpass
-            filtered[i] = lp
+            output_buffer[i] = lp
         elif output_type == 1:  # highpass
-            filtered[i] = hp
+            output_buffer[i] = hp
         elif output_type == 2:  # bandpass
-            filtered[i] = bp
+            output_buffer[i] = bp
         else:                   # notch (output_type == 3)
-            filtered[i] = hp + lp
+            output_buffer[i] = hp + lp
 
-    return filtered, v0z, v1z
+    return v0z, v1z
 
 
 def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
     """Optimized SVF for variable cutoff frequency."""
     global _v0z, _v1z
 
+    # Get pre-allocated output buffer
+    output_buffer = _ensure_output_buffer(len(samples))
+
     # Call JIT-compiled function
-    filtered, _v0z, _v1z = _apply_svf_variable_jit(
-        samples, modulated_cutoff, r, output_type, config.sample_rate, _v0z, _v1z
+    _v0z, _v1z = _apply_svf_variable_jit(
+        samples, output_buffer, modulated_cutoff, r, output_type, config.sample_rate, _v0z, _v1z
     )
 
     _apply_denormal_protection_svf()
-    return filtered
+    return output_buffer.copy()  # Return a copy to avoid buffer reuse issues
 
 
 def _apply_biquad(samples, modulated_cutoff):
@@ -303,12 +308,10 @@ def _apply_biquad(samples, modulated_cutoff):
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def _apply_biquad_constant_jit(samples, cutoff_freq, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
-    """JIT-compiled biquad for constant cutoff frequency."""
+def _apply_biquad_constant_jit(samples, output_buffer, cutoff_freq, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
+    """JIT-compiled biquad for constant cutoff frequency with pre-allocated output."""
     # Pre-calculate coefficients
     b0, b1, b2, a1, a2 = _calculate_biquad_coeffs_jit(cutoff_freq, q, sample_rate, filter_type_int)
-
-    filtered = np.empty_like(samples)
 
     for i in range(len(samples)):
         x = samples[i]
@@ -322,9 +325,9 @@ def _apply_biquad_constant_jit(samples, cutoff_freq, q, sample_rate, filter_type
         bq_y2 = bq_y1
         bq_y1 = y
 
-        filtered[i] = y
+        output_buffer[i] = y
 
-    return filtered, bq_x1, bq_x2, bq_y1, bq_y2
+    return bq_x1, bq_x2, bq_y1, bq_y2
 
 
 def _apply_biquad_constant(samples, cutoff_freq, q):
@@ -340,20 +343,22 @@ def _apply_biquad_constant(samples, cutoff_freq, q):
     }
     filter_type_int = filter_type_map.get(config.filter_type, 0)
 
+    # Get pre-allocated output buffer
+    output_buffer = _ensure_output_buffer(len(samples))
+
     # Call JIT-compiled function
-    filtered, _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_constant_jit(
-        samples, cutoff_freq, q, config.sample_rate, filter_type_int,
+    _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_constant_jit(
+        samples, output_buffer, cutoff_freq, q, config.sample_rate, filter_type_int,
         _bq_x1, _bq_x2, _bq_y1, _bq_y2
     )
 
     _apply_denormal_protection_biquad()
-    return filtered
+    return output_buffer.copy()  # Return a copy to avoid buffer reuse issues
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def _apply_biquad_variable_jit(samples, modulated_cutoff, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
-    """JIT-compiled biquad for variable cutoff frequency."""
-    filtered = np.empty_like(samples)
+def _apply_biquad_variable_jit(samples, output_buffer, modulated_cutoff, q, sample_rate, filter_type_int, bq_x1, bq_x2, bq_y1, bq_y2):
+    """JIT-compiled biquad for variable cutoff frequency with pre-allocated output."""
 
     for i in range(len(samples)):
         x = samples[i]
@@ -370,9 +375,9 @@ def _apply_biquad_variable_jit(samples, modulated_cutoff, q, sample_rate, filter
         bq_y2 = bq_y1
         bq_y1 = y
 
-        filtered[i] = y
+        output_buffer[i] = y
 
-    return filtered, bq_x1, bq_x2, bq_y1, bq_y2
+    return bq_x1, bq_x2, bq_y1, bq_y2
 
 
 def _apply_biquad_variable(samples, modulated_cutoff, q):
@@ -388,14 +393,17 @@ def _apply_biquad_variable(samples, modulated_cutoff, q):
     }
     filter_type_int = filter_type_map.get(config.filter_type, 0)
 
+    # Get pre-allocated output buffer
+    output_buffer = _ensure_output_buffer(len(samples))
+
     # Call JIT-compiled function
-    filtered, _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_variable_jit(
-        samples, modulated_cutoff, q, config.sample_rate, filter_type_int,
+    _bq_x1, _bq_x2, _bq_y1, _bq_y2 = _apply_biquad_variable_jit(
+        samples, output_buffer, modulated_cutoff, q, config.sample_rate, filter_type_int,
         _bq_x1, _bq_x2, _bq_y1, _bq_y2
     )
 
     _apply_denormal_protection_biquad()
-    return filtered
+    return output_buffer.copy()  # Return a copy to avoid buffer reuse issues
 
 
 @jit(nopython=True, fastmath=True, cache=True)
@@ -552,6 +560,7 @@ def _warmup_jit_functions():
         # Create small dummy arrays for warm-up
         dummy_samples = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
         dummy_modulated = np.array([1000.0, 1100.0, 1200.0, 1300.0], dtype=np.float32)
+        dummy_output = np.zeros(4, dtype=np.float32)
 
         # Warm up trigonometric lookup functions
         _fast_sin_lut(1.0)
@@ -559,13 +568,13 @@ def _warmup_jit_functions():
         _fast_tan_lut(0.5)
 
         # Warm up SVF functions
-        _apply_svf_constant_jit(dummy_samples, 1000.0, 0.5, 0, 44100.0, 0.0, 0.0)
-        _apply_svf_variable_jit(dummy_samples, dummy_modulated, 0.5, 0, 44100.0, 0.0, 0.0)
+        _apply_svf_constant_jit(dummy_samples, dummy_output, 1000.0, 0.5, 0, 44100.0, 0.0, 0.0)
+        _apply_svf_variable_jit(dummy_samples, dummy_output, dummy_modulated, 0.5, 0, 44100.0, 0.0, 0.0)
 
         # Warm up biquad functions for all filter types
         for filter_type in range(4):  # 0=lowpass, 1=highpass, 2=bandpass, 3=notch
-            _apply_biquad_constant_jit(dummy_samples, 1000.0, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
-            _apply_biquad_variable_jit(dummy_samples, dummy_modulated, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
+            _apply_biquad_constant_jit(dummy_samples, dummy_output, 1000.0, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
+            _apply_biquad_variable_jit(dummy_samples, dummy_output, dummy_modulated, 2.0, 44100.0, filter_type, 0.0, 0.0, 0.0, 0.0)
             _calculate_biquad_coeffs_jit(1000.0, 2.0, 44100.0, filter_type)
 
         _jit_warmed_up = True
@@ -600,3 +609,11 @@ def _async_warmup():
 
 # Start background warm-up when module loads
 _async_warmup()
+
+
+def _ensure_output_buffer(size):
+    """Ensure the output buffer is large enough for the given size."""
+    global _output_buffer
+    if len(_output_buffer) < size:
+        _output_buffer = np.zeros(size, dtype=np.float32)
+    return _output_buffer[:size]
