@@ -71,7 +71,7 @@ class Oscillator:
         # Precompute wave generation functions for performance
         self._wave_funcs = {
             'sine': lambda phase: np.sin(phase),
-            'square': lambda phase: np.sign(np.sin(phase)),
+            'square': lambda phase: np.sign(np.sin(phase)) * 0.95,  # Scale to avoid clipping
             'triangle': lambda phase: 2 * np.abs(2 * ((phase / (2 * np.pi)) % 1) - 1) - 1,
             'sawtooth': lambda phase: 2 * ((phase / (2 * np.pi)) % 1) - 1
         }
@@ -81,6 +81,9 @@ class Oscillator:
         if self.done:
             return np.zeros(frames), np.zeros(frames)  # Return both amp and filter envs
 
+        # Handle zero frames case
+        if frames == 0:
+            return np.zeros(0), np.zeros(0)
 
         # Glide
         if self.freq == self.target_freq:
@@ -298,11 +301,11 @@ def audio_callback(outdata, frames, time_info, status):
         if config.filter_cutoff < config.sample_rate / 2:
             buffer = filter.apply_filter(buffer, lfo_cutoff, filter_env_buffer)
 
-        # Apply drive effect (wave folding/soft clipping) after filter
-        buffer = apply_drive(buffer)
-
         # Optional safety clip to prevent extreme peaks after drive
         np.clip(buffer, -1.2, 1.2, out=buffer)
+
+    # Apply drive effect (wave folding/soft clipping) after filter - always
+    buffer = apply_drive(buffer)
 
     # Start with mono signal
     buffer_L = buffer.copy()  # Use copy to prevent unintended shared references
