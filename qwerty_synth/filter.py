@@ -22,6 +22,7 @@ _SVF_OUTPUT_MAP = {
 
 # Constants for optimization
 _DENORMAL_THRESHOLD = 1e-20
+_DENORMAL_THRESHOLD_SQ = _DENORMAL_THRESHOLD * _DENORMAL_THRESHOLD
 _DC_LEAK_FACTOR = 0.995
 _MIN_Q = 0.001
 _MAX_RESONANCE = 0.99
@@ -126,8 +127,8 @@ def _apply_svf_constant(samples, cutoff_freq, r, output_type):
     global _v0z, _v1z
 
     # Pre-calculate coefficients
-    w = 2 * np.pi * cutoff_freq / config.sample_rate
-    g = np.tan(w / 2)
+    w_half = np.pi * cutoff_freq / config.sample_rate
+    g = np.tan(w_half)
     g1 = 1.0 / (1.0 + g * (g + r))
     g2 = g * g1
     g3 = g * g2
@@ -168,7 +169,7 @@ def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
     global _v0z, _v1z
 
     fs_inv = 1.0 / config.sample_rate
-    two_pi = 2 * np.pi
+    pi = np.pi
 
     filtered = np.empty_like(samples, dtype=np.float32)
 
@@ -177,8 +178,8 @@ def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
         f = modulated_cutoff[i]
 
         # Calculate coefficients for this sample
-        w = two_pi * f * fs_inv
-        g = np.tan(w / 2)
+        w_half = pi * f * fs_inv
+        g = np.tan(w_half)
         g1 = 1.0 / (1.0 + g * (g + r))
         g2 = g * g1
         g3 = g * g2
@@ -192,14 +193,14 @@ def _apply_svf_variable(samples, modulated_cutoff, r, output_type):
         _v0z = lp + g2 * hp
         _v1z = bp + g3 * hp
 
-        # Fast output selection
+        # Fast output selection using integer mapping
         if output_type == 0:    # lowpass
             filtered[i] = lp
         elif output_type == 1:  # highpass
             filtered[i] = hp
         elif output_type == 2:  # bandpass
             filtered[i] = bp
-        else:                   # notch
+        else:                   # notch (output_type == 3)
             filtered[i] = hp + lp
 
     _apply_denormal_protection_svf()
@@ -285,47 +286,52 @@ def _calculate_biquad_coeffs_fast(cutoff_freq, q_factor):
     sin_w = np.sin(w)
     alpha = sin_w / (2.0 * q_factor)
 
+    # Pre-compute common values
+    one_plus_alpha = 1.0 + alpha
+    one_minus_alpha = 1.0 - alpha
+    neg_two_cos_w = -2.0 * cos_w
+
     filter_type = config.filter_type
 
     if filter_type == 'lowpass':
         b0 = (1.0 - cos_w) / 2.0
         b1 = 1.0 - cos_w
         b2 = b0  # Same as b0
-        a0 = 1.0 + alpha
-        a1 = -2.0 * cos_w
-        a2 = 1.0 - alpha
+        a0 = one_plus_alpha
+        a1 = neg_two_cos_w
+        a2 = one_minus_alpha
 
     elif filter_type == 'highpass':
         b0 = (1.0 + cos_w) / 2.0
         b1 = -(1.0 + cos_w)
         b2 = b0  # Same as b0
-        a0 = 1.0 + alpha
-        a1 = -2.0 * cos_w
-        a2 = 1.0 - alpha
+        a0 = one_plus_alpha
+        a1 = neg_two_cos_w
+        a2 = one_minus_alpha
 
     elif filter_type == 'bandpass':
         b0 = alpha
         b1 = 0.0
         b2 = -alpha
-        a0 = 1.0 + alpha
-        a1 = -2.0 * cos_w
-        a2 = 1.0 - alpha
+        a0 = one_plus_alpha
+        a1 = neg_two_cos_w
+        a2 = one_minus_alpha
 
     elif filter_type == 'notch':
         b0 = 1.0
-        b1 = -2.0 * cos_w
+        b1 = neg_two_cos_w
         b2 = 1.0
-        a0 = 1.0 + alpha
-        a1 = -2.0 * cos_w
-        a2 = 1.0 - alpha
+        a0 = one_plus_alpha
+        a1 = neg_two_cos_w
+        a2 = one_minus_alpha
 
     else:  # Default to lowpass
         b0 = (1.0 - cos_w) / 2.0
         b1 = 1.0 - cos_w
         b2 = b0
-        a0 = 1.0 + alpha
-        a1 = -2.0 * cos_w
-        a2 = 1.0 - alpha
+        a0 = one_plus_alpha
+        a1 = neg_two_cos_w
+        a2 = one_minus_alpha
 
     # Normalize by a0 (optimized division)
     a0_inv = 1.0 / a0
@@ -341,9 +347,9 @@ def _apply_denormal_protection_svf():
     _v0z *= _DC_LEAK_FACTOR
     _v1z *= _DC_LEAK_FACTOR
 
-    if abs(_v0z) < _DENORMAL_THRESHOLD:
+    if _v0z * _v0z < _DENORMAL_THRESHOLD_SQ:
         _v0z = 0.0
-    if abs(_v1z) < _DENORMAL_THRESHOLD:
+    if _v1z * _v1z < _DENORMAL_THRESHOLD_SQ:
         _v1z = 0.0
 
 
@@ -351,13 +357,13 @@ def _apply_denormal_protection_biquad():
     """Apply denormal protection to biquad state variables."""
     global _bq_x1, _bq_x2, _bq_y1, _bq_y2
 
-    if abs(_bq_x1) < _DENORMAL_THRESHOLD:
+    if _bq_x1 * _bq_x1 < _DENORMAL_THRESHOLD_SQ:
         _bq_x1 = 0.0
-    if abs(_bq_x2) < _DENORMAL_THRESHOLD:
+    if _bq_x2 * _bq_x2 < _DENORMAL_THRESHOLD_SQ:
         _bq_x2 = 0.0
-    if abs(_bq_y1) < _DENORMAL_THRESHOLD:
+    if _bq_y1 * _bq_y1 < _DENORMAL_THRESHOLD_SQ:
         _bq_y1 = 0.0
-    if abs(_bq_y2) < _DENORMAL_THRESHOLD:
+    if _bq_y2 * _bq_y2 < _DENORMAL_THRESHOLD_SQ:
         _bq_y2 = 0.0
 
 
