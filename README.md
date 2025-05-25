@@ -22,19 +22,6 @@ A minimalist real-time synthesizer built in Python using your keyboard as a pian
 
 - Play notes using keys A–K, W, E, T, Y, U, O, P, etc.
 - Octave shift with `Z` (down) / `X` (up)
-- Switch waveform:
-  - `1`: Sine
-  - `2`: Square
-  - `3`: Triangle
-  - `4`: Sawtooth
-- Adjust ADSR envelope live:
-  - `5` / `6`: Attack increase/decrease
-  - `7` / `8`: Decay increase/decrease
-  - `9` / `0`: Sustain increase/decrease
-  - `-` / `=`: Release increase/decrease
-- Volume control:
-  - `[`: Decrease volume
-  - `]`: Increase volume
 - GUI with additional features:
   - Filter controls (cutoff, resonance, envelope)
   - Drive effect for soft-clipping distortion
