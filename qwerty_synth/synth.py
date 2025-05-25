@@ -150,17 +150,25 @@ class Oscillator:
             if not self.released:
                 # Attack phase
                 attack_mask = time_array < config.adsr['attack']
-                env = np.where(attack_mask,
-                               time_array / config.adsr['attack'],
-                               0)
+                if config.adsr['attack'] > 0:
+                    env = np.where(attack_mask,
+                                   time_array / config.adsr['attack'],
+                                   0)
+                else:
+                    # If attack is zero, immediately jump to full level
+                    env = np.where(attack_mask, 1.0, 0)
 
                 # Decay phase
                 decay_start = config.adsr['attack']
                 decay_end = decay_start + config.adsr['decay']
                 decay_mask = (time_array >= decay_start) & (time_array < decay_end)
-                env = np.where(decay_mask,
-                             1 - (1 - config.adsr['sustain']) * ((time_array - decay_start) / config.adsr['decay']),
-                             env)
+                if config.adsr['decay'] > 0:
+                    env = np.where(decay_mask,
+                                 1 - (1 - config.adsr['sustain']) * ((time_array - decay_start) / config.adsr['decay']),
+                                 env)
+                else:
+                    # If decay is zero, immediately jump to sustain level
+                    env = np.where(decay_mask, config.adsr['sustain'], env)
 
                 # Sustain phase
                 sustain_mask = time_array >= decay_end
@@ -170,10 +178,15 @@ class Oscillator:
             else:
                 # Release phase
                 release_mask = time_array < config.adsr['release']
-                env = np.where(release_mask,
-                             self.last_env_level * (1 - time_array / config.adsr['release']),
-                             0)
-                self.done = time_array[-1] >= config.adsr['release']
+                if config.adsr['release'] > 0:
+                    env = np.where(release_mask,
+                                 self.last_env_level * (1 - time_array / config.adsr['release']),
+                                 0)
+                    self.done = time_array[-1] >= config.adsr['release']
+                else:
+                    # If release is zero, immediately silence the note
+                    env = np.zeros_like(time_array)
+                    self.done = True
 
             # Update envelope trackers
             self.env_time += frames / config.sample_rate
@@ -196,19 +209,27 @@ class Oscillator:
             if not self.released:
                 # Attack phase
                 attack_mask = time_array < config.filter_adsr['attack']
-                filter_env = np.where(attack_mask,
-                                      time_array / config.filter_adsr['attack'],
-                                      0)
+                if config.filter_adsr['attack'] > 0:
+                    filter_env = np.where(attack_mask,
+                                          time_array / config.filter_adsr['attack'],
+                                          0)
+                else:
+                    # If attack is zero, immediately jump to full level
+                    filter_env = np.where(attack_mask, 1.0, 0)
 
                 # Decay phase
                 decay_start = config.filter_adsr['attack']
                 decay_end = decay_start + config.filter_adsr['decay']
                 decay_mask = (time_array >= decay_start) & (time_array < decay_end)
-                filter_env = np.where(
-                    decay_mask,
-                    1 - (1 - config.filter_adsr['sustain']) * ((time_array - decay_start) / config.filter_adsr['decay']),
-                    filter_env
-                )
+                if config.filter_adsr['decay'] > 0:
+                    filter_env = np.where(
+                        decay_mask,
+                        1 - (1 - config.filter_adsr['sustain']) * ((time_array - decay_start) / config.filter_adsr['decay']),
+                        filter_env
+                    )
+                else:
+                    # If decay is zero, immediately jump to sustain level
+                    filter_env = np.where(decay_mask, config.filter_adsr['sustain'], filter_env)
 
                 # Sustain phase
                 sustain_mask = time_array >= decay_end
@@ -218,11 +239,15 @@ class Oscillator:
             else:
                 # Release phase
                 release_mask = time_array < config.filter_adsr['release']
-                filter_env = np.where(
-                    release_mask,
-                    self.last_filter_env_level * (1 - time_array / config.filter_adsr['release']),
-                    0
-                )
+                if config.filter_adsr['release'] > 0:
+                    filter_env = np.where(
+                        release_mask,
+                        self.last_filter_env_level * (1 - time_array / config.filter_adsr['release']),
+                        0
+                    )
+                else:
+                    # If release is zero, immediately go to zero
+                    filter_env = np.zeros_like(time_array)
 
             # Update filter envelope trackers
             self.filter_env_time += frames / config.sample_rate
