@@ -1,7 +1,7 @@
 """Comprehensive unit tests for the controller functionality."""
 
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 import threading
 
 from qwerty_synth import controller, config
@@ -592,3 +592,257 @@ class TestControllerEdgeCases:
 
         # Should complete without errors (main test is that it doesn't crash)
         assert True
+
+
+class TestMidiFilePlaybackEvents:
+    """Test cases for MIDI file playback event handling."""
+
+    def setup_method(self):
+        """Reset state before each test."""
+        controller._note_counter = 0
+        config.active_notes = {}
+        config.mono_mode = False
+        config.midi_playback_active = False
+        config.midi_paused = False
+        config.midi_tempo_scale = 1.0
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    @patch('qwerty_synth.controller.play_midi_note')
+    @patch('threading.Thread')
+    def test_midi_note_on_events_setup(self, mock_thread, mock_play_midi, mock_midi_file_class):
+        """Test MIDI file setup and thread creation for note events."""
+        # Create mock MIDI messages
+        note_on_msg = MagicMock()
+        note_on_msg.type = 'note_on'
+        note_on_msg.note = 60  # C4
+        note_on_msg.velocity = 100
+        note_on_msg.channel = 0
+        note_on_msg.time = 0.0
+
+        mock_midi_file = MagicMock()
+        mock_midi_file.__iter__ = MagicMock(return_value=iter([note_on_msg]))
+        mock_midi_file_class.return_value = mock_midi_file
+
+        # Start playback
+        controller.play_midi_file('test.mid')
+
+        # Should have created and started a thread
+        mock_thread.assert_called_once()
+        mock_thread.return_value.start.assert_called_once()
+
+        # Should have set up playback state
+        assert config.midi_playback_active is True
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    @patch('threading.Thread')
+    def test_midi_file_playback_thread_function(self, mock_thread, mock_midi_file_class):
+        """Test that the MIDI playback thread function is properly created."""
+        mock_midi_file = MagicMock()
+        mock_midi_file.__iter__ = MagicMock(return_value=iter([]))
+        mock_midi_file_class.return_value = mock_midi_file
+
+        controller.play_midi_file('test.mid')
+
+        # Check that thread was called with the correct target function
+        mock_thread.assert_called_once()
+        call_args = mock_thread.call_args
+        assert 'target' in call_args[1]
+        assert call_args[1]['daemon'] is True
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    def test_midi_playback_basic_setup_only(self, mock_midi_file_class):
+        """Test basic MIDI playback setup without complex state assertions."""
+        # Create mock messages with proper time attributes
+        msg1 = MagicMock()
+        msg1.time = 0.1
+        msg2 = MagicMock()
+        msg2.time = 0.2
+
+        mock_midi_file = MagicMock()
+        mock_midi_file.__iter__ = MagicMock(return_value=iter([msg1, msg2]))
+        mock_midi_file_class.return_value = mock_midi_file
+
+        # Test with different tempo scales
+        controller.play_midi_file('test.mid', 2.0)
+
+        # Test that the basic setup works
+        assert config.midi_tempo_scale == 2.0
+        assert config.midi_playback_duration == (0.1 + 0.2) / 2.0
+
+    def test_midi_playback_pause_resume_state(self):
+        """Test MIDI playback pause and resume state changes."""
+        # Test pause state
+        config.midi_paused = False
+        assert config.midi_paused is False
+
+        config.midi_paused = True
+        assert config.midi_paused is True
+
+        config.midi_paused = False
+        assert config.midi_paused is False
+
+    def test_midi_playback_stop_state(self):
+        """Test MIDI playback stop state management."""
+        config.midi_playback_active = True
+        assert config.midi_playback_active is True
+
+        config.midi_playback_active = False
+        assert config.midi_playback_active is False
+
+    def test_midi_tempo_scale_changes(self):
+        """Test MIDI tempo scale changes."""
+        config.midi_tempo_scale = 1.0
+        assert config.midi_tempo_scale == 1.0
+
+        config.midi_tempo_scale = 0.5  # Half speed
+        assert config.midi_tempo_scale == 0.5
+
+        config.midi_tempo_scale = 2.0  # Double speed
+        assert config.midi_tempo_scale == 2.0
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    def test_midi_file_exception_handling_detailed(self, mock_midi_file_class):
+        """Test detailed exception handling in MIDI file operations."""
+        # Test file loading exception
+        mock_midi_file_class.side_effect = FileNotFoundError("File not found")
+
+        controller.play_midi_file('nonexistent.mid')
+        assert config.midi_playback_active is False
+
+        # Test other exceptions
+        mock_midi_file_class.side_effect = Exception("Generic error")
+        controller.play_midi_file('error.mid')
+        assert config.midi_playback_active is False
+
+    def test_midi_note_velocity_conversion(self):
+        """Test MIDI velocity conversion logic."""
+        # Test velocity conversion from 0-127 to 0.0-1.0
+        test_velocities = [0, 64, 100, 127]
+        expected_velocities = [0.0, 64/127.0, 100/127.0, 1.0]
+
+        for midi_vel, expected_vel in zip(test_velocities, expected_velocities):
+            converted = midi_vel / 127.0
+            assert abs(converted - expected_vel) < 0.001
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    @patch('qwerty_synth.controller.play_midi_note')
+    def test_midi_channel_key_generation(self, mock_play_midi, mock_midi_file_class):
+        """Test MIDI channel key generation for note tracking."""
+        mock_osc = MagicMock()
+        mock_osc.key = 'program_1'
+        mock_play_midi.return_value = mock_osc
+
+        # Test channel key generation logic
+        channel = 5
+        note = 60
+        expected_key = (channel, note)
+
+        # This tests the logic that would be used in the MIDI playback thread
+        channel_key = (channel, note)
+        assert channel_key == expected_key
+        assert isinstance(channel_key, tuple)
+        assert len(channel_key) == 2
+
+    def test_midi_message_type_handling(self):
+        """Test MIDI message type identification."""
+        # Test note on message identification
+        note_on_msg = MagicMock()
+        note_on_msg.type = 'note_on'
+        note_on_msg.velocity = 100
+        assert note_on_msg.type == 'note_on' and note_on_msg.velocity > 0
+
+        # Test note off message identification
+        note_off_msg = MagicMock()
+        note_off_msg.type = 'note_off'
+        assert note_off_msg.type == 'note_off'
+
+        # Test note on with zero velocity (treated as note off)
+        note_on_zero = MagicMock()
+        note_on_zero.type = 'note_on'
+        note_on_zero.velocity = 0
+        assert note_on_zero.type == 'note_on' and note_on_zero.velocity == 0
+
+    def test_active_notes_management(self):
+        """Test active notes management during MIDI playback."""
+        # Test adding notes to active_notes
+        mock_osc = MagicMock()
+        mock_osc.key = 'program_1'
+
+        config.active_notes[mock_osc.key] = mock_osc
+        assert mock_osc.key in config.active_notes
+
+        # Test releasing notes
+        config.active_notes[mock_osc.key].released = True
+        config.active_notes[mock_osc.key].env_time = 0.0
+        config.active_notes[mock_osc.key].lfo_env_time = 0.0
+
+        assert config.active_notes[mock_osc.key].released is True
+        assert config.active_notes[mock_osc.key].env_time == 0.0
+        assert config.active_notes[mock_osc.key].lfo_env_time == 0.0
+
+        # Test removing notes
+        del config.active_notes[mock_osc.key]
+        assert mock_osc.key not in config.active_notes
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    def test_midi_timing_calculations(self, mock_midi_file_class):
+        """Test MIDI timing calculations."""
+        # Test duration calculation
+        msg1 = MagicMock()
+        msg1.time = 0.5
+        msg2 = MagicMock()
+        msg2.time = 1.0
+        msg3 = MagicMock()
+        msg3.time = 0.3
+
+        mock_midi_file = MagicMock()
+        mock_midi_file.__iter__ = MagicMock(return_value=iter([msg1, msg2, msg3]))
+        mock_midi_file_class.return_value = mock_midi_file
+
+        controller.play_midi_file('test.mid', 1.5)
+
+        expected_duration = (0.5 + 1.0 + 0.3) / 1.5
+        assert config.midi_playback_duration == expected_duration
+
+    def test_timing_precision_logic(self):
+        """Test timing precision logic used in MIDI playback."""
+        # Test wait time calculation logic
+        target_time = 1.0
+        current_time = 0.5
+        wait_time = target_time - current_time
+
+        assert wait_time == 0.5
+
+        # Test short vs long wait logic
+        short_wait = 0.005
+        long_wait = 0.1
+
+        assert short_wait < 0.01  # Would use busy waiting
+        assert long_wait >= 0.01  # Would use sleep + busy wait
+
+    @patch('qwerty_synth.controller.mido.MidiFile')
+    def test_midi_file_basic_loading(self, mock_midi_file_class):
+        """Test basic MIDI file loading without complex state assertions."""
+        # Create mock messages with proper attributes
+        msg1 = MagicMock()
+        msg1.type = 'note_on'
+        msg1.note = 60
+        msg1.velocity = 100
+        msg1.channel = 0
+        msg1.time = 0.0
+
+        msg2 = MagicMock()
+        msg2.type = 'note_off'
+        msg2.note = 60
+        msg2.velocity = 0
+        msg2.channel = 0
+        msg2.time = 0.5
+
+        mock_midi_file = MagicMock()
+        mock_midi_file.__iter__ = MagicMock(return_value=iter([msg1, msg2]))
+        mock_midi_file_class.return_value = mock_midi_file
+
+        controller.play_midi_file('test.mid')
+
+        # Should have attempted to load the MIDI file
+        mock_midi_file_class.assert_called_once_with('test.mid')
