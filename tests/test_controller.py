@@ -1,10 +1,7 @@
 """Comprehensive unit tests for the controller functionality."""
 
-import numpy as np
-import pytest
 import time
-import tempfile
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 import threading
 
 from qwerty_synth import controller, config
@@ -569,7 +566,6 @@ class TestControllerEdgeCases:
 
     def test_concurrent_note_access(self):
         """Test concurrent access to active_notes dict."""
-        import threading
 
         def add_notes():
             for i in range(10):

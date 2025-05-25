@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-from unittest.mock import patch
 
 from qwerty_synth.chorus import Chorus, _process_chorus_single_voice_jit, _process_chorus_multi_voice_jit
 from qwerty_synth import config

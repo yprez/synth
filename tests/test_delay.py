@@ -1,8 +1,6 @@
 """Comprehensive unit tests for the delay effect module."""
 
 import numpy as np
-import pytest
-from unittest.mock import patch
 
 from qwerty_synth import config
 from qwerty_synth.delay import Delay, DIV2MULT

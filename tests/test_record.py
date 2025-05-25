@@ -2,11 +2,7 @@
 
 import numpy as np
 import pytest
-import tempfile
-import os
-from pathlib import Path
-from unittest.mock import patch, mock_open
-import soundfile as sf
+from unittest.mock import patch
 from unittest.mock import MagicMock
 
 from qwerty_synth import record

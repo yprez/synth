@@ -1,7 +1,6 @@
 """Comprehensive unit tests for the core synthesizer functionality."""
 
 import numpy as np
-import pytest
 from unittest.mock import patch, Mock
 import threading
 import time

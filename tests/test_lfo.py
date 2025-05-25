@@ -1,8 +1,6 @@
 """Comprehensive unit tests for the LFO (Low Frequency Oscillator) module."""
 
 import numpy as np
-import pytest
-from unittest.mock import patch
 
 from qwerty_synth import config
 from qwerty_synth.lfo import LFO

@@ -1,15 +1,10 @@
 """Comprehensive tests for the step sequencer module."""
 
 import pytest
-import numpy as np
-from unittest.mock import Mock, patch, MagicMock
-from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtCore import QTimer
-from PyQt5.QtTest import QTest
-from PyQt5.QtCore import Qt
+from unittest.mock import Mock, patch
+from PyQt5.QtWidgets import QApplication
 
 from qwerty_synth.step_sequencer import StepSequencer
-from qwerty_synth import config
 
 
 @pytest.fixture(scope="session")

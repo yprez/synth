@@ -1,7 +1,6 @@
 """Comprehensive unit tests for the ADSR envelope module."""
 
 import numpy as np
-import pytest
 
 from qwerty_synth import config
 from qwerty_synth.adsr import (
