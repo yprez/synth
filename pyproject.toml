@@ -25,3 +25,9 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.11.11",
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=qwerty_synth",
+    "--cov-report=term-missing",
+]
