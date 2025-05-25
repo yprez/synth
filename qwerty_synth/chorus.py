@@ -7,7 +7,7 @@ sense of multiple voices playing in unison.
 
 import numpy as np
 from numba import jit
-from qwerty_synth.config import sample_rate, chorus_rate, chorus_depth, chorus_mix, chorus_voices
+from qwerty_synth import config
 
 
 @jit(nopython=True, cache=True, fastmath=True)
@@ -104,17 +104,17 @@ class Chorus:
     of multiple instruments playing the same part.
     """
 
-    def __init__(self, sample_rate=sample_rate):
+    def __init__(self, sample_rate=None):
         """Initialize chorus effect with default settings.
 
         Args:
-            sample_rate: Sample rate in Hz
+            sample_rate: Sample rate in Hz (defaults to config.sample_rate)
         """
-        self.sample_rate = sample_rate
-        self.rate = chorus_rate
-        self.depth = chorus_depth
-        self.mix = chorus_mix
-        self.voices = chorus_voices
+        self.sample_rate = sample_rate if sample_rate is not None else config.sample_rate
+        self.rate = config.chorus_rate
+        self.depth = config.chorus_depth
+        self.mix = config.chorus_mix
+        self.voices = config.chorus_voices
 
         # LFO phase for each voice - for single voice, this is just one value
         self.phase = 0.0
@@ -275,8 +275,9 @@ class Chorus:
             phase_values, lfo_values, delay_samples, self.base_delay_samples,
             self._write_idx, self._mask, self._dry_gain, self._wet_gain)
 
-        # Update the phase for next buffer
-        self.phase = phase_values[-1]
+        # Update the phase for next buffer (handle empty arrays)
+        if buffer_len > 0:
+            self.phase = phase_values[-1]
 
         return out_L.copy(), out_R.copy()
 

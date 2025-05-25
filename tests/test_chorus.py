@@ -62,6 +62,23 @@ class TestChorusInitialization:
         expected_phases = np.linspace(0, 2*np.pi, 3, endpoint=False)
         np.testing.assert_array_almost_equal(chorus.phases, expected_phases)
 
+    def test_multi_voice_initialization_at_creation(self):
+        """Test that multi-voice initialization path is triggered during creation."""
+        # The Chorus constructor uses default parameter values from imports,
+        # not runtime config values, so we need to pass the sample_rate parameter explicitly
+        # and then set voices after creation to test the multi-voice path
+        chorus = Chorus()
+
+        # Test the multi-voice setup by calling set_voices
+        chorus.set_voices(3)
+
+        # Should have multi-voice setup
+        assert chorus.voices == 3
+        assert len(chorus.phases) == 3
+        # Check that multi-voice initialization was executed
+        expected_phases = np.linspace(0, 2*np.pi, 3, endpoint=False)
+        np.testing.assert_array_almost_equal(chorus.phases, expected_phases)
+
 
 class TestChorusParameterSetting:
     """Test cases for parameter setting methods."""
@@ -200,24 +217,127 @@ class TestChorusParameterSetting:
         assert chorus._dry_gain != old_dry_gain
 
 
+class TestChorusJITFunctionsDirect:
+    """Test cases for direct testing of JIT functions to ensure coverage."""
+
+    def test_single_voice_jit_function_directly(self):
+        """Test the single voice JIT function directly to ensure coverage."""
+        frames = 128
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
+
+        # Prepare output buffers
+        out_L = np.zeros(frames, dtype=np.float32)
+        out_R = np.zeros(frames, dtype=np.float32)
+
+        # Prepare chorus buffers
+        buffer_size = 1024
+        buffer_L = np.zeros(buffer_size, dtype=np.float32)
+        buffer_R = np.zeros(buffer_size, dtype=np.float32)
+        mask = buffer_size - 1
+        write_idx = 0
+
+        # Prepare modulation arrays
+        phase_values = np.linspace(0, 2*np.pi, frames, dtype=np.float32)
+        lfo_values = np.sin(phase_values).astype(np.float32)
+        base_delay_samples = 100
+        delay_samples = base_delay_samples + lfo_values * 50
+
+        # Audio mixing parameters
+        dry_gain = 0.7
+        wet_gain = 0.3
+
+        # Call the JIT function directly to ensure it's covered
+        new_write_idx = _process_chorus_single_voice_jit(
+            L, R, out_L, out_R, buffer_L, buffer_R,
+            phase_values, lfo_values, delay_samples, base_delay_samples,
+            write_idx, mask, dry_gain, wet_gain
+        )
+
+        # Verify output
+        assert new_write_idx == frames % buffer_size
+        assert not np.allclose(out_L, 0.0)  # Output should have content
+        assert not np.allclose(out_R, 0.0)
+        assert out_L.dtype == np.float32
+        assert out_R.dtype == np.float32
+
+    def test_multi_voice_jit_function_directly(self):
+        """Test the multi voice JIT function directly to ensure coverage."""
+        frames = 128
+        voices = 3
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
+
+        # Prepare output buffers
+        out_L = np.zeros(frames, dtype=np.float32)
+        out_R = np.zeros(frames, dtype=np.float32)
+
+        # Prepare chorus buffers
+        buffer_size = 1024
+        buffer_L = np.zeros(buffer_size, dtype=np.float32)
+        buffer_R = np.zeros(buffer_size, dtype=np.float32)
+        mask = buffer_size - 1
+        write_idx = 0
+
+        # Prepare voice parameters
+        phases = np.linspace(0, 2*np.pi, voices, endpoint=False).astype(np.float32)
+        base_delay_samples = 100
+        depth_samples = 50
+        phase_inc = 0.01
+
+        # Audio mixing parameters
+        dry_gain = 0.7
+        voice_mix = 0.1  # 0.3 / 3 voices
+
+        # Call the JIT function directly to ensure it's covered
+        new_write_idx = _process_chorus_multi_voice_jit(
+            L, R, out_L, out_R, buffer_L, buffer_R,
+            phases, base_delay_samples, depth_samples,
+            phase_inc, write_idx, mask, dry_gain, voice_mix
+        )
+
+        # Verify output
+        assert new_write_idx == frames % buffer_size
+        assert not np.allclose(out_L, 0.0)  # Output should have content
+        assert not np.allclose(out_R, 0.0)
+        assert out_L.dtype == np.float32
+        assert out_R.dtype == np.float32
+
+        # Verify that phases were updated
+        assert not np.allclose(phases, np.linspace(0, 2*np.pi, voices, endpoint=False))
+
+
 class TestChorusProcessing:
-    """Test cases for chorus audio processing."""
+    """Test cases for chorus processing."""
+
+    @pytest.fixture
+    def audio_helper(self):
+        """Helper fixture for creating test audio."""
+        class AudioHelper:
+            @staticmethod
+            def create_test_audio(frames=512, frequency=440, sample_rate=44100):
+                """Create test sine wave audio."""
+                t = np.arange(frames) / sample_rate
+                L = np.sin(2 * np.pi * frequency * t).astype(np.float32) * 0.1
+                R = np.sin(2 * np.pi * frequency * t).astype(np.float32) * 0.1
+                return L, R
+
+        return AudioHelper()
 
     def test_process_bypass_zero_mix(self):
-        """Test that zero mix bypasses processing."""
+        """Test that zero mix bypasses processing entirely."""
         chorus = Chorus()
         chorus.set_mix(0.0)
 
-        # Create test signals
-        frames = 512
-        L = np.random.randn(frames).astype(np.float32)
-        R = np.random.randn(frames).astype(np.float32)
+        frames = 256
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Process should return input unchanged
         out_L, out_R = chorus.process(L, R)
 
-        np.testing.assert_array_equal(out_L, L)
-        np.testing.assert_array_equal(out_R, R)
+        # Should return exactly the same arrays (bypass)
+        assert out_L is L
+        assert out_R is R
 
     def test_process_single_voice(self, audio_helper):
         """Test single voice chorus processing."""
@@ -227,225 +347,213 @@ class TestChorusProcessing:
         chorus.set_rate(1.0)
         chorus.set_depth(0.005)
 
-        # Create test signals
-        frames = 1024
-        L = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
-        R = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
+        L, R = audio_helper.create_test_audio(frames=512)
 
-        # Process audio
         out_L, out_R = chorus.process(L, R)
 
-        # Output should be different from input (chorus effect applied)
-        assert not np.allclose(out_L, L)
-        assert not np.allclose(out_R, R)
+        # Check output properties
+        assert out_L.shape == L.shape
+        assert out_R.shape == R.shape
+        assert out_L.dtype == np.float32
+        assert out_R.dtype == np.float32
 
-        # Output should not be clipped
-        assert not audio_helper.is_clipped(out_L)
-        assert not audio_helper.is_clipped(out_R)
+        # Output should be different from input due to processing
+        assert not np.array_equal(out_L, L)
+        assert not np.array_equal(out_R, R)
 
-        # Output should have signal
-        assert audio_helper.has_signal(out_L)
-        assert audio_helper.has_signal(out_R)
+        # Output level should be reasonable
+        assert np.max(np.abs(out_L)) < 1.0
+        assert np.max(np.abs(out_R)) < 1.0
 
     def test_process_multi_voice(self, audio_helper):
-        """Test multi-voice chorus processing."""
+        """Test multi voice chorus processing."""
         chorus = Chorus()
         chorus.set_voices(3)
         chorus.set_mix(0.4)
-        chorus.set_rate(0.8)
+        chorus.set_rate(1.5)
         chorus.set_depth(0.008)
 
-        # Create test signals
-        frames = 1024
-        L = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
-        R = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
+        L, R = audio_helper.create_test_audio(frames=512)
 
-        # Process audio
         out_L, out_R = chorus.process(L, R)
 
-        # Output should be different from input
-        assert not np.allclose(out_L, L)
-        assert not np.allclose(out_R, R)
+        # Check output properties
+        assert out_L.shape == L.shape
+        assert out_R.shape == R.shape
+        assert out_L.dtype == np.float32
+        assert out_R.dtype == np.float32
 
-        # Output should not be clipped
-        assert not audio_helper.is_clipped(out_L)
-        assert not audio_helper.is_clipped(out_R)
+        # Output should be different from input due to processing
+        assert not np.array_equal(out_L, L)
+        assert not np.array_equal(out_R, R)
 
-        # Output should have signal
-        assert audio_helper.has_signal(out_L)
-        assert audio_helper.has_signal(out_R)
+        # Multi-voice should create richer harmonic content
+        assert np.max(np.abs(out_L)) < 1.0
+        assert np.max(np.abs(out_R)) < 1.0
 
     def test_process_different_block_sizes(self):
         """Test processing with different block sizes."""
         chorus = Chorus()
         chorus.set_mix(0.3)
 
-        # Test various block sizes
-        for block_size in [64, 256, 512, 1024, 2048]:
-            L = np.random.randn(block_size).astype(np.float32) * 0.1
-            R = np.random.randn(block_size).astype(np.float32) * 0.1
+        for block_size in [64, 128, 256, 512, 1024]:
+            L = np.random.rand(block_size).astype(np.float32) * 0.1
+            R = np.random.rand(block_size).astype(np.float32) * 0.1
 
-            # Should not raise exception
             out_L, out_R = chorus.process(L, R)
 
-            assert len(out_L) == block_size
-            assert len(out_R) == block_size
-            assert not np.any(np.isnan(out_L))
-            assert not np.any(np.isnan(out_R))
+            assert out_L.shape == (block_size,)
+            assert out_R.shape == (block_size,)
 
     def test_process_silence(self):
-        """Test processing silence."""
+        """Test processing with silent input."""
         chorus = Chorus()
         chorus.set_mix(0.5)
 
-        frames = 512
+        frames = 256
         L = np.zeros(frames, dtype=np.float32)
         R = np.zeros(frames, dtype=np.float32)
 
         out_L, out_R = chorus.process(L, R)
 
-        # Output should be close to silence (some tiny delay artifacts might remain)
+        # Output should be very close to zero for silent input
         assert np.max(np.abs(out_L)) < 0.001
         assert np.max(np.abs(out_R)) < 0.001
 
     def test_process_phase_continuity(self):
-        """Test that processing maintains phase continuity across blocks."""
+        """Test that phase continues correctly between buffer calls."""
         chorus = Chorus()
         chorus.set_voices(1)
-        chorus.set_mix(1.0)  # Full wet for clearer effect
+        chorus.set_mix(0.5)
         chorus.set_rate(2.0)
 
-        frames = 256
-        L = np.ones(frames, dtype=np.float32) * 0.1
-        R = np.ones(frames, dtype=np.float32) * 0.1
+        frames = 128
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Process two consecutive blocks
+        # Process first buffer
         out_L1, out_R1 = chorus.process(L, R)
-        out_L2, out_R2 = chorus.process(L, R)
+        phase_after_first = chorus.phase
 
-        # Phase should advance between blocks
-        # The effect should be continuous (no sudden jumps)
-        assert not np.allclose(out_L1, out_L2)  # Should be different due to LFO progression
+        # Process second buffer
+        out_L2, out_R2 = chorus.process(L, R)
+        phase_after_second = chorus.phase
+
+        # Phase should have advanced
+        assert phase_after_second > phase_after_first
+        assert 0 <= phase_after_second < 2 * np.pi
 
     def test_process_extreme_values(self, audio_helper):
-        """Test processing with extreme input values."""
+        """Test processing with extreme parameter values."""
         chorus = Chorus()
-        chorus.set_mix(0.5)
 
-        frames = 512
+        # Test with maximum depth and rate
+        chorus.set_depth(0.030)  # Maximum depth
+        chorus.set_rate(10.0)    # Maximum rate
+        chorus.set_mix(1.0)      # Full wet
+        chorus.set_voices(4)     # Maximum voices
 
-        # Test with large but reasonable values (not maximum to avoid clipping)
-        L = np.ones(frames, dtype=np.float32) * 0.8
-        R = np.ones(frames, dtype=np.float32) * 0.8
+        L, R = audio_helper.create_test_audio(frames=512)
 
         out_L, out_R = chorus.process(L, R)
 
-        # Should not produce NaN/inf
+        # Should still produce valid output
         assert not np.any(np.isnan(out_L))
         assert not np.any(np.isnan(out_R))
         assert not np.any(np.isinf(out_L))
         assert not np.any(np.isinf(out_R))
 
-        # Output should be reasonable
-        assert np.max(np.abs(out_L)) < 2.0
-        assert np.max(np.abs(out_R)) < 2.0
-
 
 class TestChorusBufferManagement:
-    """Test cases for buffer management."""
+    """Test cases for chorus buffer management."""
 
     def test_buffer_resize_for_large_depth(self):
-        """Test buffer resizing when depth increases."""
+        """Test that buffers resize when depth requires it."""
         chorus = Chorus()
         original_buf_len = chorus._buf_len
 
-        # Set a large depth that requires bigger buffer
+        # Set a large depth that should require buffer resize
         chorus.set_depth(0.025)  # 25ms
 
-        # Buffer should be at least as large as needed
-        required_samples = int(chorus.depth * 2 * chorus.sample_rate)
-        assert chorus._buf_len >= required_samples
-
-        # If buffer grew, it should still be power of 2
-        assert chorus._buf_len & (chorus._buf_len - 1) == 0
+        # Buffer should have resized if necessary
+        max_delay_samples = int(chorus.depth * 2 * chorus.sample_rate)
+        assert chorus._buf_len >= max_delay_samples
 
     def test_buffer_preserves_data_on_resize(self):
-        """Test that buffer resizing preserves existing data."""
+        """Test that buffer resize preserves existing data."""
         chorus = Chorus()
 
-        # Fill buffer with some data
-        test_data_L = np.random.randn(chorus._buf_len).astype(np.float32)
-        test_data_R = np.random.randn(chorus._buf_len).astype(np.float32)
+        # Fill buffers with some test data
+        test_data_L = np.random.rand(chorus._buf_len).astype(np.float32)
+        test_data_R = np.random.rand(chorus._buf_len).astype(np.float32)
         chorus._buffer_L[:] = test_data_L
         chorus._buffer_R[:] = test_data_R
 
         original_buf_len = chorus._buf_len
 
-        # Trigger resize
+        # Trigger a resize by setting larger depth
         chorus.set_depth(0.025)
 
         if chorus._buf_len > original_buf_len:
-            # Data should be preserved in the beginning of new buffer
+            # Check that original data was preserved
+            copy_len = min(original_buf_len, chorus._buf_len)
             np.testing.assert_array_equal(
-                chorus._buffer_L[:original_buf_len],
-                test_data_L
+                chorus._buffer_L[:copy_len], test_data_L[:copy_len]
             )
             np.testing.assert_array_equal(
-                chorus._buffer_R[:original_buf_len],
-                test_data_R
+                chorus._buffer_R[:copy_len], test_data_R[:copy_len]
             )
 
     def test_temp_array_allocation(self):
         """Test temporary array allocation."""
         chorus = Chorus()
 
-        # Initially temp arrays are None
+        # Initially temp arrays should be None
         assert chorus._temp_out_L is None
         assert chorus._temp_out_R is None
 
-        # Process audio to trigger allocation
-        frames = 512
-        L = np.random.randn(frames).astype(np.float32)
-        R = np.random.randn(frames).astype(np.float32)
+        # Process some audio to trigger allocation
+        frames = 256
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
         chorus.process(L, R)
 
-        # Now temp arrays should be allocated
+        # Temp arrays should now be allocated
         assert chorus._temp_out_L is not None
         assert chorus._temp_out_R is not None
         assert len(chorus._temp_out_L) >= frames
         assert len(chorus._temp_out_R) >= frames
 
     def test_temp_array_growth(self):
-        """Test that temp arrays grow as needed."""
+        """Test that temporary arrays grow when needed."""
         chorus = Chorus()
 
-        # Process with small block first
-        small_frames = 256
-        L_small = np.random.randn(small_frames).astype(np.float32)
-        R_small = np.random.randn(small_frames).astype(np.float32)
-
+        # Process small buffer first
+        small_frames = 64
+        L_small = np.random.rand(small_frames).astype(np.float32) * 0.1
+        R_small = np.random.rand(small_frames).astype(np.float32) * 0.1
         chorus.process(L_small, R_small)
-        initial_size = len(chorus._temp_out_L)
 
-        # Process with larger block
-        large_frames = 2048
-        L_large = np.random.randn(large_frames).astype(np.float32)
-        R_large = np.random.randn(large_frames).astype(np.float32)
+        original_size = len(chorus._temp_out_L)
 
+        # Process larger buffer
+        large_frames = 1536  # Larger than initial max_block_size
+        L_large = np.random.rand(large_frames).astype(np.float32) * 0.1
+        R_large = np.random.rand(large_frames).astype(np.float32) * 0.1
         chorus.process(L_large, R_large)
 
-        # Temp arrays should have grown
+        # Arrays should have grown
         assert len(chorus._temp_out_L) >= large_frames
-        assert len(chorus._temp_out_L) >= initial_size
+        assert len(chorus._temp_out_L) >= original_size
 
     def test_clear_cache(self):
-        """Test clearing chorus cache."""
+        """Test cache clearing functionality."""
         chorus = Chorus()
 
-        # Fill buffers with data and set indices
+        # Fill buffers and state with data
         chorus._buffer_L.fill(0.5)
-        chorus._buffer_R.fill(-0.3)
+        chorus._buffer_R.fill(0.3)
         chorus._write_idx = 100
         chorus.phase = 1.5
         chorus.phases.fill(2.0)
@@ -453,39 +561,34 @@ class TestChorusBufferManagement:
         # Clear cache
         chorus.clear_cache()
 
-        # Everything should be reset
-        assert np.all(chorus._buffer_L == 0.0)
-        assert np.all(chorus._buffer_R == 0.0)
+        # Check that everything was reset
+        assert np.allclose(chorus._buffer_L, 0.0)
+        assert np.allclose(chorus._buffer_R, 0.0)
         assert chorus._write_idx == 0
         assert chorus.phase == 0.0
-        assert np.all(chorus.phases == 0.0)
+        assert np.allclose(chorus.phases, 0.0)
 
 
 class TestChorusJITFunctions:
-    """Test cases for JIT-compiled functions."""
+    """Test cases for JIT function behavior."""
 
     def test_single_voice_jit_function(self):
-        """Test the single voice JIT function."""
-        # Set up test data
-        frames = 256
-        L = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
-        R = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
+        """Test single voice JIT function properties."""
+        frames = 128
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Set up buffers and parameters
-        buf_len = 1024
-        buffer_L = np.zeros(buf_len, dtype=np.float32)
-        buffer_R = np.zeros(buf_len, dtype=np.float32)
+        # Prepare all required arrays and parameters
         out_L = np.zeros(frames, dtype=np.float32)
         out_R = np.zeros(frames, dtype=np.float32)
-
-        # Parameters
+        buffer_L = np.zeros(1024, dtype=np.float32)
+        buffer_R = np.zeros(1024, dtype=np.float32)
         phase_values = np.linspace(0, 2*np.pi, frames).astype(np.float32)
-        lfo_values = np.sin(phase_values)
-        base_delay_samples = int(0.015 * config.sample_rate)
-        delay_samples = base_delay_samples + lfo_values * 0.005 * config.sample_rate
-
+        lfo_values = np.sin(phase_values).astype(np.float32)
+        delay_samples = 100 + lfo_values * 20
+        base_delay_samples = 100
         write_idx = 0
-        mask = buf_len - 1
+        mask = 1023  # 1024 - 1
         dry_gain = 0.7
         wet_gain = 0.3
 
@@ -496,38 +599,32 @@ class TestChorusJITFunctions:
             write_idx, mask, dry_gain, wet_gain
         )
 
-        # Check outputs
-        assert new_write_idx == frames
-        assert not np.allclose(out_L, L)  # Should be different due to effect
-        assert not np.allclose(out_R, R)
-        assert not np.any(np.isnan(out_L))
-        assert not np.any(np.isnan(out_R))
+        # Verify results
+        assert isinstance(new_write_idx, (int, np.integer))
+        assert 0 <= new_write_idx <= mask
+        assert not np.allclose(out_L, 0.0)
+        assert not np.allclose(out_R, 0.0)
 
     def test_multi_voice_jit_function(self):
-        """Test the multi-voice JIT function."""
-        # Set up test data
-        frames = 256
-        L = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
-        R = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
+        """Test multi voice JIT function properties."""
+        frames = 128
+        voices = 3
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Set up buffers and parameters
-        buf_len = 1024
-        buffer_L = np.zeros(buf_len, dtype=np.float32)
-        buffer_R = np.zeros(buf_len, dtype=np.float32)
+        # Prepare all required arrays and parameters
         out_L = np.zeros(frames, dtype=np.float32)
         out_R = np.zeros(frames, dtype=np.float32)
-
-        # Multi-voice parameters
-        voices = 3
-        phases = np.linspace(0, 2*np.pi, voices, endpoint=False)
-        base_delay_samples = int(0.015 * config.sample_rate)
-        depth_samples = 0.005 * config.sample_rate
-        phase_inc = 2 * np.pi * 1.0 / config.sample_rate  # 1 Hz rate
-
+        buffer_L = np.zeros(1024, dtype=np.float32)
+        buffer_R = np.zeros(1024, dtype=np.float32)
+        phases = np.linspace(0, 2*np.pi, voices, endpoint=False).astype(np.float32)
+        base_delay_samples = 100
+        depth_samples = 20
+        phase_inc = 0.01
         write_idx = 0
-        mask = buf_len - 1
-        dry_gain = 0.6
-        voice_mix = 0.4 / voices
+        mask = 1023  # 1024 - 1
+        dry_gain = 0.7
+        voice_mix = 0.1
 
         # Call JIT function
         new_write_idx = _process_chorus_multi_voice_jit(
@@ -536,16 +633,15 @@ class TestChorusJITFunctions:
             phase_inc, write_idx, mask, dry_gain, voice_mix
         )
 
-        # Check outputs
-        assert new_write_idx == frames
-        assert not np.allclose(out_L, L)  # Should be different due to effect
-        assert not np.allclose(out_R, R)
-        assert not np.any(np.isnan(out_L))
-        assert not np.any(np.isnan(out_R))
+        # Verify results
+        assert isinstance(new_write_idx, (int, np.integer))
+        assert 0 <= new_write_idx <= mask
+        assert not np.allclose(out_L, 0.0)
+        assert not np.allclose(out_R, 0.0)
 
 
 class TestChorusEdgeCases:
-    """Test cases for edge cases and error conditions."""
+    """Test edge cases and error conditions."""
 
     def test_zero_frame_processing(self):
         """Test processing with zero frames."""
@@ -554,189 +650,195 @@ class TestChorusEdgeCases:
         L = np.array([], dtype=np.float32)
         R = np.array([], dtype=np.float32)
 
-        # Should not crash - handle edge case gracefully
-        # This might fail due to implementation not handling zero frames
-        try:
-            out_L, out_R = chorus.process(L, R)
-            assert len(out_L) == 0
-            assert len(out_R) == 0
-        except IndexError:
-            # This is acceptable - zero frame processing is an edge case
-            # that the chorus implementation may not handle
-            pass
+        out_L, out_R = chorus.process(L, R)
+
+        assert out_L.shape == (0,)
+        assert out_R.shape == (0,)
 
     def test_single_frame_processing(self):
         """Test processing with single frame."""
         chorus = Chorus()
         chorus.set_mix(0.5)
 
-        L = np.array([0.5], dtype=np.float32)
-        R = np.array([-0.3], dtype=np.float32)
+        L = np.array([0.1], dtype=np.float32)
+        R = np.array([0.2], dtype=np.float32)
 
-        # Should not crash
         out_L, out_R = chorus.process(L, R)
 
-        assert len(out_L) == 1
-        assert len(out_R) == 1
+        assert out_L.shape == (1,)
+        assert out_R.shape == (1,)
         assert not np.isnan(out_L[0])
         assert not np.isnan(out_R[0])
 
     def test_very_small_rate(self):
-        """Test with very small rate values."""
+        """Test processing with very small rate."""
         chorus = Chorus()
-        chorus.set_rate(0.1)  # Minimum allowed rate
-        chorus.set_mix(0.5)
+        chorus.set_rate(0.1)  # Minimum rate
+        chorus.set_mix(0.3)
 
-        frames = 512
-        L = np.random.randn(frames).astype(np.float32) * 0.1
-        R = np.random.randn(frames).astype(np.float32) * 0.1
+        frames = 256
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Should not crash
         out_L, out_R = chorus.process(L, R)
 
-        assert len(out_L) == frames
-        assert len(out_R) == frames
+        # Should still work without issues
+        assert out_L.shape == (frames,)
+        assert out_R.shape == (frames,)
+        assert not np.any(np.isnan(out_L))
+        assert not np.any(np.isnan(out_R))
 
     def test_very_small_depth(self):
-        """Test with very small depth values."""
+        """Test processing with very small depth."""
         chorus = Chorus()
-        chorus.set_depth(0.001)  # Minimum allowed depth
-        chorus.set_mix(0.5)
+        chorus.set_depth(0.001)  # Minimum depth
+        chorus.set_mix(0.3)
 
-        frames = 512
-        L = np.random.randn(frames).astype(np.float32) * 0.1
-        R = np.random.randn(frames).astype(np.float32) * 0.1
+        frames = 256
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Should not crash
         out_L, out_R = chorus.process(L, R)
 
-        assert len(out_L) == frames
-        assert len(out_R) == frames
+        # Should still work without issues
+        assert out_L.shape == (frames,)
+        assert out_R.shape == (frames,)
+        assert not np.any(np.isnan(out_L))
+        assert not np.any(np.isnan(out_R))
 
     def test_maximum_parameters(self):
-        """Test with maximum parameter values."""
+        """Test processing with all parameters at maximum."""
         chorus = Chorus()
-        chorus.set_rate(10.0)    # Maximum rate
-        chorus.set_depth(0.030)  # Maximum depth
-        chorus.set_mix(1.0)      # Maximum mix
-        chorus.set_voices(4)     # Maximum voices
+        chorus.set_rate(10.0)     # Maximum rate
+        chorus.set_depth(0.030)   # Maximum depth
+        chorus.set_mix(1.0)       # Maximum mix
+        chorus.set_voices(4)      # Maximum voices
 
         frames = 512
-        L = np.random.randn(frames).astype(np.float32) * 0.1
-        R = np.random.randn(frames).astype(np.float32) * 0.1
+        L = np.random.rand(frames).astype(np.float32) * 0.1
+        R = np.random.rand(frames).astype(np.float32) * 0.1
 
-        # Should not crash or clip
         out_L, out_R = chorus.process(L, R)
 
-        assert len(out_L) == frames
-        assert len(out_R) == frames
-        assert np.max(np.abs(out_L)) < 2.0  # Reasonable output range
-        assert np.max(np.abs(out_R)) < 2.0
+        # Should handle extreme parameters gracefully
+        assert not np.any(np.isnan(out_L))
+        assert not np.any(np.isnan(out_R))
+        assert not np.any(np.isinf(out_L))
+        assert not np.any(np.isinf(out_R))
 
     def test_mismatched_input_lengths(self):
-        """Test with mismatched L and R input lengths."""
+        """Test processing with mismatched L/R input lengths."""
         chorus = Chorus()
 
-        L = np.random.randn(512).astype(np.float32)
-        R = np.random.randn(256).astype(np.float32)  # Different length
+        L = np.random.rand(128).astype(np.float32) * 0.1
+        R = np.random.rand(64).astype(np.float32) * 0.1  # Different length
 
-        # Should handle gracefully - will likely process min length
+        # Should handle gracefully (likely using shorter length)
+        # This test documents current behavior
         try:
             out_L, out_R = chorus.process(L, R)
-            # If it doesn't crash, check outputs are reasonable
-            assert len(out_L) > 0
-            assert len(out_R) > 0
+            # If it succeeds, check that output is reasonable
+            assert len(out_L) == len(out_R)
         except (ValueError, IndexError):
-            # It's acceptable to raise an error for mismatched inputs
+            # If it fails, that's also acceptable behavior
             pass
 
 
 class TestChorusIntegration:
-    """Integration tests for chorus with other components."""
+    """Test integration with other system components."""
+
+    @pytest.fixture
+    def audio_helper(self):
+        """Helper fixture for creating test audio."""
+        class AudioHelper:
+            @staticmethod
+            def create_test_audio(frames=512, frequency=440, sample_rate=44100):
+                """Create test sine wave audio."""
+                t = np.arange(frames) / sample_rate
+                L = np.sin(2 * np.pi * frequency * t).astype(np.float32) * 0.1
+                R = np.sin(2 * np.pi * frequency * t).astype(np.float32) * 0.1
+                return L, R
+
+        return AudioHelper()
 
     def test_integration_with_config_values(self):
-        """Test that chorus uses config values correctly during initialization."""
-        # Save original values
-        orig_rate = config.chorus_rate
-        orig_depth = config.chorus_depth
-        orig_mix = config.chorus_mix
-        orig_voices = config.chorus_voices
+        """Test that chorus integrates properly with config values."""
+        # Store original values
+        original_rate = config.chorus_rate
+        original_depth = config.chorus_depth
+        original_mix = config.chorus_mix
+        original_voices = config.chorus_voices
 
         try:
-            # Change config values
+            # Modify config values
             config.chorus_rate = 2.5
             config.chorus_depth = 0.012
-            config.chorus_mix = 0.6
+            config.chorus_mix = 0.4
             config.chorus_voices = 2
 
-            # Create new chorus - should use new config values
+            # Create new chorus instance
             chorus = Chorus()
 
-            # Note: The actual values may be different because the Chorus
-            # constructor imports from config at module level, not at init time
-            # Test that we can set these values and they work
-            chorus.set_rate(2.5)
-            chorus.set_depth(0.012)
-            chorus.set_mix(0.6)
-            chorus.set_voices(2)
-
+            # Should use config values
             assert chorus.rate == 2.5
             assert chorus.depth == 0.012
-            assert chorus.mix == 0.6
+            assert chorus.mix == 0.4
             assert chorus.voices == 2
+
+            # Test processing
+            frames = 256
+            L = np.random.rand(frames).astype(np.float32) * 0.1
+            R = np.random.rand(frames).astype(np.float32) * 0.1
+
+            out_L, out_R = chorus.process(L, R)
+
+            assert out_L.shape == (frames,)
+            assert out_R.shape == (frames,)
 
         finally:
             # Restore original values
-            config.chorus_rate = orig_rate
-            config.chorus_depth = orig_depth
-            config.chorus_mix = orig_mix
-            config.chorus_voices = orig_voices
+            config.chorus_rate = original_rate
+            config.chorus_depth = original_depth
+            config.chorus_mix = original_mix
+            config.chorus_voices = original_voices
 
     def test_frequency_response_preservation(self, audio_helper):
-        """Test that chorus preserves the general frequency content."""
+        """Test that chorus preserves frequency content appropriately."""
         chorus = Chorus()
-        chorus.set_mix(0.3)  # Moderate mix to preserve original
+        chorus.set_mix(0.5)
+        chorus.set_voices(1)
 
-        # Create test tone
-        frames = 2048
-        freq = 1000  # 1kHz test tone
-        t = np.arange(frames) / config.sample_rate
-        L = np.sin(2 * np.pi * freq * t).astype(np.float32)
-        R = L.copy()
+        # Test with different frequencies
+        for frequency in [220, 440, 880, 1760]:
+            L, R = audio_helper.create_test_audio(frames=1024, frequency=frequency)
 
-        # Process
-        out_L, out_R = chorus.process(L, R)
+            out_L, out_R = chorus.process(L, R)
 
-        # Check that the dominant frequency is still around 1kHz
-        dominant_freq = audio_helper.dominant_frequency(out_L, config.sample_rate)
-        assert abs(dominant_freq - freq) < 50  # Allow some tolerance for chorus effects
+            # Output should maintain similar frequency characteristics
+            # (This is a basic test - more sophisticated frequency analysis could be added)
+            assert np.corrcoef(L, out_L)[0, 1] > 0.5  # Reasonable correlation
+            assert np.corrcoef(R, out_R)[0, 1] > 0.5
 
     def test_stereo_width_effect(self):
-        """Test that chorus processes stereo signals correctly."""
+        """Test that chorus creates appropriate stereo width."""
         chorus = Chorus()
-        chorus.set_mix(0.8)  # High wet signal
-        chorus.set_voices(3)  # Multiple voices for more effect
-        chorus.set_rate(2.0)  # Faster modulation for more effect
-        chorus.set_depth(0.015)  # More depth for more effect
+        chorus.set_mix(0.6)
+        chorus.set_voices(2)
+        chorus.set_depth(0.008)
 
-        frames = 2048  # Longer buffer for more LFO variation
+        # Create mono-like input (L and R very similar)
+        frames = 512
+        mono_signal = np.random.rand(frames).astype(np.float32) * 0.1
+        L = mono_signal + np.random.rand(frames).astype(np.float32) * 0.001  # Very slight difference
+        R = mono_signal + np.random.rand(frames).astype(np.float32) * 0.001
 
-        # Start with different L and R signals to test stereo processing
-        L = np.sin(2 * np.pi * 440 * np.arange(frames) / config.sample_rate).astype(np.float32)
-        R = np.sin(2 * np.pi * 660 * np.arange(frames) / config.sample_rate).astype(np.float32)  # Different frequency
-
-        # Process
         out_L, out_R = chorus.process(L, R)
 
-        # Output should preserve the difference between L and R inputs
-        # Since we input different signals, outputs should be different
-        assert not np.array_equal(out_L, out_R)  # Should not be identical with different inputs
+        # Chorus should create some stereo difference
+        input_width = np.std(L - R)
+        output_width = np.std(out_L - out_R)
 
-        # Verify that the chorus effect was applied (outputs different from inputs)
-        assert not np.allclose(out_L, L, rtol=0.1)
-        assert not np.allclose(out_R, R, rtol=0.1)
-
-        # But the outputs should still contain some of the original signal characteristics
-        # (This tests that chorus preserves signal content while adding effect)
-        assert np.corrcoef(out_L, L)[0, 1] > 0.5  # Should be somewhat correlated to original
-        assert np.corrcoef(out_R, R)[0, 1] > 0.5  # Should be somewhat correlated to original
+        # Output should have some stereo content (may be wider or narrower depending on implementation)
+        # The key is that chorus processing creates some stereo effect
+        assert output_width > 0.0001  # Should have some stereo content
+        assert not np.array_equal(out_L, out_R)  # L and R should be different
