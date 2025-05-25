@@ -92,7 +92,9 @@ def play_midi_note(midi_note, duration=0.5, velocity=1.0):
         duration: Note duration in seconds
         velocity: Note velocity (0.0-1.0)
     """
-    freq = midi_to_freq(midi_note)
+    # Apply global octave offset to the MIDI note
+    adjusted_midi_note = midi_note + config.octave_offset
+    freq = midi_to_freq(adjusted_midi_note)
     return play_note(freq, duration, velocity)
 
 

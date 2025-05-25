@@ -16,6 +16,7 @@ class TestNoteCounterGlobal:
         controller._note_counter = 0
         config.active_notes = {}
         config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     def test_note_counter_increments(self):
         """Test that note counter increments for each new note in polyphonic mode."""
@@ -40,6 +41,7 @@ class TestPlayNote:
         config.active_notes = {}
         config.mono_mode = False
         config.waveform_type = 'sine'
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     def test_play_note_polyphonic_mode(self):
         """Test playing note in polyphonic mode."""
@@ -230,9 +232,11 @@ class TestPlayMidiNote:
         controller._note_counter = 0
         config.active_notes = {}
         config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     def test_play_midi_note_basic(self):
         """Test basic MIDI note playing."""
+        config.octave_offset = 0  # Ensure no octave offset
         osc = controller.play_midi_note(69, 0, 0.8)  # A4
 
         assert isinstance(osc, Oscillator)
@@ -255,6 +259,7 @@ class TestPlayMidiNote:
     @patch('qwerty_synth.controller.play_note')
     def test_play_midi_note_calls_play_note(self, mock_play_note):
         """Test that play_midi_note calls play_note with correct frequency."""
+        config.octave_offset = 0  # Ensure no octave offset
         mock_osc = MagicMock()
         mock_play_note.return_value = mock_osc
 
@@ -263,6 +268,26 @@ class TestPlayMidiNote:
         expected_freq = 440.0 * (2 ** ((72 - 69) / 12))
         mock_play_note.assert_called_once_with(expected_freq, 1.5, 0.9)
         assert result is mock_osc
+
+    def test_play_midi_note_with_octave_offset(self):
+        """Test MIDI note playing with octave offset applied."""
+        config.octave_offset = 12  # One octave up
+        osc = controller.play_midi_note(69, 0, 0.8)  # A4 + 1 octave = A5
+
+        assert isinstance(osc, Oscillator)
+        # A5 should be 880 Hz (A4 * 2)
+        assert osc.freq == 880.0
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_with_negative_octave_offset(self):
+        """Test MIDI note playing with negative octave offset."""
+        config.octave_offset = -12  # One octave down
+        osc = controller.play_midi_note(69, 0, 0.8)  # A4 - 1 octave = A3
+
+        assert isinstance(osc, Oscillator)
+        # A3 should be 220 Hz (A4 / 2)
+        assert osc.freq == 220.0
+        assert osc.velocity == 0.8
 
 
 class TestPlaySequence:
@@ -273,6 +298,7 @@ class TestPlaySequence:
         controller._note_counter = 0
         config.active_notes = {}
         config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     @patch('qwerty_synth.controller.play_note')
     @patch('qwerty_synth.controller.play_midi_note')
@@ -368,6 +394,7 @@ class TestPlayMidiFile:
         config.mono_mode = False
         config.midi_playback_active = False
         config.midi_paused = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     @patch('qwerty_synth.controller.mido.MidiFile')
     @patch('threading.Thread')
@@ -444,6 +471,7 @@ class TestControllerIntegration:
         controller._note_counter = 0
         config.active_notes = {}
         config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     def test_polyphonic_note_management(self):
         """Test complete polyphonic note lifecycle."""
@@ -514,6 +542,7 @@ class TestControllerEdgeCases:
         controller._note_counter = 0
         config.active_notes = {}
         config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     def test_play_note_zero_frequency(self):
         """Test playing note with zero frequency."""
@@ -605,6 +634,7 @@ class TestMidiFilePlaybackEvents:
         config.midi_playback_active = False
         config.midi_paused = False
         config.midi_tempo_scale = 1.0
+        config.octave_offset = 0  # Reset octave offset for consistent tests
 
     @patch('qwerty_synth.controller.mido.MidiFile')
     @patch('qwerty_synth.controller.play_midi_note')
