@@ -101,6 +101,15 @@ def reset_config():
     # Clear active notes
     config.active_notes = {}
 
+    # Arpeggiator defaults
+    config.arpeggiator_enabled = False
+    config.arpeggiator_pattern = 'up'
+    config.arpeggiator_rate = 120
+    config.arpeggiator_gate = 0.8
+    config.arpeggiator_octave_range = 1
+    config.arpeggiator_sync_to_bpm = True
+    config.arpeggiator_held_notes = set()
+
     yield  # Run the test
 
     # Restore original values after test

@@ -3,10 +3,12 @@
 import threading
 from pynput import keyboard
 import sounddevice as sd
+import time
 
 from qwerty_synth import config
 from qwerty_synth import synth
 from qwerty_synth import controller  # Import the controller module
+from qwerty_synth import arpeggiator
 
 # Add a reference to store the GUI instance
 gui_instance = None
@@ -49,6 +51,10 @@ def on_press(key):
                 # Track the key press for mono mode
                 if k not in config.mono_pressed_keys:
                     config.mono_pressed_keys.append(k)
+
+                # Add note to arpeggiator if enabled
+                if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
+                    arpeggiator.arpeggiator_instance.add_note(midi_note)
 
                 if config.mono_mode:
                     # In mono mode, create or update oscillator directly
@@ -110,6 +116,11 @@ def on_release(key):
             # Remove key from mono_pressed_keys list if it exists
             if k in config.mono_pressed_keys:
                 config.mono_pressed_keys.remove(k)
+
+            # Remove note from arpeggiator if enabled
+            if k in key_midi_map and config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
+                midi_note = key_midi_map[k] + config.octave_offset
+                arpeggiator.arpeggiator_instance.remove_note(midi_note)
 
             if k in config.active_notes or (config.mono_mode and 'mono' in config.active_notes):
                 if not config.mono_mode:

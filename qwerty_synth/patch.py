@@ -88,6 +88,14 @@ def collect_params() -> Dict[str, Any]:
         "chorus_depth": config.chorus_depth,
         "chorus_mix": config.chorus_mix,
         "chorus_voices": config.chorus_voices,
+
+        # Arpeggiator settings
+        "arpeggiator_enabled": config.arpeggiator_enabled,
+        "arpeggiator_pattern": config.arpeggiator_pattern,
+        "arpeggiator_rate": config.arpeggiator_rate,
+        "arpeggiator_gate": config.arpeggiator_gate,
+        "arpeggiator_octave_range": config.arpeggiator_octave_range,
+        "arpeggiator_sync_to_bpm": config.arpeggiator_sync_to_bpm,
     }
 
     return params
@@ -202,6 +210,19 @@ def apply_params(params: Dict[str, Any]) -> None:
         if "chorus_voices" in params:
             config.chorus_voices = int(params["chorus_voices"])
 
+        # Arpeggiator settings
+        if "arpeggiator_enabled" in params:
+            config.arpeggiator_enabled = bool(params["arpeggiator_enabled"])
+        if "arpeggiator_pattern" in params:
+            config.arpeggiator_pattern = params["arpeggiator_pattern"]
+        if "arpeggiator_rate" in params:
+            config.arpeggiator_rate = float(params["arpeggiator_rate"])
+        if "arpeggiator_gate" in params:
+            config.arpeggiator_gate = float(params["arpeggiator_gate"])
+        if "arpeggiator_octave_range" in params:
+            config.arpeggiator_octave_range = params["arpeggiator_octave_range"]
+        if "arpeggiator_sync_to_bpm" in params:
+            config.arpeggiator_sync_to_bpm = bool(params["arpeggiator_sync_to_bpm"])
 
     except (ValueError, TypeError, KeyError) as e:
         raise PatchError(f"Error applying parameters: {str(e)}")

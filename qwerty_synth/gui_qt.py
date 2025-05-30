@@ -27,6 +27,8 @@ from qwerty_synth.step_sequencer import StepSequencer
 from qwerty_synth.controller import play_midi_file
 from qwerty_synth import record
 from qwerty_synth import patch
+from qwerty_synth.arpeggiator import Arpeggiator
+from qwerty_synth import arpeggiator
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
@@ -335,7 +337,7 @@ class SynthGUI(QMainWindow):
         drive_layout.addWidget(drive_gain_label, 1, 0)
 
         self.drive_dial = QDial()
-        self.drive_dial.setRange(0, 300)  # 0.0 to 3.0 (x100)
+        self.drive_dial.setRange(0, 500)  # 0.0 to 5.0 (x100)
         self.drive_dial.setValue(int(config.drive_gain * 100))
         self.drive_dial.valueChanged.connect(self.update_drive_gain)
         self.drive_dial.setNotchesVisible(True)
@@ -430,7 +432,14 @@ class SynthGUI(QMainWindow):
         self.sequencer = StepSequencer()
         envelope_tabs.addTab(self.sequencer, "Step Sequencer")
 
-        # Create the patch management tab - add it after Step Sequencer
+        # Create the arpeggiator tab
+        self.arpeggiator = Arpeggiator()
+        envelope_tabs.addTab(self.arpeggiator, "Arpeggiator")
+
+        # Set the global arpeggiator instance for input handling
+        arpeggiator.arpeggiator_instance = self.arpeggiator
+
+        # Create the patch management tab - add it after Arpeggiator
         patches_widget = QWidget()
         patches_layout = QVBoxLayout(patches_widget)
         envelope_tabs.addTab(patches_widget, "Patches")
@@ -1420,6 +1429,40 @@ class SynthGUI(QMainWindow):
         if self.viz_enable_checkbox.isChecked() != self.visualization_enabled:
             self.viz_enable_checkbox.setChecked(self.visualization_enabled)
 
+        # Check if arpeggiator settings have changed and update GUI if needed
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            if self.arpeggiator.enabled != config.arpeggiator_enabled:
+                self.arpeggiator.enabled = config.arpeggiator_enabled
+                self.arpeggiator.enable_button.setChecked(config.arpeggiator_enabled)
+                if config.arpeggiator_enabled:
+                    self.arpeggiator.enable_button.setText("Disable Arpeggiator")
+                else:
+                    self.arpeggiator.enable_button.setText("Enable Arpeggiator")
+
+            if self.arpeggiator.pattern != config.arpeggiator_pattern:
+                self.arpeggiator.pattern = config.arpeggiator_pattern
+                # Find the pattern name from the value
+                pattern_name = next((k for k, v in self.arpeggiator.PATTERNS.items() if v == config.arpeggiator_pattern), "Up")
+                self.arpeggiator.pattern_combo.setCurrentText(pattern_name)
+
+            if self.arpeggiator.rate != config.arpeggiator_rate:
+                self.arpeggiator.rate = config.arpeggiator_rate
+                self.arpeggiator.rate_dial.setValue(int(config.arpeggiator_rate))
+                self.arpeggiator.rate_label.setText(f"{config.arpeggiator_rate} BPM")
+
+            if self.arpeggiator.gate != config.arpeggiator_gate:
+                self.arpeggiator.gate = config.arpeggiator_gate
+                self.arpeggiator.gate_dial.setValue(int(config.arpeggiator_gate * 100))
+                self.arpeggiator.gate_label.setText(f"{config.arpeggiator_gate:.1f}")
+
+            if self.arpeggiator.octave_range != config.arpeggiator_octave_range:
+                self.arpeggiator.octave_range = config.arpeggiator_octave_range
+                self.arpeggiator.octave_spinbox.setValue(config.arpeggiator_octave_range)
+
+            if self.arpeggiator.sync_to_bpm != config.arpeggiator_sync_to_bpm:
+                self.arpeggiator.sync_to_bpm = config.arpeggiator_sync_to_bpm
+                self.arpeggiator.sync_button.setChecked(config.arpeggiator_sync_to_bpm)
+
     def plot_adsr_curve(self):
         """Update the ADSR curve in the plot."""
         self.adsr_curve.setData(
@@ -1687,6 +1730,10 @@ class SynthGUI(QMainWindow):
         if hasattr(self, 'sequencer') and self.sequencer:
             self.sequencer.bpm_spinbox.setValue(bpm)
 
+        # Also sync arpeggiator BPM if it exists and is synced
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            self.arpeggiator.sync_bpm_changed(bpm)
+
     def sync_sequencer_bpm(self, bpm):
         """Sync the global BPM when sequencer BPM changes."""
         config.bpm = bpm
@@ -1699,6 +1746,10 @@ class SynthGUI(QMainWindow):
             self.delay_time_dial.setValue(int(config.delay_time_ms))
             self.delay_time_label.setText(f"{config.delay_time_ms:.0f} ms")
             self.delay_ms_label.setText(f"{config.delay_time_ms:.1f} ms")
+
+        # Also sync arpeggiator BPM if it exists and is synced
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            self.arpeggiator.sync_bpm_changed(bpm)
 
     def decrease_octave(self):
         """Decrease the octave by one."""
@@ -2020,6 +2071,10 @@ class SynthGUI(QMainWindow):
         # Stop sequencer if running
         if self.sequencer:
             self.sequencer.stop()
+
+        # Stop arpeggiator if running
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            self.arpeggiator.stop()
 
         # Stop recording if active
         if record.is_recording():

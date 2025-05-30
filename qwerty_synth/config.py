@@ -107,3 +107,12 @@ recording_enabled = False
 recorded_audio = []
 recording_path = None
 recording_bit_depth = 24  # 16 or 24 bit
+
+# Arpeggiator settings
+arpeggiator_enabled = False
+arpeggiator_pattern = 'up'     # 'up', 'down', 'up_down', 'down_up', 'random', 'chord', 'octaves', 'order'
+arpeggiator_rate = 120         # BPM when not synced
+arpeggiator_gate = 0.8         # Note gate time (0.1 - 1.0)
+arpeggiator_octave_range = 1   # Number of octaves to span (1-4)
+arpeggiator_sync_to_bpm = True # Whether to sync to global BPM
+arpeggiator_held_notes = set() # Currently held notes for arpeggio
