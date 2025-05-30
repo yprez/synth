@@ -117,6 +117,16 @@ class TestArpeggiatorControls:
         assert arpeggiator.sync_to_bpm == True
         assert config.arpeggiator_sync_to_bpm == True
 
+    def test_toggle_sustain_base(self, arpeggiator):
+        """Test sustain base toggle."""
+        arpeggiator.toggle_sustain_base(False)
+        assert arpeggiator.sustain_base == False
+        assert config.arpeggiator_sustain_base == False
+
+        arpeggiator.toggle_sustain_base(True)
+        assert arpeggiator.sustain_base == True
+        assert config.arpeggiator_sustain_base == True
+
 
 class TestArpeggiatorNoteManagement:
     """Test note addition and removal."""

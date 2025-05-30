@@ -66,6 +66,7 @@ class Arpeggiator(QWidget):
         self.gate = config.arpeggiator_gate
         self.octave_range = config.arpeggiator_octave_range
         self.sync_to_bpm = config.arpeggiator_sync_to_bpm
+        self.sustain_base = config.arpeggiator_sustain_base
 
         # Internal state
         self.held_notes: Set[int] = set()  # MIDI notes currently held
@@ -121,6 +122,14 @@ class Arpeggiator(QWidget):
         self.sync_button.clicked.connect(self.toggle_sync)
         self.sync_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
         controls_row1.addWidget(self.sync_button)
+
+        # Sustain base button
+        self.sustain_button = QPushButton("Sustain Base")
+        self.sustain_button.setCheckable(True)
+        self.sustain_button.setChecked(self.sustain_base)
+        self.sustain_button.clicked.connect(self.toggle_sustain_base)
+        self.sustain_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        controls_row1.addWidget(self.sustain_button)
 
         controls_row1.addStretch(1)
 
@@ -229,6 +238,11 @@ class Arpeggiator(QWidget):
         self.sync_to_bpm = checked
         config.arpeggiator_sync_to_bpm = checked
         self.update_timing()
+
+    def toggle_sustain_base(self, checked):
+        """Toggle sustaining base notes while arpeggiating."""
+        self.sustain_base = checked
+        config.arpeggiator_sustain_base = checked
 
     def update_pattern(self, pattern_name):
         """Update the arpeggio pattern."""

@@ -108,6 +108,7 @@ def reset_config():
     config.arpeggiator_gate = 0.8
     config.arpeggiator_octave_range = 1
     config.arpeggiator_sync_to_bpm = True
+    config.arpeggiator_sustain_base = True
     config.arpeggiator_held_notes = set()
 
     yield  # Run the test

@@ -48,13 +48,17 @@ def on_press(key):
             freq = controller.midi_to_freq(midi_note)
 
             with config.notes_lock:
-                # Track the key press for mono mode
+                # Track the key press for mono mode (always track, regardless of arpeggiator)
                 if k not in config.mono_pressed_keys:
                     config.mono_pressed_keys.append(k)
 
                 # Add note to arpeggiator if enabled
                 if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
                     arpeggiator.arpeggiator_instance.add_note(midi_note)
+                    # When arpeggiator is enabled and sustain_base is False, don't create sustained oscillators
+                    # When sustain_base is True, continue to create sustained notes alongside arpeggio
+                    if not config.arpeggiator_sustain_base:
+                        return
 
                 if config.mono_mode:
                     # In mono mode, create or update oscillator directly

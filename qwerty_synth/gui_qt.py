@@ -1463,6 +1463,10 @@ class SynthGUI(QMainWindow):
                 self.arpeggiator.sync_to_bpm = config.arpeggiator_sync_to_bpm
                 self.arpeggiator.sync_button.setChecked(config.arpeggiator_sync_to_bpm)
 
+            if self.arpeggiator.sustain_base != config.arpeggiator_sustain_base:
+                self.arpeggiator.sustain_base = config.arpeggiator_sustain_base
+                self.arpeggiator.sustain_button.setChecked(config.arpeggiator_sustain_base)
+
     def plot_adsr_curve(self):
         """Update the ADSR curve in the plot."""
         self.adsr_curve.setData(

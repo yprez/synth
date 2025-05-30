@@ -96,6 +96,7 @@ def collect_params() -> Dict[str, Any]:
         "arpeggiator_gate": config.arpeggiator_gate,
         "arpeggiator_octave_range": config.arpeggiator_octave_range,
         "arpeggiator_sync_to_bpm": config.arpeggiator_sync_to_bpm,
+        "arpeggiator_sustain_base": config.arpeggiator_sustain_base,
     }
 
     return params
@@ -223,6 +224,8 @@ def apply_params(params: Dict[str, Any]) -> None:
             config.arpeggiator_octave_range = params["arpeggiator_octave_range"]
         if "arpeggiator_sync_to_bpm" in params:
             config.arpeggiator_sync_to_bpm = bool(params["arpeggiator_sync_to_bpm"])
+        if "arpeggiator_sustain_base" in params:
+            config.arpeggiator_sustain_base = bool(params["arpeggiator_sustain_base"])
 
     except (ValueError, TypeError, KeyError) as e:
         raise PatchError(f"Error applying parameters: {str(e)}")
