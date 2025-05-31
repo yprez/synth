@@ -96,11 +96,18 @@ def on_press(key):
     except AttributeError:
         if key == keyboard.Key.esc:
             print('Exiting...')
+
             sd.stop()
 
-            # Close the GUI if it exists
+            # Close the GUI if it exists - use thread-safe method
             if gui_instance is not None:
-                gui_instance.close()
+                # Schedule the close operation on the main GUI thread
+                try:
+                    from PyQt5.QtCore import QTimer
+                    QTimer.singleShot(0, gui_instance.close)
+                except ImportError:
+                    # Fallback if PyQt5 is not available
+                    gui_instance.close()
 
             return False
 
