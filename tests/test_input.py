@@ -195,7 +195,7 @@ class TestOnPress:
 
     @patch('sounddevice.stop')
     def test_on_press_escape_key(self, mock_sd_stop):
-        """Test escape key press."""
+        """Test escape key press without GUI."""
         mock_key = keyboard.Key.esc
 
         with patch('builtins.print') as mock_print:
@@ -206,7 +206,8 @@ class TestOnPress:
         assert result is False  # Should return False to stop listener
 
     @patch('sounddevice.stop')
-    def test_on_press_escape_with_gui(self, mock_sd_stop):
+    @patch('PyQt5.QtCore.QTimer')
+    def test_on_press_escape_with_gui(self, mock_qtimer, mock_sd_stop):
         """Test escape key press with GUI instance."""
         mock_gui = Mock()
         input_module.gui_instance = mock_gui
@@ -215,7 +216,8 @@ class TestOnPress:
         with patch('builtins.print'):
             result = input_module.on_press(mock_key)
 
-        mock_gui.close.assert_called_once()
+        # Should use QTimer.singleShot to schedule close on main thread
+        mock_qtimer.singleShot.assert_called_once_with(0, mock_gui.close)
         assert result is False
 
     def test_on_press_unknown_key(self):
