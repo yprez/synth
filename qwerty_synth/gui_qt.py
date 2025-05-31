@@ -161,72 +161,54 @@ class SynthGUI(QMainWindow):
 
         # Transpose Control (Octave + Semitone)
         transpose_group = QGroupBox("Transpose Control")
-        transpose_layout = QVBoxLayout(transpose_group)
+        transpose_layout = QGridLayout(transpose_group)
         control_layout.addWidget(transpose_group, stretch=1)
 
-        # First row: Octave controls
-        octave_row_layout = QHBoxLayout()
-        transpose_layout.addLayout(octave_row_layout)
+        # Octave control
+        octave_label = QLabel("Octave")
+        octave_label.setAlignment(Qt.AlignCenter)
+        transpose_layout.addWidget(octave_label, 0, 0)
 
-        octave_row_layout.addWidget(QLabel("Octave:"))
+        self.octave_dial = QDial()
+        self.octave_dial.setRange(config.octave_min, config.octave_max)
+        self.octave_dial.setValue(config.octave_offset // 12)
+        self.octave_dial.valueChanged.connect(self.update_octave)
+        self.octave_dial.setNotchesVisible(True)
+        self.octave_dial.setToolTip("Transpose by octaves (Z/X keys)")
+        transpose_layout.addWidget(self.octave_dial, 1, 0)
 
-        # Decrease octave button
-        self.octave_down_btn = QPushButton("−")  # Unicode minus sign
-        self.octave_down_btn.setToolTip("Decrease octave (Z key)")
-        self.octave_down_btn.clicked.connect(self.decrease_octave)
-        octave_row_layout.addWidget(self.octave_down_btn)
-
-        # Octave display
         self.octave_label = QLabel(f"{config.octave_offset // 12:+d}")
         self.octave_label.setAlignment(Qt.AlignCenter)
-        octave_row_layout.addWidget(self.octave_label, stretch=1)
+        transpose_layout.addWidget(self.octave_label, 2, 0)
 
-        # Increase octave button
-        self.octave_up_btn = QPushButton("+")
-        self.octave_up_btn.setToolTip("Increase octave (X key)")
-        self.octave_up_btn.clicked.connect(self.increase_octave)
-        octave_row_layout.addWidget(self.octave_up_btn)
+        # Semitone control
+        semitone_label = QLabel("Semitone")
+        semitone_label.setAlignment(Qt.AlignCenter)
+        transpose_layout.addWidget(semitone_label, 0, 1)
 
-        # Second row: Semitone controls
-        semitone_row_layout = QHBoxLayout()
-        transpose_layout.addLayout(semitone_row_layout)
+        self.semitone_dial = QDial()
+        self.semitone_dial.setRange(config.semitone_min, config.semitone_max)
+        self.semitone_dial.setValue(config.semitone_offset)
+        self.semitone_dial.valueChanged.connect(self.update_semitone)
+        self.semitone_dial.setNotchesVisible(True)
+        self.semitone_dial.setToolTip("Transpose by semitones")
+        transpose_layout.addWidget(self.semitone_dial, 1, 1)
 
-        semitone_row_layout.addWidget(QLabel("Semitone:"))
-
-        # Decrease semitone button
-        self.semitone_down_btn = QPushButton("−")
-        self.semitone_down_btn.setToolTip("Decrease semitone")
-        self.semitone_down_btn.clicked.connect(self.decrease_semitone)
-        semitone_row_layout.addWidget(self.semitone_down_btn)
-
-        # Semitone display
         self.semitone_label = QLabel(f"{config.semitone_offset:+d}")
         self.semitone_label.setAlignment(Qt.AlignCenter)
-        semitone_row_layout.addWidget(self.semitone_label, stretch=1)
-
-        # Increase semitone button
-        self.semitone_up_btn = QPushButton("+")
-        self.semitone_up_btn.setToolTip("Increase semitone")
-        self.semitone_up_btn.clicked.connect(self.increase_semitone)
-        semitone_row_layout.addWidget(self.semitone_up_btn)
+        transpose_layout.addWidget(self.semitone_label, 2, 1)
 
         # Third row: Octave slider
-        self.octave_slider = QSlider(Qt.Horizontal)
-        self.octave_slider.setRange(config.octave_min, config.octave_max)
-        self.octave_slider.setValue(config.octave_offset // 12)
-        self.octave_slider.setTickPosition(QSlider.TicksBelow)
-        self.octave_slider.setTickInterval(1)
-        self.octave_slider.valueChanged.connect(self.update_octave)
-        transpose_layout.addWidget(self.octave_slider)
+        # Removed: old slider code replaced with QDial
+        # self.octave_slider = QSlider(Qt.Horizontal)
+        # ...
+        # transpose_layout.addWidget(self.octave_slider)
 
         # Fourth row: Semitone slider
-        self.semitone_slider = QSlider(Qt.Horizontal)
-        self.semitone_slider.setRange(config.semitone_min, config.semitone_max)
-        self.semitone_slider.setValue(config.semitone_offset)
-        self.semitone_slider.setTickPosition(QSlider.TicksBelow)
-        self.semitone_slider.setTickInterval(3)  # Show ticks every 3 semitones
-        self.semitone_slider.valueChanged.connect(self.update_semitone)
-        transpose_layout.addWidget(self.semitone_slider)
+        # Removed: old slider code replaced with QDial
+        # self.semitone_slider = QSlider(Qt.Horizontal)
+        # ...
+        # transpose_layout.addWidget(self.semitone_slider)
 
         # Mono Mode and Portamento Controls
         mono_group = QGroupBox("Mono Mode")
@@ -1237,9 +1219,9 @@ class SynthGUI(QMainWindow):
         if self.semitone_label.text() != current_semitone_text:
             self.semitone_label.setText(current_semitone_text)
             # Update slider without triggering signals
-            self.semitone_slider.blockSignals(True)
-            self.semitone_slider.setValue(config.semitone_offset)
-            self.semitone_slider.blockSignals(False)
+            self.semitone_dial.blockSignals(True)
+            self.semitone_dial.setValue(config.semitone_offset)
+            self.semitone_dial.blockSignals(False)
 
         # Check if filter cutoff has changed and update GUI if needed
         if self.cutoff_dial.value() != config.filter_cutoff:
@@ -1804,9 +1786,9 @@ class SynthGUI(QMainWindow):
             config.octave_offset -= 12
             self.octave_label.setText(f"{config.octave_offset // 12:+d}")
             # Update slider without triggering the signal
-            self.octave_slider.blockSignals(True)
-            self.octave_slider.setValue(config.octave_offset // 12)
-            self.octave_slider.blockSignals(False)
+            self.octave_dial.blockSignals(True)
+            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.blockSignals(False)
 
     def increase_octave(self):
         """Increase the octave by one."""
@@ -1814,38 +1796,18 @@ class SynthGUI(QMainWindow):
             config.octave_offset += 12
             self.octave_label.setText(f"{config.octave_offset // 12:+d}")
             # Update slider without triggering the signal
-            self.octave_slider.blockSignals(True)
-            self.octave_slider.setValue(config.octave_offset // 12)
-            self.octave_slider.blockSignals(False)
+            self.octave_dial.blockSignals(True)
+            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.blockSignals(False)
 
     def update_octave(self, value):
-        """Update the octave from slider value."""
-        # Convert slider value to offset (x12 semitones per octave)
+        """Update the octave from dial value."""
+        # Convert dial value to offset (x12 semitones per octave)
         config.octave_offset = value * 12
         self.octave_label.setText(f"{value:+d}")
 
-    def decrease_semitone(self):
-        """Decrease the semitone transpose by one."""
-        if config.semitone_offset > config.semitone_min:
-            config.semitone_offset -= 1
-            self.semitone_label.setText(f"{config.semitone_offset:+d}")
-            # Update slider without triggering the signal
-            self.semitone_slider.blockSignals(True)
-            self.semitone_slider.setValue(config.semitone_offset)
-            self.semitone_slider.blockSignals(False)
-
-    def increase_semitone(self):
-        """Increase the semitone transpose by one."""
-        if config.semitone_offset < config.semitone_max:
-            config.semitone_offset += 1
-            self.semitone_label.setText(f"{config.semitone_offset:+d}")
-            # Update slider without triggering the signal
-            self.semitone_slider.blockSignals(True)
-            self.semitone_slider.setValue(config.semitone_offset)
-            self.semitone_slider.blockSignals(False)
-
     def update_semitone(self, value):
-        """Update the semitone transpose from slider value."""
+        """Update the semitone transpose from dial value."""
         config.semitone_offset = value
         self.semitone_label.setText(f"{value:+d}")
 
