@@ -164,7 +164,7 @@ class TestOnPress:
         mock_gui = Mock()
         mock_gui.running = True
         mock_gui.octave_label = Mock()
-        mock_gui.octave_slider = Mock()
+        mock_gui.octave_dial = Mock()
         input_module.gui_instance = mock_gui
 
         config.octave_offset = 0
@@ -173,10 +173,9 @@ class TestOnPress:
 
         input_module.on_press(mock_key)
 
-        # Should update GUI elements
-        mock_gui.octave_label.setText.assert_called_once_with('+1')
-        mock_gui.octave_slider.blockSignals.assert_has_calls([call(True), call(False)])
-        mock_gui.octave_slider.setValue.assert_called_once_with(1)
+        # Should update config but not directly update GUI elements
+        assert config.octave_offset == 12
+        # GUI updates are now handled by the GUI's update_plots method
 
     def test_on_press_with_octave_offset(self):
         """Test key press with octave offset applied."""
@@ -432,8 +431,9 @@ class TestGuiIntegration:
         with patch('builtins.print'):
             input_module.on_press(mock_key)
 
-        # Should not try to update GUI
-        mock_gui.octave_label.setText.assert_not_called()
+        # Should update config regardless of GUI state
+        assert config.octave_offset == 12
+        # GUI updates are handled by the GUI's own update cycle, not by input module
 
 
 class TestEdgeCases:

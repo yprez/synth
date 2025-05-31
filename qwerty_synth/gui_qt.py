@@ -1201,6 +1201,10 @@ class SynthGUI(QMainWindow):
         current_octave_text = f"{config.octave_offset // 12:+d}"
         if self.octave_label.text() != current_octave_text:
             self.octave_label.setText(current_octave_text)
+            # Update dial without triggering signals
+            self.octave_dial.blockSignals(True)
+            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.blockSignals(False)
 
         # Check if semitone has changed and update GUI if needed
         current_semitone_text = f"{config.semitone_offset:+d}"

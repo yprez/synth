@@ -85,13 +85,6 @@ def on_press(key):
             if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
                 arpeggiator.arpeggiator_instance.clear_notes()
 
-            # Update the GUI octave display if GUI instance exists
-            if gui_instance is not None and gui_instance.running:
-                gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
-                # Update dial without triggering signals
-                gui_instance.octave_dial.blockSignals(True)
-                gui_instance.octave_dial.setValue(config.octave_offset // 12)
-                gui_instance.octave_dial.blockSignals(False)
         elif k == 'x' and config.octave_offset < 12 * config.octave_max:
             config.octave_offset += 12
             print(f'Octave up: {config.octave_offset // 12:+}')
@@ -99,15 +92,6 @@ def on_press(key):
             # Clear arpeggiator when transpose changes
             if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
                 arpeggiator.arpeggiator_instance.clear_notes()
-
-            # Update the GUI octave display if GUI instance exists
-            if gui_instance is not None and gui_instance.running:
-                gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
-                # Update dial without triggering signals
-                gui_instance.octave_dial.blockSignals(True)
-                gui_instance.octave_dial.setValue(config.octave_offset // 12)
-                gui_instance.octave_dial.blockSignals(False)
-
 
     except AttributeError:
         if key == keyboard.Key.esc:
