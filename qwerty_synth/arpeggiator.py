@@ -228,12 +228,10 @@ class Arpeggiator(QWidget):
         self.enabled = checked
         config.arpeggiator_enabled = checked
         if self.enabled:
-            self.enable_button.setText("Disable Arpeggiator")
             # Start arpeggiator if we have held notes
             if self.held_notes:
                 self.start_arpeggio()
         else:
-            self.enable_button.setText("Enable Arpeggiator")
             self.stop_arpeggio()
 
     def toggle_sync(self, checked):
