@@ -250,6 +250,41 @@ class TestArpeggiatorSequences:
         expected = [60, 64, 72, 76]  # C4, E4, C5, E5
         assert arpeggiator.current_sequence == expected
 
+    def test_down_pattern_multiple_octaves(self, arpeggiator):
+        """Test down pattern with multiple octave ranges."""
+        arpeggiator.pattern = 'down'
+        arpeggiator.octave_range = 2
+        arpeggiator.add_note(60)  # C4
+        arpeggiator.add_note(64)  # E4
+
+        expected = [76, 72, 64, 60]  # E5, C5, E4, C4 (highest to lowest)
+        assert arpeggiator.current_sequence == expected
+
+    def test_down_up_pattern(self, arpeggiator):
+        """Test down/up arpeggio pattern with single octave."""
+        arpeggiator.pattern = 'down_up'
+        arpeggiator.octave_range = 1
+        arpeggiator.add_note(60)  # C4
+        arpeggiator.add_note(64)  # E4
+
+        # Down: E4, C4; Up: C4, E4; Combined (excluding first of up): E4, C4, E4
+        expected = [64, 60, 64]  # E, C, E
+        assert arpeggiator.current_sequence == expected
+
+    def test_down_up_pattern_multiple_octaves(self, arpeggiator):
+        """Test down_up pattern with multiple octave ranges."""
+        arpeggiator.pattern = 'down_up'
+        arpeggiator.octave_range = 2
+        arpeggiator.add_note(60)  # C4
+        arpeggiator.add_note(64)  # E4
+
+        # Should be:
+        # Down sequence: E5(76), C5(72), E4(64), C4(60) - highest to lowest across octaves
+        # Up sequence: C4(60), E4(64), C5(72), E5(76) - lowest to highest across octaves
+        # Combined (excluding first note of up to avoid repetition): E5, C5, E4, C4, E4, C5, E5
+        expected = [76, 72, 64, 60, 64, 72, 76]  # E5, C5, E4, C4, E4, C5, E5
+        assert arpeggiator.current_sequence == expected
+
 
 class TestArpeggiatorTiming:
     """Test arpeggiator timing functions."""

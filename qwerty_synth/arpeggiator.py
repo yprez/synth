@@ -330,7 +330,7 @@ class Arpeggiator(QWidget):
 
         elif self.pattern == 'down':
             sequence = []
-            for octave in range(self.octave_range):
+            for octave in reversed(range(self.octave_range)):
                 sequence.extend([note + (octave * 12) for note in reversed(base_notes)])
             self.current_sequence = sequence
 
@@ -344,13 +344,21 @@ class Arpeggiator(QWidget):
             self.current_sequence = sequence
 
         elif self.pattern == 'down_up':
-            sequence = []
+            # Build proper descending sequence (highest to lowest across octaves)
+            down_sequence = []
+            for octave in reversed(range(self.octave_range)):
+                down_sequence.extend([note + (octave * 12) for note in reversed(base_notes)])
+
+            # Build ascending sequence (lowest to highest across octaves)
+            up_sequence = []
             for octave in range(self.octave_range):
-                sequence.extend([note + (octave * 12) for note in reversed(base_notes)])
-            sequence = list(reversed(sequence))
-            # Add ascending part (excluding the lowest note to avoid repetition)
-            if len(sequence) > 1:
-                sequence.extend(sequence[1:])
+                up_sequence.extend([note + (octave * 12) for note in base_notes])
+
+            # Combine: down sequence + up sequence (excluding first note to avoid repetition)
+            sequence = down_sequence[:]
+            if len(up_sequence) > 1:
+                sequence.extend(up_sequence[1:])
+
             self.current_sequence = sequence
 
         elif self.pattern == 'random':
