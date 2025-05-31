@@ -220,6 +220,9 @@ class Arpeggiator(QWidget):
 
         display_layout.addStretch(1)
 
+        # Set initial enabled state of rate dial based on sync setting
+        self.rate_dial.setEnabled(not self.sync_to_bpm)
+
     def toggle_enabled(self, checked):
         """Enable or disable the arpeggiator."""
         self.enabled = checked
@@ -238,6 +241,8 @@ class Arpeggiator(QWidget):
         self.sync_to_bpm = checked
         config.arpeggiator_sync_to_bpm = checked
         self.update_timing()
+        # Enable/disable rate dial based on sync state
+        self.rate_dial.setEnabled(not checked)
 
     def toggle_sustain_base(self, checked):
         """Toggle sustaining base notes while arpeggiating."""
