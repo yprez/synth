@@ -284,7 +284,7 @@ class TestArpeggiatorTiming:
 class TestArpeggiatorPlayback:
     """Test arpeggiator playback functionality."""
 
-    @patch('qwerty_synth.arpeggiator.play_midi_note')
+    @patch('qwerty_synth.arpeggiator.play_midi_note_direct')
     def test_advance_arpeggio_up_pattern(self, mock_play_midi, arpeggiator):
         """Test advancing through up pattern."""
         arpeggiator.enabled = True
@@ -305,7 +305,7 @@ class TestArpeggiatorPlayback:
         # Second call should be E4
         assert mock_play_midi.call_args[0][0] == 64
 
-    @patch('qwerty_synth.arpeggiator.play_midi_note')
+    @patch('qwerty_synth.arpeggiator.play_midi_note_direct')
     def test_advance_arpeggio_chord_pattern(self, mock_play_midi, arpeggiator):
         """Test advancing through chord pattern."""
         arpeggiator.enabled = True

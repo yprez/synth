@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
 )
 
 from qwerty_synth import config
-from qwerty_synth.controller import play_midi_note
+from qwerty_synth.controller import play_midi_note_direct
 
 
 class Arpeggiator(QWidget):
@@ -466,18 +466,18 @@ class Arpeggiator(QWidget):
             # Play all notes in the chord
             notes_to_play = self.current_sequence[0]  # Chord is stored as a list
             for note in notes_to_play:
-                play_midi_note(note, note_duration, 0.8)
+                play_midi_note_direct(note, note_duration, 0.8)
             self.current_note = f"Chord: {', '.join([self.midi_to_note_name(n) for n in notes_to_play])}"
         elif self.pattern == 'random':
             # Pick a random note from the sequence
             import random
             note = random.choice(self.current_sequence)
-            play_midi_note(note, note_duration, 0.8)
+            play_midi_note_direct(note, note_duration, 0.8)
             self.current_note = self.midi_to_note_name(note)
         else:
             # Regular sequential patterns
             note = self.current_sequence[self.sequence_position]
-            play_midi_note(note, note_duration, 0.8)
+            play_midi_note_direct(note, note_duration, 0.8)
             self.current_note = self.midi_to_note_name(note)
 
             # Advance position

@@ -44,7 +44,7 @@ def on_press(key):
         k = key.char.lower()
 
         if k in key_midi_map:
-            midi_note = key_midi_map[k] + config.octave_offset
+            midi_note = key_midi_map[k] + config.octave_offset + config.semitone_offset
             freq = controller.midi_to_freq(midi_note)
 
             with config.notes_lock:
@@ -123,7 +123,7 @@ def on_release(key):
 
             # Remove note from arpeggiator if enabled
             if k in key_midi_map and config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
-                midi_note = key_midi_map[k] + config.octave_offset
+                midi_note = key_midi_map[k] + config.octave_offset + config.semitone_offset
                 arpeggiator.arpeggiator_instance.remove_note(midi_note)
 
             if k in config.active_notes or (config.mono_mode and 'mono' in config.active_notes):
@@ -144,7 +144,7 @@ def on_release(key):
                     elif 'mono' in config.active_notes:
                         # Some keys still pressed - switch to the last pressed key
                         last_key = config.mono_pressed_keys[-1]
-                        midi_note = key_midi_map[last_key] + config.octave_offset
+                        midi_note = key_midi_map[last_key] + config.octave_offset + config.semitone_offset
                         freq = controller.midi_to_freq(midi_note)
 
                         # Update oscillator target frequency for glide to new note

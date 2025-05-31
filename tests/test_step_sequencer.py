@@ -287,7 +287,7 @@ class TestStepSequencerConfiguration:
 class TestStepSequencerPlayback:
     """Test cases for sequencer playback functionality."""
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_toggle_sequencer_start(self, mock_play_midi, step_sequencer):
         """Test starting the sequencer."""
         seq = step_sequencer
@@ -307,7 +307,7 @@ class TestStepSequencerPlayback:
             assert seq.current_step == 15
             mock_timer.start.assert_called_once()
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_toggle_sequencer_stop(self, mock_play_midi, step_sequencer):
         """Test stopping the sequencer."""
         seq = step_sequencer
@@ -326,7 +326,7 @@ class TestStepSequencerPlayback:
             assert seq.sequencer_running is False
             mock_timer.stop.assert_called()
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_advance_sequence(self, mock_play_midi, step_sequencer):
         """Test sequence advancement."""
         seq = step_sequencer
@@ -348,7 +348,7 @@ class TestStepSequencerPlayback:
         # Current step should advance to 0
         assert seq.current_step == 0
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_advance_sequence_wrap_around(self, mock_play_midi, step_sequencer):
         """Test sequence wrapping around at the end."""
         seq = step_sequencer
@@ -363,7 +363,7 @@ class TestStepSequencerPlayback:
         seq.advance_sequence()  # Should wrap to 0
         assert seq.current_step == 0
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_advance_sequence_multiple_notes(self, mock_play_midi, step_sequencer):
         """Test playing multiple notes in the same step."""
         seq = step_sequencer
@@ -692,7 +692,7 @@ class TestStepSequencerEdgeCases:
 class TestStepSequencerIntegration:
     """Integration tests for step sequencer functionality."""
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_full_sequence_playback(self, mock_play_midi, step_sequencer):
         """Test a complete sequence playback cycle."""
         seq = step_sequencer
@@ -755,9 +755,9 @@ class TestStepSequencerIntegration:
         # Note: The implementation doesn't update global config.bpm
         # It only updates the local sequencer BPM and step duration
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note')
+    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_note_length_affects_duration(self, mock_play_midi, step_sequencer):
-        """Test that note length affects the duration passed to play_midi_note."""
+        """Test that note length affects the duration passed to play_midi_note_direct."""
         seq = step_sequencer
 
         # Set up steps with different note lengths

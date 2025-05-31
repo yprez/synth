@@ -25,6 +25,11 @@ octave_offset = 0
 octave_min = -2
 octave_max = 3
 
+# Semitone transpose settings
+semitone_offset = 0  # Additional semitone transpose (-11 to +11)
+semitone_min = -11
+semitone_max = 11
+
 # Waveform settings
 waveform_type = 'sine'
 

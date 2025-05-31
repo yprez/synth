@@ -876,3 +876,106 @@ class TestMidiFilePlaybackEvents:
 
         # Should have attempted to load the MIDI file
         mock_midi_file_class.assert_called_once_with('test.mid')
+
+
+class TestPlayMidiNoteDirect:
+    """Test cases for play_midi_note_direct function."""
+
+    def setup_method(self):
+        """Reset state before each test."""
+        controller._note_counter = 0
+        config.active_notes = {}
+        config.mono_mode = False
+        config.octave_offset = 0  # Reset octave offset for consistent tests
+
+    def test_play_midi_note_direct_basic(self):
+        """Test basic MIDI note playing without octave offset."""
+        config.octave_offset = 0  # Ensure no octave offset
+        osc = controller.play_midi_note_direct(69, 0, 0.8)  # A4
+
+        assert isinstance(osc, Oscillator)
+        assert osc.freq == 440.0
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_direct_ignores_octave_offset(self):
+        """Test that play_midi_note_direct ignores global octave offset."""
+        config.octave_offset = 12  # One octave up
+        osc = controller.play_midi_note_direct(69, 0, 0.8)  # A4
+
+        assert isinstance(osc, Oscillator)
+        # Should still be A4 (440 Hz), not A5 (880 Hz)
+        assert osc.freq == 440.0
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_direct_with_negative_octave_offset(self):
+        """Test MIDI note playing direct function ignores negative octave offset."""
+        config.octave_offset = -12  # One octave down
+        config.semitone_offset = -2  # Two semitones down (D)
+        osc = controller.play_midi_note_direct(69, 0, 0.8)  # A4, should still be A4
+
+        assert isinstance(osc, Oscillator)
+        assert osc.freq == 440.0  # Should ignore both offsets
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_direct_with_semitone_offset(self):
+        """Test MIDI note playing direct function ignores semitone offset."""
+        config.octave_offset = 0
+        config.semitone_offset = 5  # Five semitones up
+        osc = controller.play_midi_note_direct(69, 0, 0.8)  # A4, should still be A4
+
+        assert isinstance(osc, Oscillator)
+        assert osc.freq == 440.0  # Should ignore semitone offset
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_with_semitone_offset(self):
+        """Test MIDI note playing with semitone offset applied."""
+        config.octave_offset = 0
+        config.semitone_offset = 1  # One semitone up (A# / Bb)
+        osc = controller.play_midi_note(69, 0, 0.8)  # A4 + 1 semitone = A#4
+
+        assert isinstance(osc, Oscillator)
+        # A#4 should be approximately 466.16 Hz
+        expected_freq = 440.0 * (2 ** (1/12))
+        assert abs(osc.freq - expected_freq) < 0.01
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_with_octave_and_semitone_offset(self):
+        """Test MIDI note playing with both octave and semitone offsets."""
+        config.octave_offset = 12  # One octave up
+        config.semitone_offset = -2  # Two semitones down
+        osc = controller.play_midi_note(69, 0, 0.8)  # A4 + 12 - 2 = A5 - 2 semitones = G5
+
+        assert isinstance(osc, Oscillator)
+        # G5 should be 783.99 Hz (G4 = 392.00 Hz * 2 = 784.00 Hz)
+        # Calculate: A4(69) + 12 - 2 = MIDI note 79 (G5)
+        expected_midi = 69 + 12 - 2  # = 79 (G5)
+        expected_freq = 440.0 * (2 ** ((expected_midi - 69) / 12))
+        assert abs(osc.freq - expected_freq) < 0.01
+        assert osc.velocity == 0.8
+
+    def test_play_midi_note_direct_with_duration(self):
+        """Test MIDI note direct with duration scheduling."""
+        with patch('threading.Timer') as mock_timer:
+            mock_timer_instance = MagicMock()
+            mock_timer.return_value = mock_timer_instance
+
+            osc = controller.play_midi_note_direct(60, 2.0, 0.7)  # C4
+
+            # Timer should be created
+            mock_timer.assert_called_once()
+            timer_args = mock_timer.call_args[0]
+            assert timer_args[0] == 2.0  # duration
+
+    @patch('qwerty_synth.controller.play_note')
+    def test_play_midi_note_direct_calls_play_note(self, mock_play_note):
+        """Test that play_midi_note_direct calls play_note with correct frequency."""
+        config.octave_offset = 12  # Set octave offset to ensure it's ignored
+        mock_osc = MagicMock()
+        mock_play_note.return_value = mock_osc
+
+        result = controller.play_midi_note_direct(72, 1.5, 0.9)  # C5
+
+        # Should use the original MIDI note (72), not offset (72 + 12 = 84)
+        expected_freq = 440.0 * (2 ** ((72 - 69) / 12))  # C5 frequency
+        mock_play_note.assert_called_once_with(expected_freq, 1.5, 0.9)
+        assert result is mock_osc

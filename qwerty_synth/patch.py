@@ -38,6 +38,7 @@ def collect_params() -> Dict[str, Any]:
         # Basic settings
         "waveform_type": config.waveform_type,
         "octave_offset": config.octave_offset,
+        "semitone_offset": config.semitone_offset,
         "volume": config.volume,
 
         # ADSR envelope
@@ -117,6 +118,8 @@ def apply_params(params: Dict[str, Any]) -> None:
             config.waveform_type = params["waveform_type"]
         if "octave_offset" in params:
             config.octave_offset = params["octave_offset"]
+        if "semitone_offset" in params:
+            config.semitone_offset = params["semitone_offset"]
         if "volume" in params:
             config.volume = float(params["volume"])
 

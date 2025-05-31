@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QLabel, QPushButton, QSpinBox, QComboBox
 )
 
-from qwerty_synth.controller import play_midi_note
+from qwerty_synth.controller import play_midi_note_direct
 from qwerty_synth import config
 
 
@@ -627,7 +627,7 @@ class StepSequencer(QWidget):
                 note_length_multiplier = self.sequencer_note_lengths[row][self.current_step]
                 note_duration = self.step_duration * note_length_multiplier - note_release_buffer
 
-                play_midi_note(midi_note, note_duration, 0.8)
+                play_midi_note_direct(midi_note, note_duration, 0.8)
 
     def clear_sequencer(self):
         """Clear all steps in the sequencer."""
