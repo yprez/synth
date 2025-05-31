@@ -2122,21 +2122,6 @@ class SynthGUI(QMainWindow):
         if record.is_recording():
             record.stop_recording(config.sample_rate, config.recording_bit_depth)
 
-        # Add prompt to save current settings if they've changed
-        if self.current_patch_name == "Untitled" or self.current_patch_path is None:
-            confirm = QMessageBox.question(
-                self, "Save Settings?",
-                "Would you like to save your current settings before exiting?",
-                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-                QMessageBox.Yes
-            )
-
-            if confirm == QMessageBox.Cancel:
-                event.ignore()
-                return
-            elif confirm == QMessageBox.Yes:
-                self.save_patch()
-
         event.accept()
 
     def quick_save_patch(self):
