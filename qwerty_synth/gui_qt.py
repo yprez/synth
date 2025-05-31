@@ -198,18 +198,6 @@ class SynthGUI(QMainWindow):
         self.semitone_label.setAlignment(Qt.AlignCenter)
         transpose_layout.addWidget(self.semitone_label, 2, 1)
 
-        # Third row: Octave slider
-        # Removed: old slider code replaced with QDial
-        # self.octave_slider = QSlider(Qt.Horizontal)
-        # ...
-        # transpose_layout.addWidget(self.octave_slider)
-
-        # Fourth row: Semitone slider
-        # Removed: old slider code replaced with QDial
-        # self.semitone_slider = QSlider(Qt.Horizontal)
-        # ...
-        # transpose_layout.addWidget(self.semitone_slider)
-
         # Mono Mode and Portamento Controls
         mono_group = QGroupBox("Mono Mode")
         mono_layout = QHBoxLayout(mono_group)
@@ -1790,6 +1778,10 @@ class SynthGUI(QMainWindow):
             self.octave_dial.setValue(config.octave_offset // 12)
             self.octave_dial.blockSignals(False)
 
+            # Clear arpeggiator when transpose changes
+            if hasattr(self, 'arpeggiator') and self.arpeggiator:
+                self.arpeggiator.clear_notes()
+
     def increase_octave(self):
         """Increase the octave by one."""
         if config.octave_offset < 12 * config.octave_max:
@@ -1800,16 +1792,28 @@ class SynthGUI(QMainWindow):
             self.octave_dial.setValue(config.octave_offset // 12)
             self.octave_dial.blockSignals(False)
 
+            # Clear arpeggiator when transpose changes
+            if hasattr(self, 'arpeggiator') and self.arpeggiator:
+                self.arpeggiator.clear_notes()
+
     def update_octave(self, value):
         """Update the octave from dial value."""
         # Convert dial value to offset (x12 semitones per octave)
         config.octave_offset = value * 12
         self.octave_label.setText(f"{value:+d}")
 
+        # Clear arpeggiator when transpose changes
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            self.arpeggiator.clear_notes()
+
     def update_semitone(self, value):
         """Update the semitone transpose from dial value."""
         config.semitone_offset = value
         self.semitone_label.setText(f"{value:+d}")
+
+        # Clear arpeggiator when transpose changes
+        if hasattr(self, 'arpeggiator') and self.arpeggiator:
+            self.arpeggiator.clear_notes()
 
     def update_delay_pingpong(self, state):
         """Update the delay ping-pong setting."""

@@ -80,6 +80,11 @@ def on_press(key):
         elif k == 'z' and config.octave_offset > 12 * config.octave_min:
             config.octave_offset -= 12
             print(f'Octave down: {config.octave_offset // 12:+}')
+
+            # Clear arpeggiator when transpose changes
+            if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
+                arpeggiator.arpeggiator_instance.clear_notes()
+
             # Update the GUI octave display if GUI instance exists
             if gui_instance is not None and gui_instance.running:
                 gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
@@ -90,6 +95,11 @@ def on_press(key):
         elif k == 'x' and config.octave_offset < 12 * config.octave_max:
             config.octave_offset += 12
             print(f'Octave up: {config.octave_offset // 12:+}')
+
+            # Clear arpeggiator when transpose changes
+            if config.arpeggiator_enabled and arpeggiator.arpeggiator_instance:
+                arpeggiator.arpeggiator_instance.clear_notes()
+
             # Update the GUI octave display if GUI instance exists
             if gui_instance is not None and gui_instance.running:
                 gui_instance.octave_label.setText(f"{config.octave_offset // 12:+d}")
