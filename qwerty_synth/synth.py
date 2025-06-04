@@ -17,6 +17,9 @@ delay = Delay(config.sample_rate, config.delay_time_ms)
 chorus = Chorus(config.sample_rate)
 global_lfo = LFO()  # Global LFO instance for filter modulation
 
+# Global audio stream for simple programmatic use
+_global_audio_stream = None
+
 # Parameter change flags
 _chorus_params_changed = False
 _delay_params_changed = False
@@ -396,3 +399,73 @@ def create_audio_stream(latency='high'):
         latency=latency
     )
     return stream
+
+
+def start_audio(latency='high'):
+    """Start the global audio stream for simple programmatic use.
+
+    Args:
+        latency: 'high' for stability or 'low' for reduced latency
+
+    Returns:
+        bool: True if audio started successfully, False otherwise
+    """
+    global _global_audio_stream
+
+    if _global_audio_stream is not None:
+        # Audio already running
+        return True
+
+    try:
+        _global_audio_stream = create_audio_stream(latency)
+        _global_audio_stream.start()
+        return True
+    except Exception as e:
+        print(f"Failed to start audio: {e}")
+        _global_audio_stream = None
+        return False
+
+
+def stop_audio():
+    """Stop the global audio stream."""
+    global _global_audio_stream
+
+    if _global_audio_stream is not None:
+        try:
+            _global_audio_stream.stop()
+            _global_audio_stream.close()
+        except Exception as e:
+            print(f"Error stopping audio: {e}")
+        finally:
+            _global_audio_stream = None
+
+
+def is_audio_running():
+    """Check if the global audio stream is running.
+
+    Returns:
+        bool: True if audio is running, False otherwise
+    """
+    global _global_audio_stream
+    return _global_audio_stream is not None and _global_audio_stream.active
+
+
+class SynthContext:
+    """Context manager for easy synth usage.
+
+    Example:
+        with SynthContext():
+            controller.play_midi_note(60, duration=1.0)
+            time.sleep(1.2)
+    """
+
+    def __init__(self, latency='high'):
+        self.latency = latency
+
+    def __enter__(self):
+        if not start_audio(self.latency):
+            raise RuntimeError("Failed to start audio")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        stop_audio()
