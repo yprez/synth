@@ -3,7 +3,6 @@
 import threading
 from pynput import keyboard
 import sounddevice as sd
-import time
 
 from qwerty_synth import config
 from qwerty_synth import synth

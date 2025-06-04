@@ -1,14 +1,10 @@
 """Comprehensive tests for the input module."""
 
-import pytest
-import threading
-import time
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch
 from pynput import keyboard
 
 from qwerty_synth import input as input_module
 from qwerty_synth import config
-from qwerty_synth.synth import Oscillator
 
 
 class TestKeyMidiMapping:

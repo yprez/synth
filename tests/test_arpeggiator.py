@@ -1,7 +1,7 @@
 """Tests for arpeggiator functionality."""
 
 import pytest
-from unittest.mock import Mock, patch, call
+from unittest.mock import patch
 from PyQt5.QtWidgets import QApplication
 
 from qwerty_synth import config

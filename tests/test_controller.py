@@ -1,7 +1,7 @@
 """Comprehensive unit tests for the controller functionality."""
 
 import time
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 import threading
 
 from qwerty_synth import controller, config

@@ -2,11 +2,11 @@
 
 import time
 import threading
-from typing import List, Dict, Set
+from typing import List, Set
 from PyQt5.QtCore import Qt, QTimer, QMetaObject, Q_ARG, pyqtSlot
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QSpinBox, QComboBox, QDial, QSlider
+    QLabel, QPushButton, QSpinBox, QComboBox, QDial
 )
 
 from qwerty_synth import config
