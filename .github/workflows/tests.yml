@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y portaudio19-dev
+
+      - name: Install uv
+        run: pipx install uv
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Run ruff
+        run: uv run ruff check .
+        continue-on-error: true
+
+      - name: Run tests
+        env:
+          PYNPUT_BACKEND: dummy
+          QT_QPA_PLATFORM: offscreen
+        run: uv run pytest
