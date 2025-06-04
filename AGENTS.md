@@ -15,8 +15,10 @@ This repository contains a Python synthesizer and its accompanying tests.
 ## Programmatic Checks
 
 1. Install dependencies with `uv sync`.
-2. Run the linter using `uv run ruff .` and fix issues when possible.
-3. Execute the tests with `uv run pytest` before committing.
+2. Ensure the system package `portaudio19-dev` is installed.
+3. Run the linter using `uv run ruff check .` and fix issues when possible.
+4. Execute the tests with `PYNPUT_BACKEND=dummy` and `QT_QPA_PLATFORM=offscreen`:
+   `uv run pytest`.
 
 ## Pull Requests
 
