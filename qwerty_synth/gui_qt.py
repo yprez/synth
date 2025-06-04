@@ -2341,9 +2341,10 @@ def start_gui():
     # Share the GUI instance with the input module
     kb_input.gui_instance = gui
 
-    # Create and start audio stream
-    stream = synth.create_audio_stream()
-    stream.start()
+    # Start audio using synth entry points
+    if not synth.start_audio():
+        QMessageBox.critical(gui, "Audio Error", "Failed to start audio. Please check your audio system.")
+        sys.exit(1)
 
     # Start keyboard input handling in a separate thread
     kb_input.start_keyboard_input()
@@ -2356,9 +2357,8 @@ def start_gui():
         print("Keyboard interrupt detected, exiting...")
         gui.close()
     finally:
-        # Clean up
-        stream.stop()
-        stream.close()
+        # Clean up using synth entry points
+        synth.stop_audio()
 
 
 if __name__ == "__main__":
