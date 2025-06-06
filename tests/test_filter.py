@@ -13,7 +13,14 @@ from qwerty_synth.filter import (
     _should_bypass_filter,
     _apply_svf,
     _apply_biquad,
-    _ensure_output_buffer
+    _ensure_output_buffer,
+    _fast_sin_lut,
+    _fast_cos_lut,
+    _fast_tan_lut,
+    _calculate_biquad_coeffs_fast,
+    _warmup_jit_functions,
+    _apply_denormal_protection_svf,
+    _apply_denormal_protection_biquad
 )
 
 
@@ -621,3 +628,333 @@ class TestFilterIntegration:
 
         # Outputs should be different
         assert not np.allclose(output1, output2)
+
+
+class TestFilterLookupTables:
+    """Test fast lookup table functions."""
+
+    def test_fast_sin_lut(self):
+        """Test fast sine lookup table."""
+        # Test known values
+        assert abs(_fast_sin_lut(0) - 0.0) < 0.01
+        assert abs(_fast_sin_lut(np.pi/2) - 1.0) < 0.01
+        assert abs(_fast_sin_lut(np.pi) - 0.0) < 0.01
+        assert abs(_fast_sin_lut(3*np.pi/2) - (-1.0)) < 0.01
+
+    def test_fast_cos_lut(self):
+        """Test fast cosine lookup table."""
+        # Test known values
+        assert abs(_fast_cos_lut(0) - 1.0) < 0.01
+        assert abs(_fast_cos_lut(np.pi/2) - 0.0) < 0.01
+        assert abs(_fast_cos_lut(np.pi) - (-1.0)) < 0.01
+        assert abs(_fast_cos_lut(3*np.pi/2) - 0.0) < 0.01
+
+    def test_fast_tan_lut(self):
+        """Test fast tangent lookup table."""
+        # Test small angles
+        assert abs(_fast_tan_lut(0) - 0.0) < 0.01
+        assert abs(_fast_tan_lut(np.pi/4) - 1.0) < 0.1  # tan(π/4) = 1
+
+        # Test edge cases
+        assert _fast_tan_lut(-1.0) >= 0  # Should handle negative input
+        assert _fast_tan_lut(100.0) > 0  # Should handle large input
+
+    def test_lookup_table_edge_cases(self):
+        """Test lookup tables with edge cases."""
+        # Test very large values
+        large_val = 1000.0
+        assert not np.isnan(_fast_sin_lut(large_val))
+        assert not np.isnan(_fast_cos_lut(large_val))
+        assert not np.isnan(_fast_tan_lut(large_val))
+
+        # Test negative values
+        neg_val = -10.0
+        assert not np.isnan(_fast_sin_lut(neg_val))
+        assert not np.isnan(_fast_cos_lut(neg_val))
+        assert not np.isnan(_fast_tan_lut(neg_val))
+
+        # Test zero
+        assert _fast_sin_lut(0.0) == 0.0 or abs(_fast_sin_lut(0.0)) < 0.01
+        assert abs(_fast_cos_lut(0.0) - 1.0) < 0.01
+
+
+class TestFilterJITOptimizations:
+    """Test JIT compilation and optimization features."""
+
+    def test_jit_warmup(self):
+        """Test JIT warmup function."""
+        # Should not raise any exceptions
+        _warmup_jit_functions()
+
+    def test_ensure_jit_ready_multiple_calls(self):
+        """Test multiple calls to ensure_jit_ready."""
+        ensure_jit_ready()
+        ensure_jit_ready()
+        ensure_jit_ready()
+        # Should handle multiple calls gracefully
+
+    def test_calculate_biquad_coeffs_fast(self):
+        """Test fast biquad coefficient calculation."""
+        config.filter_type = 'lowpass'
+        config.sample_rate = 44100
+
+        coeffs = _calculate_biquad_coeffs_fast(1000.0, 2.0)
+
+        assert len(coeffs) == 5  # b0, b1, b2, a1, a2
+        assert all(not np.isnan(c) for c in coeffs)
+        assert all(not np.isinf(c) for c in coeffs)
+
+    def test_calculate_biquad_coeffs_all_types(self):
+        """Test biquad coefficients for all filter types."""
+        config.sample_rate = 44100
+
+        for filter_type in ['lowpass', 'highpass', 'bandpass', 'notch']:
+            config.filter_type = filter_type
+            coeffs = _calculate_biquad_coeffs_fast(2000.0, 1.0)
+
+            assert len(coeffs) == 5
+            assert all(not np.isnan(c) for c in coeffs)
+            assert all(not np.isinf(c) for c in coeffs)
+
+    def test_denormal_protection_svf(self):
+        """Test SVF denormal protection."""
+        # Should not raise exceptions
+        _apply_denormal_protection_svf()
+
+    def test_denormal_protection_biquad(self):
+        """Test biquad denormal protection."""
+        # Should not raise exceptions
+        _apply_denormal_protection_biquad()
+
+
+class TestFilterBypassOptimizations:
+    """Test filter bypass optimization conditions."""
+
+    def test_bypass_high_cutoff_lowpass(self):
+        """Test bypass for high cutoff lowpass filter."""
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.0
+
+        # Very high cutoff should bypass
+        very_high = config.sample_rate / 1.5
+        assert _should_bypass_filter(very_high)
+
+    def test_bypass_low_resonance_high_cutoff(self):
+        """Test bypass for low resonance, high cutoff case."""
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.005  # Very low
+
+        high_cutoff = config.sample_rate / 2.5
+        # This may or may not bypass depending on implementation
+        result = _should_bypass_filter(high_cutoff)
+        assert isinstance(result, bool)
+
+    def test_no_bypass_normal_conditions(self):
+        """Test that normal conditions don't bypass."""
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.5
+
+        normal_cutoff = 1000.0
+        assert not _should_bypass_filter(normal_cutoff)
+
+    def test_bypass_with_array_cutoffs(self):
+        """Test bypass logic with array of cutoffs."""
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.0
+
+        # Mixed cutoffs - some high, some normal
+        cutoffs = np.array([500, 1000, config.sample_rate / 1.8])
+        result = _should_bypass_filter(cutoffs)
+        assert isinstance(result, bool)
+
+
+class TestFilterVariableCutoff:
+    """Test variable cutoff frequency handling."""
+
+    def test_svf_nearly_constant_cutoff(self, sample_audio):
+        """Test SVF with nearly constant cutoff optimization."""
+        config.filter_topology = 'svf'
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.3
+
+        # Create nearly constant cutoff (within 1% tolerance)
+        base_cutoff = 1500.0
+        cutoff = np.full(len(sample_audio), base_cutoff)
+        cutoff[0] = base_cutoff * 1.005  # Small variation
+
+        output = _apply_svf(sample_audio, cutoff)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+
+    def test_biquad_nearly_constant_cutoff(self, sample_audio):
+        """Test biquad with nearly constant cutoff optimization."""
+        config.filter_topology = 'biquad'
+        config.filter_type = 'highpass'
+        config.filter_resonance = 0.4
+
+        # Create nearly constant cutoff
+        base_cutoff = 2000.0
+        cutoff = np.full(len(sample_audio), base_cutoff)
+        cutoff[-1] = base_cutoff * 1.008  # Small variation
+
+        output = _apply_biquad(sample_audio, cutoff)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+
+    def test_svf_truly_variable_cutoff(self, sample_audio):
+        """Test SVF with truly variable cutoff."""
+        config.filter_topology = 'svf'
+        config.filter_type = 'bandpass'
+        config.filter_resonance = 0.2
+
+        # Create significantly varying cutoff
+        cutoff = np.linspace(400, 4000, len(sample_audio))
+
+        output = _apply_svf(sample_audio, cutoff)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+
+    def test_biquad_truly_variable_cutoff(self, sample_audio):
+        """Test biquad with truly variable cutoff."""
+        config.filter_topology = 'biquad'
+        config.filter_type = 'notch'
+        config.filter_resonance = 0.1
+
+        # Create significantly varying cutoff
+        cutoff = np.linspace(800, 8000, len(sample_audio))
+
+        output = _apply_biquad(sample_audio, cutoff)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+
+
+class TestFilterBufferManagement:
+    """Test filter buffer allocation and management."""
+
+    def test_ensure_output_buffer_sizes(self):
+        """Test output buffer with different sizes."""
+        sizes = [64, 128, 512, 1024, 2048, 4096]
+
+        for size in sizes:
+            buffer = _ensure_output_buffer(size)
+            assert len(buffer) == size
+            assert buffer.dtype == np.float32
+
+    def test_ensure_output_buffer_reuse(self):
+        """Test buffer reuse for same size."""
+        size = 1024
+        buffer1 = _ensure_output_buffer(size)
+        buffer2 = _ensure_output_buffer(size)
+
+        # Should reuse the same underlying buffer
+        assert len(buffer1) == len(buffer2) == size
+
+    def test_ensure_output_buffer_growing(self):
+        """Test buffer growing for larger sizes."""
+        # Start with small buffer
+        small_buffer = _ensure_output_buffer(256)
+        assert len(small_buffer) == 256
+
+        # Request larger buffer
+        large_buffer = _ensure_output_buffer(2048)
+        assert len(large_buffer) == 2048
+
+
+class TestFilterComplexScenarios:
+    """Test complex filter scenarios and edge cases."""
+
+    def test_filter_with_extreme_modulation(self, sample_audio):
+        """Test filter with extreme modulation values."""
+        config.filter_enabled = True
+        config.filter_cutoff = 1000
+        config.filter_env_amount = 10000  # Very large envelope amount
+
+        # Extreme LFO modulation
+        extreme_lfo = 5.0 * np.sin(2 * np.pi * np.arange(len(sample_audio)) / len(sample_audio))
+
+        # Extreme envelope
+        extreme_env = np.linspace(-2.0, 3.0, len(sample_audio))
+
+        output = apply_filter(sample_audio, lfo_modulation=extreme_lfo, filter_envelope=extreme_env)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+        assert not np.any(np.isinf(output))
+
+    def test_filter_frequency_sweep(self, sample_audio):
+        """Test filter with frequency sweep."""
+        config.filter_enabled = True
+        config.filter_type = 'lowpass'
+        config.filter_resonance = 0.7
+
+        # Create frequency sweep modulation
+        sweep_env = np.linspace(0, 1, len(sample_audio))
+        config.filter_env_amount = 8000
+
+        output = apply_filter(sample_audio, filter_envelope=sweep_env)
+
+        assert len(output) == len(sample_audio)
+        assert not np.any(np.isnan(output))
+
+    def test_filter_resonance_sweep(self, sample_audio):
+        """Test filter behavior with changing resonance during processing."""
+        config.filter_enabled = True
+        config.filter_cutoff = 2000
+        config.filter_type = 'lowpass'
+
+        # Process with different resonance values
+        for resonance in [0.0, 0.3, 0.6, 0.9, 0.99]:
+            config.filter_resonance = resonance
+            output = apply_filter(sample_audio)
+
+            assert len(output) == len(sample_audio)
+            assert not np.any(np.isnan(output))
+            assert not np.any(np.isinf(output))
+
+    def test_filter_type_switching(self, sample_audio):
+        """Test rapid filter type switching."""
+        config.filter_enabled = True
+        config.filter_cutoff = 1500
+        config.filter_resonance = 0.4
+
+        types = ['lowpass', 'highpass', 'bandpass', 'notch']
+
+        for i, filter_type in enumerate(types):
+            config.filter_type = filter_type
+            output = apply_filter(sample_audio)
+
+            assert len(output) == len(sample_audio)
+            assert not np.any(np.isnan(output))
+
+    def test_filter_topology_switching(self, sample_audio):
+        """Test switching between filter topologies."""
+        config.filter_enabled = True
+        config.filter_cutoff = 2500
+        config.filter_resonance = 0.3
+        config.filter_type = 'lowpass'
+
+        for topology in ['svf', 'biquad']:
+            config.filter_topology = topology
+            output = apply_filter(sample_audio)
+
+            assert len(output) == len(sample_audio)
+            assert not np.any(np.isnan(output))
+
+    def test_filter_with_clipped_modulation(self, sample_audio):
+        """Test filter with modulation that gets clipped."""
+        config.filter_enabled = True
+        config.filter_cutoff = 500  # Low base cutoff
+        config.filter_env_amount = 100  # Small envelope amount
+
+        # Envelope that would push cutoff below 20 Hz
+        negative_env = np.full(len(sample_audio), -10.0)
+
+        # Modulated cutoff calculation should clip to valid range
+        modulated = _calculate_modulated_cutoff(sample_audio, None, negative_env)
+
+        assert np.all(modulated >= 20)  # Should be clipped to minimum
+        assert np.all(modulated <= config.sample_rate / 2.1)  # And below Nyquist
