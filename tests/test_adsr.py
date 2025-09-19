@@ -359,7 +359,7 @@ class TestADSRGlobalVariables:
         """Test that updating ADSR curve modifies global variable."""
         # Just test that the update function works without errors
         # and that the curve is reasonable
-        initial_sum = np.sum(adsr_curve)
+        np.sum(adsr_curve)
 
         config.adsr = {
             'attack': 0.3,
@@ -378,7 +378,7 @@ class TestADSRGlobalVariables:
         """Test that updating filter ADSR curve modifies global variable."""
         # Just test that the update function works without errors
         # and that the curve is reasonable
-        initial_sum = np.sum(filter_adsr_curve)
+        np.sum(filter_adsr_curve)
 
         config.filter_adsr = {
             'attack': 0.3,

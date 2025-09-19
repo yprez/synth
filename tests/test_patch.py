@@ -279,7 +279,6 @@ class TestPatchManagement:
 
     def test_apply_params_partial(self):
         """Test applying only some parameters (partial patch)."""
-        original_waveform = config.waveform_type
         original_volume = config.volume
 
         params = {

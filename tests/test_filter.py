@@ -252,7 +252,7 @@ class TestFilterBypass:
         assert not _should_bypass_filter(cutoffs)
 
         # Very high cutoffs
-        high_cutoffs = np.array([20000, 25000, 30000])
+        np.array([20000, 25000, 30000])
         config.filter_resonance = 0.0
         # This depends on implementation details
 

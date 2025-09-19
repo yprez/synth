@@ -167,7 +167,7 @@ class PerformanceBenchmark:
                         def test_func():
                             reset_filter_state()
                             signal = self.signals['complex'].copy()
-                            filtered = apply_filter(signal)
+                            apply_filter(signal)
 
                         self._benchmark_test(test_name, test_func, iterations=5)
 
@@ -189,7 +189,7 @@ class PerformanceBenchmark:
 
                 def test_func():
                     signal = self.signals['complex'].copy()
-                    processed = apply_drive(signal)
+                    apply_drive(signal)
 
                 self._benchmark_test(test_name, test_func)
 
@@ -207,7 +207,7 @@ class PerformanceBenchmark:
                 def test_func():
                     delay = Delay(self.sample_rate, delay_time)
                     signal = self.signals['sine'].copy()
-                    processed = delay.process_block(signal, feedback, 0.5)
+                    delay.process_block(signal, feedback, 0.5)
 
                 self._benchmark_test(test_name, test_func)
 
@@ -272,12 +272,12 @@ class PerformanceBenchmark:
 
                         if target == 'pitch':
                             freq_array = np.full(self.frames, 440.0)
-                            modulated = lfo.apply_pitch_modulation(freq_array, lfo_signal)
+                            lfo.apply_pitch_modulation(freq_array, lfo_signal)
                         elif target == 'volume':
                             env = np.full(self.frames, 0.5)
-                            modulated = lfo.apply_amplitude_modulation(env, lfo_signal)
+                            lfo.apply_amplitude_modulation(env, lfo_signal)
                         elif target == 'cutoff':
-                            cutoff_mod = lfo.get_cutoff_modulation(self.frames)
+                            lfo.get_cutoff_modulation(self.frames)
 
                     self._benchmark_test(test_name, test_func)
 

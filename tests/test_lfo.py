@@ -203,7 +203,7 @@ class TestLFO:
 
         # Generate first block
         output1 = lfo.generate(frames)
-        last_sample1 = output1[-1]
+        output1[-1]
 
         # Generate second block
         output2 = lfo.generate(frames)

@@ -469,7 +469,6 @@ class TestChorusBufferManagement:
     def test_buffer_resize_for_large_depth(self):
         """Test that buffers resize when depth requires it."""
         chorus = Chorus()
-        original_buf_len = chorus._buf_len
 
         # Set a large depth that should require buffer resize
         chorus.set_depth(0.025)  # 25ms
@@ -834,7 +833,7 @@ class TestChorusIntegration:
         out_L, out_R = chorus.process(L, R)
 
         # Chorus should create some stereo difference
-        input_width = np.std(L - R)
+        np.std(L - R)
         output_width = np.std(out_L - out_R)
 
         # Output should have some stereo content (may be wider or narrower depending on implementation)

@@ -563,7 +563,7 @@ class TestDelayConfiguration:
         # Create delay with one sample rate
         delay = Delay(sample_rate=44100, delay_ms=100)
 
-        output1 = delay.process_block(sample_audio, 0.3, 0.5)
+        delay.process_block(sample_audio, 0.3, 0.5)
 
         # Create new delay with different sample rate
         delay2 = Delay(sample_rate=48000, delay_ms=100)

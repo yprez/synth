@@ -74,7 +74,7 @@ class TestPlayNote:
         config.mono_mode = True
 
         # Play first note
-        osc1 = controller.play_note(440.0, 0, 0.7)
+        controller.play_note(440.0, 0, 0.7)
         first_osc = config.active_notes['mono']
 
         # Play second note (should update frequency)
@@ -91,13 +91,13 @@ class TestPlayNote:
         config.mono_mode = True
 
         # Play and release a note
-        osc1 = controller.play_note(440.0, 0, 0.7)
+        controller.play_note(440.0, 0, 0.7)
         config.active_notes['mono'].released = True
         config.active_notes['mono'].env_time = 1.0
         config.active_notes['mono'].lfo_env_time = 0.5
 
         # Play new note
-        osc2 = controller.play_note(550.0, 0, 0.8)
+        controller.play_note(550.0, 0, 0.8)
 
         # Should un-release the note
         assert not config.active_notes['mono'].released
@@ -112,7 +112,7 @@ class TestPlayNote:
             mock_timer_instance = MagicMock()
             mock_timer.return_value = mock_timer_instance
 
-            osc = controller.play_note(440.0, 1.5, 0.8)
+            controller.play_note(440.0, 1.5, 0.8)
 
             # Timer should be created and started
             mock_timer.assert_called_once()
@@ -126,7 +126,7 @@ class TestPlayNote:
         config.mono_mode = False
 
         with patch('threading.Timer') as mock_timer:
-            osc = controller.play_note(440.0, 0, 0.8)
+            controller.play_note(440.0, 0, 0.8)
 
             # No timer should be created
             mock_timer.assert_not_called()
@@ -249,7 +249,7 @@ class TestPlayMidiNote:
             mock_timer_instance = MagicMock()
             mock_timer.return_value = mock_timer_instance
 
-            osc = controller.play_midi_note(60, 2.0, 0.7)  # C4
+            controller.play_midi_note(60, 2.0, 0.7)  # C4
 
             # Timer should be created
             mock_timer.assert_called_once()
@@ -412,7 +412,7 @@ class TestPlayMidiFile:
 
         # Should set config values
         assert config.midi_tempo_scale == 0.8
-        assert config.midi_playback_active == True
+        assert config.midi_playback_active
 
         # Should start thread
         mock_thread.assert_called_once()
@@ -448,19 +448,19 @@ class TestPlayMidiFile:
         controller.play_midi_file('nonexistent.mid')
 
         # Should set playback to inactive
-        assert config.midi_playback_active == False
+        assert not config.midi_playback_active
 
     def test_midi_playback_state_management(self):
         """Test MIDI playback state flags."""
         # Test initial state
-        assert config.midi_playback_active == False
+        assert not config.midi_playback_active
 
         # Test that we can set the flag
         config.midi_playback_active = True
-        assert config.midi_playback_active == True
+        assert config.midi_playback_active
 
         config.midi_playback_active = False
-        assert config.midi_playback_active == False
+        assert not config.midi_playback_active
 
 
 class TestControllerIntegration:
@@ -497,14 +497,14 @@ class TestControllerIntegration:
         """Test transitioning between mono and poly modes."""
         # Start in poly mode
         config.mono_mode = False
-        osc1 = controller.play_note(440.0, 0, 0.8)
-        osc2 = controller.play_note(550.0, 0, 0.7)
+        controller.play_note(440.0, 0, 0.8)
+        controller.play_note(550.0, 0, 0.7)
 
         assert len(config.active_notes) == 2
 
         # Switch to mono mode and play note
         config.mono_mode = True
-        osc3 = controller.play_note(660.0, 0, 0.6)
+        controller.play_note(660.0, 0, 0.6)
 
         # Should now have 3 total notes (2 poly + 1 mono)
         assert len(config.active_notes) == 3
@@ -1450,7 +1450,7 @@ class TestPlayMidiNoteDirect:
             mock_timer_instance = MagicMock()
             mock_timer.return_value = mock_timer_instance
 
-            osc = controller.play_midi_note_direct(60, 2.0, 0.7)  # C4
+            controller.play_midi_note_direct(60, 2.0, 0.7)  # C4
 
             # Timer should be created
             mock_timer.assert_called_once()

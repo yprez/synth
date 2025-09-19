@@ -44,12 +44,12 @@ class TestArpeggiatorInit:
         # Create new arpeggiator
         arp = Arpeggiator()
 
-        assert arp.enabled == True
+        assert arp.enabled
         assert arp.pattern == 'down'
         assert arp.rate == 140
         assert arp.gate == 0.6
         assert arp.octave_range == 2
-        assert arp.sync_to_bpm == False
+        assert not arp.sync_to_bpm
 
     def test_initial_state(self, arpeggiator):
         """Test initial state of arpeggiator."""
@@ -57,7 +57,7 @@ class TestArpeggiatorInit:
         assert arpeggiator.note_order == []
         assert arpeggiator.current_sequence == []
         assert arpeggiator.sequence_position == 0
-        assert arpeggiator.is_running == False
+        assert not arpeggiator.is_running
 
 
 class TestArpeggiatorControls:
@@ -66,18 +66,18 @@ class TestArpeggiatorControls:
     def test_toggle_enabled(self, arpeggiator):
         """Test enabling/disabling arpeggiator."""
         # Initially disabled
-        assert arpeggiator.enabled == False
-        assert config.arpeggiator_enabled == False
+        assert not arpeggiator.enabled
+        assert not config.arpeggiator_enabled
 
         # Enable
         arpeggiator.toggle_enabled(True)
-        assert arpeggiator.enabled == True
-        assert config.arpeggiator_enabled == True
+        assert arpeggiator.enabled
+        assert config.arpeggiator_enabled
 
         # Disable
         arpeggiator.toggle_enabled(False)
-        assert arpeggiator.enabled == False
-        assert config.arpeggiator_enabled == False
+        assert not arpeggiator.enabled
+        assert not config.arpeggiator_enabled
 
     def test_update_pattern(self, arpeggiator):
         """Test updating arpeggio pattern."""
@@ -110,22 +110,22 @@ class TestArpeggiatorControls:
     def test_toggle_sync(self, arpeggiator):
         """Test BPM sync toggle."""
         arpeggiator.toggle_sync(False)
-        assert arpeggiator.sync_to_bpm == False
-        assert config.arpeggiator_sync_to_bpm == False
+        assert not arpeggiator.sync_to_bpm
+        assert not config.arpeggiator_sync_to_bpm
 
         arpeggiator.toggle_sync(True)
-        assert arpeggiator.sync_to_bpm == True
-        assert config.arpeggiator_sync_to_bpm == True
+        assert arpeggiator.sync_to_bpm
+        assert config.arpeggiator_sync_to_bpm
 
     def test_toggle_sustain_base(self, arpeggiator):
         """Test sustain base toggle."""
         arpeggiator.toggle_sustain_base(False)
-        assert arpeggiator.sustain_base == False
-        assert config.arpeggiator_sustain_base == False
+        assert not arpeggiator.sustain_base
+        assert not config.arpeggiator_sustain_base
 
         arpeggiator.toggle_sustain_base(True)
-        assert arpeggiator.sustain_base == True
-        assert config.arpeggiator_sustain_base == True
+        assert arpeggiator.sustain_base
+        assert config.arpeggiator_sustain_base
 
 
 class TestArpeggiatorNoteManagement:
@@ -364,11 +364,11 @@ class TestArpeggiatorPlayback:
 
         # Start arpeggio
         arpeggiator.start_arpeggio()
-        assert arpeggiator.is_running == True
+        assert arpeggiator.is_running
 
         # Stop arpeggio
         arpeggiator.stop_arpeggio()
-        assert arpeggiator.is_running == False
+        assert not arpeggiator.is_running
 
 
 class TestArpeggiatorUtilityFunctions:
@@ -392,7 +392,7 @@ class TestArpeggiatorUtilityFunctions:
         assert len(arpeggiator.held_notes) == 0
         assert len(arpeggiator.note_order) == 0
         assert len(arpeggiator.current_sequence) == 0
-        assert arpeggiator.is_running == False
+        assert not arpeggiator.is_running
 
     def test_sync_bpm_changed(self, arpeggiator):
         """Test BPM sync update."""
@@ -409,5 +409,5 @@ class TestArpeggiatorUtilityFunctions:
 
         arpeggiator.stop()
 
-        assert arpeggiator.is_running == False
+        assert not arpeggiator.is_running
         assert len(arpeggiator.held_notes) == 0

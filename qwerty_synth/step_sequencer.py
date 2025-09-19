@@ -293,7 +293,7 @@ class StepSequencer(QWidget):
         # Clear existing grid if it exists
         if self.grid_widget:
             # Store the state of buttons before rebuilding
-            current_state = self.get_grid_state()
+            self.get_grid_state()
 
             # Remove the old grid widget
             self.grid_container.removeWidget(self.grid_widget)

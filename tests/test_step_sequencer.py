@@ -539,9 +539,9 @@ class TestStepSequencerNoteCalculations:
         seq.step_duration = (step_interval / 1000) * 0.98
 
         # Calculate expected durations (with note_release_buffer = 0.02)
-        expected_16th = seq.step_duration * 1 - 0.02  # 1 step
-        expected_8th = seq.step_duration * 2 - 0.02   # 2 steps
-        expected_4th = seq.step_duration * 4 - 0.02   # 4 steps
+        seq.step_duration * 1 - 0.02  # 1 step
+        seq.step_duration * 2 - 0.02   # 2 steps
+        seq.step_duration * 4 - 0.02   # 4 steps
 
         # These would be used in actual playback
         assert seq.step_duration > 0
@@ -593,7 +593,6 @@ class TestStepSequencerEdgeCases:
         seq = step_sequencer
 
         # Try to set an invalid scale
-        original_scale = seq.current_scale
         try:
             seq.update_scale('InvalidScale')
             # If it doesn't raise an error, the scale should remain unchanged
@@ -609,7 +608,6 @@ class TestStepSequencerEdgeCases:
         """Test handling of invalid root note names."""
         seq = step_sequencer
 
-        original_root = seq.root_note_name
         try:
             seq.update_root_note('InvalidNote')
             # If it doesn't raise an error, should handle gracefully
@@ -639,7 +637,6 @@ class TestStepSequencerEdgeCases:
         seq = step_sequencer
 
         # Try to set zero rows
-        original_rows = seq.num_rows
         seq.update_num_rows(0)
 
         # Should handle gracefully (may clamp to minimum or ignore)
@@ -650,7 +647,6 @@ class TestStepSequencerEdgeCases:
         seq = step_sequencer
 
         # Try to set zero bars
-        original_bars = seq.num_bars
         seq.update_num_bars(0)
 
         # Should handle gracefully (may clamp to minimum or ignore)

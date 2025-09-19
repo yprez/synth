@@ -614,7 +614,7 @@ class SynthGUI(QMainWindow):
 
         # Filter ADSR visualization - Create an empty QFrame as a spacer
         filter_adsr_viz_group = QFrame()
-        filter_adsr_viz_layout = QVBoxLayout(filter_adsr_viz_group)
+        QVBoxLayout(filter_adsr_viz_group)
         filter_env_layout.addWidget(filter_adsr_viz_group)
 
         # ADSR controls for filter envelope
@@ -2279,7 +2279,7 @@ class SynthGUI(QMainWindow):
                         # Try to format the ISO timestamp nicely
                         created = p["created"].replace("T", " ").replace("Z", " UTC")
                         item.setToolTip(f"Created: {created}")
-                    except:
+                    except Exception:
                         item.setToolTip(f"Created: {p['created']}")
                 self.patch_list.addItem(item)
 

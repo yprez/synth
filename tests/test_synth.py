@@ -70,7 +70,7 @@ class TestOscillator:
 
         # Generate first block
         audio1, _ = osc.generate(frames)
-        last_sample1 = audio1[-1]
+        audio1[-1]
 
         # Generate second block
         audio2, _ = osc.generate(frames)

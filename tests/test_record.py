@@ -381,7 +381,7 @@ class TestRecordingIntegration:
             record.stop_recording()
 
         # Second recording
-        path2 = record.start_recording("/tmp/test2.wav")
+        record.start_recording("/tmp/test2.wav")
         assert record.is_recording()
         assert record.current_recording_path == "/tmp/test2.wav"
         assert record.recorded_audio == []
