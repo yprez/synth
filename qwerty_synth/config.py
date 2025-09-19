@@ -96,6 +96,12 @@ chorus_mix = 0.2         # 0.0 (dry) - 1.0 (wet)
 chorus_voices = 1        # Number of chorus voices (1 - 4) - using 1 for CPU efficiency
 chorus_enabled = False   # Toggle for enabling/disabling chorus effect
 
+# Reverb effect settings
+reverb_room_size = 0.5   # Room size (0.0 = small, 1.0 = large)
+reverb_damping = 0.5     # High frequency damping (0.0 = bright, 1.0 = dark)
+reverb_mix = 0.25        # 0.0 (dry) - 1.0 (wet)
+reverb_enabled = False   # Toggle for enabling/disabling reverb effect
+
 # Global tempo and sync settings
 bpm = 120               # master tempo
 delay_division = '1/4'  # '1/1', '1/2', '1/4', '1/8', '1/8d', '1/16', '1/16t'

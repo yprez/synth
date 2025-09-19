@@ -432,6 +432,11 @@ class SynthGUI(QMainWindow):
         chorus_tab_layout = QHBoxLayout(chorus_tab_widget)
         envelope_tabs.addTab(chorus_tab_widget, "Chorus")
 
+        # Create the reverb effect tab
+        reverb_tab_widget = QWidget()
+        reverb_tab_layout = QHBoxLayout(reverb_tab_widget)
+        envelope_tabs.addTab(reverb_tab_widget, "Reverb")
+
         # Create the sequencer tab
         self.sequencer = StepSequencer()
         envelope_tabs.addTab(self.sequencer, "Step Sequencer")
@@ -972,6 +977,70 @@ class SynthGUI(QMainWindow):
         self.chorus_voices_label = QLabel(f"{config.chorus_voices}")
         self.chorus_voices_label.setAlignment(Qt.AlignCenter)
         chorus_layout.addWidget(self.chorus_voices_label, 3, 3)
+
+        # Reverb effect controls
+        reverb_group = QGroupBox("Reverb Parameters")
+        reverb_layout = QGridLayout(reverb_group)
+        reverb_tab_layout.addWidget(reverb_group)
+
+        # Reverb enable checkbox in top row
+        reverb_control_row = QHBoxLayout()
+        reverb_layout.addLayout(reverb_control_row, 0, 0, 1, 1)
+
+        self.reverb_enable_button = QPushButton("Enable Reverb")
+        self.reverb_enable_button.setCheckable(True)
+        self.reverb_enable_button.setChecked(config.reverb_enabled)
+        self.reverb_enable_button.clicked.connect(self.update_reverb_enabled)
+        self.reverb_enable_button.setStyleSheet(self.TOGGLE_BUTTON_STYLE)
+        reverb_control_row.addWidget(self.reverb_enable_button)
+
+        # Reverb room size control
+        room_size_label = QLabel("Room Size")
+        room_size_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(room_size_label, 1, 0)
+
+        self.reverb_room_size_dial = QDial()
+        self.reverb_room_size_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.reverb_room_size_dial.setValue(int(config.reverb_room_size * 100))
+        self.reverb_room_size_dial.valueChanged.connect(self.update_reverb_room_size)
+        self.reverb_room_size_dial.setNotchesVisible(True)
+        reverb_layout.addWidget(self.reverb_room_size_dial, 2, 0)
+
+        self.reverb_room_size_label = QLabel(f"{config.reverb_room_size:.2f}")
+        self.reverb_room_size_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(self.reverb_room_size_label, 3, 0)
+
+        # Reverb damping control
+        damping_label = QLabel("Damping")
+        damping_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(damping_label, 1, 1)
+
+        self.reverb_damping_dial = QDial()
+        self.reverb_damping_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.reverb_damping_dial.setValue(int(config.reverb_damping * 100))
+        self.reverb_damping_dial.valueChanged.connect(self.update_reverb_damping)
+        self.reverb_damping_dial.setNotchesVisible(True)
+        reverb_layout.addWidget(self.reverb_damping_dial, 2, 1)
+
+        self.reverb_damping_label = QLabel(f"{config.reverb_damping:.2f}")
+        self.reverb_damping_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(self.reverb_damping_label, 3, 1)
+
+        # Reverb mix control
+        reverb_mix_label = QLabel("Mix")
+        reverb_mix_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(reverb_mix_label, 1, 2)
+
+        self.reverb_mix_dial = QDial()
+        self.reverb_mix_dial.setRange(0, 100)  # 0.0 to 1.0 (x100)
+        self.reverb_mix_dial.setValue(int(config.reverb_mix * 100))
+        self.reverb_mix_dial.valueChanged.connect(self.update_reverb_mix)
+        self.reverb_mix_dial.setNotchesVisible(True)
+        reverb_layout.addWidget(self.reverb_mix_dial, 2, 2)
+
+        self.reverb_mix_label = QLabel(f"{config.reverb_mix:.2f}")
+        self.reverb_mix_label.setAlignment(Qt.AlignCenter)
+        reverb_layout.addWidget(self.reverb_mix_label, 3, 2)
 
         # Visualization toggle and visualizations at the bottom
         viz_toggle_layout = QHBoxLayout()
@@ -1856,6 +1925,32 @@ class SynthGUI(QMainWindow):
         config.chorus_voices = value
         synth.chorus.set_voices(value)
         self.chorus_voices_label.setText(f"{value}")
+
+    def update_reverb_enabled(self, state):
+        """Update reverb enabled status."""
+        config.reverb_enabled = state
+        self.reverb_enable_button.setChecked(state)
+
+    def update_reverb_room_size(self, value):
+        """Update reverb room size parameter."""
+        room_size = value / 100.0  # Convert 0-100 to 0.0-1.0
+        config.reverb_room_size = room_size
+        synth.reverb.set_room_size(room_size)
+        self.reverb_room_size_label.setText(f"{room_size:.2f}")
+
+    def update_reverb_damping(self, value):
+        """Update reverb damping parameter."""
+        damping = value / 100.0  # Convert 0-100 to 0.0-1.0
+        config.reverb_damping = damping
+        synth.reverb.set_damping(damping)
+        self.reverb_damping_label.setText(f"{damping:.2f}")
+
+    def update_reverb_mix(self, value):
+        """Update reverb mix parameter."""
+        mix = value / 100.0  # Convert 0-100 to 0.0-1.0
+        config.reverb_mix = mix
+        synth.reverb.set_mix(mix)
+        self.reverb_mix_label.setText(f"{mix:.2f}")
 
     def update_visualization_enabled(self, state):
         """Update visualization enabled status and visibility."""

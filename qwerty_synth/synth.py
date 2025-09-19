@@ -7,6 +7,7 @@ from qwerty_synth import config
 from qwerty_synth import filter
 from qwerty_synth.delay import Delay
 from qwerty_synth.chorus import Chorus
+from qwerty_synth.reverb import Reverb
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
 from qwerty_synth import record
@@ -15,6 +16,7 @@ from qwerty_synth import record
 # Initialize effects
 delay = Delay(config.sample_rate, config.delay_time_ms)
 chorus = Chorus(config.sample_rate)
+reverb = Reverb(config.sample_rate)
 global_lfo = LFO()  # Global LFO instance for filter modulation
 
 # Global audio stream for simple programmatic use
@@ -368,6 +370,10 @@ def audio_callback(outdata, frames, time_info, status):
             )
             buffer_L = mono_delayed.copy()  # Use copy to prevent shared references
             buffer_R = mono_delayed.copy()
+
+    # Apply reverb effect if enabled - last in the effects chain
+    if config.reverb_enabled:
+        buffer_L, buffer_R = reverb.process(buffer_L, buffer_R)
 
     # Apply volume and output to the audio device
     outdata[:, 0] = config.volume * buffer_L
