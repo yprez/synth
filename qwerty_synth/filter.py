@@ -126,9 +126,11 @@ def _calculate_modulated_cutoff(samples, lfo_modulation, filter_envelope):
 
     modulated_cutoff = np.full(len(samples), config.filter_cutoff, dtype=np.float32)
 
-    # Apply LFO modulation
+    # Apply LFO modulation (additive to prevent negative frequencies)
     if lfo_modulation is not None:
-        modulated_cutoff *= (1.0 + lfo_modulation)
+        # Scale LFO to reasonable frequency range and add to base cutoff
+        lfo_freq_offset = lfo_modulation * config.filter_cutoff * 0.5  # Max ±50% of base cutoff
+        modulated_cutoff += lfo_freq_offset
 
     # Apply filter envelope modulation
     if filter_envelope is not None:
@@ -141,10 +143,9 @@ def _calculate_modulated_cutoff(samples, lfo_modulation, filter_envelope):
 def _should_bypass_filter(modulated_cutoff):
     """Check if filtering can be bypassed for performance."""
     if isinstance(modulated_cutoff, (int, float)):
-        cutoff_min = cutoff_max = modulated_cutoff
+        cutoff_min = modulated_cutoff
     else:
         cutoff_min = np.min(modulated_cutoff)
-        cutoff_max = np.max(modulated_cutoff)
 
     # Skip filtering for extreme low-pass cases
     if (config.filter_type == 'lowpass' and
@@ -153,7 +154,7 @@ def _should_bypass_filter(modulated_cutoff):
 
     # Skip filtering for no-resonance high-cutoff low-pass
     if (config.filter_type == 'lowpass' and
-        config.filter_resonance < 0.01 and
+        config.filter_resonance < 0.1 and  # Adjusted for new resonance scale (0.5-30.5)
         cutoff_min > config.sample_rate / 3):
         return True
 
@@ -166,8 +167,9 @@ def _apply_svf(samples, modulated_cutoff):
 
     # Pre-calculate resonance parameters
     safe_resonance = min(config.filter_resonance, _MAX_RESONANCE)
-    q = 1.0 / (safe_resonance + _MIN_Q)
-    r = 1.0 / q
+    # Correct Q calculation: higher resonance = higher Q
+    q = 0.5 + safe_resonance * 30.0  # Q ranges from 0.5 to 30.5
+    r = 1.0 / q  # SVF damping factor
 
     # Get filter output type as integer for faster switching
     output_type = _SVF_OUTPUT_MAP.get(config.filter_type, 0)
@@ -296,7 +298,8 @@ def _apply_biquad(samples, modulated_cutoff):
 
     # Pre-calculate Q factor
     safe_resonance = min(config.filter_resonance, _MAX_RESONANCE)
-    q = 1.0 / (safe_resonance + _MIN_Q)
+    # Correct Q calculation: higher resonance = higher Q
+    q = 0.5 + safe_resonance * 30.0  # Q ranges from 0.5 to 30.5
 
     # Check if cutoff is constant for optimization
     if isinstance(modulated_cutoff, (int, float)):
