@@ -341,7 +341,7 @@ class SynthGUI(QMainWindow):
         drive_layout.addWidget(drive_gain_label, 1, 0)
 
         self.drive_dial = QDial()
-        self.drive_dial.setRange(0, 500)  # 0.0 to 5.0 (x100)
+        self.drive_dial.setRange(0, 300)  # 0.0 to 3.0 (x100)
         self.drive_dial.setValue(int(config.drive_gain * 100))
         self.drive_dial.valueChanged.connect(self.update_drive_gain)
         self.drive_dial.setNotchesVisible(True)
@@ -1451,10 +1451,7 @@ class SynthGUI(QMainWindow):
             if self.arpeggiator.enabled != config.arpeggiator_enabled:
                 self.arpeggiator.enabled = config.arpeggiator_enabled
                 self.arpeggiator.enable_button.setChecked(config.arpeggiator_enabled)
-                if config.arpeggiator_enabled:
-                    self.arpeggiator.enable_button.setText("Disable Arpeggiator")
-                else:
-                    self.arpeggiator.enable_button.setText("Enable Arpeggiator")
+                self.arpeggiator.enable_button.setText("Enable Arpeggiator")
 
             if self.arpeggiator.pattern != config.arpeggiator_pattern:
                 self.arpeggiator.pattern = config.arpeggiator_pattern
