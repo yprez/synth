@@ -1,6 +1,0 @@
----
-description:
-globs:
-alwaysApply: true
----
-Use uv for running scripts, tests, etc.. e.g. `uv run python -m main` or `uv run pytest`
