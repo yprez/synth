@@ -21,6 +21,7 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Type hints encouraged
 - Error handling: use try/except with specific exceptions
 - Thread safety: use locks when modifying shared resources
+- Prefer modern Python features (dataclasses with `slots`, structural pattern matching, type aliases) when adding or updating code.
 
 ## Programmatic Checks
 
