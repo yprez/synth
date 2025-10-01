@@ -63,10 +63,11 @@
 ## Current Status
 - ✅ Implemented `qwerty_synth/keyboard_midi.py` with `KeyboardMidiTranslator`, `MidiEvent`, transpose controls, system-exit signaling, duplicate key suppression, and safe config access.
 - ✅ Added `tests/test_keyboard_midi.py` covering note-on/off emission, octave shifts, transpose limits, escape handling, MIDI range clamping, and listener lifecycle behaviour.
+- ✅ Integrated the translator with the controller and GUI bootstrap: `controller.handle_midi_message` now manages keyboard-driven mono/poly voice allocation and transpose events, while `gui_qt` instantiates the translator and routes system-exit requests through Qt-safe callbacks.
 
 ## Next Implementation Steps
-- **Next Step — Integrate translator with controller and application entry points:**
-  Build `controller.handle_midi_message` to translate `note_on`/`note_off` events into oscillator lifecycle calls (respecting mono/poly rules and arpeggiator hooks), wire transpose events through a controller helper that adjusts `config` under lock, update `main.py` and `gui_qt.py` to instantiate the translator with the controller dispatcher, and ensure the app shutdown path responds to the `system_exit` event.
-- **Following Step — Update GUI/config pathways and automated tests:**
-  Refactor GUI controls (octave buttons, mono toggles, arpeggiator state) to call the new controller helpers instead of mutating globals, migrate or replace `tests/test_input.py` to exercise the controller-facing API, and add integration coverage confirming the translator-controller chain behaves end-to-end.
+- **Next Step — Update GUI/config pathways and automated tests:**
+  Refactor the remaining GUI controls (octave/semitone dials, mono toggle, arpeggiator switches) so they delegate to controller helpers rather than mutating `config` directly, extend controller helper surface where needed (e.g., setters for transpose and mono state), and migrate the high-level tests (currently `tests/test_input.py`) to cover translator-to-controller behaviour using the new API boundaries.
+- **Following Step — Harden integration with broader regression coverage:**
+  Add integration smoke tests that load the GUI bootstrap in headless mode or exercise controller/translator wiring, ensure arpeggiator and mono fallback logic behave via mocks, and tighten teardown hooks so repeated sessions leave no dangling listeners.
 - **Subsequent Step — Remove the legacy keyboard input module.**

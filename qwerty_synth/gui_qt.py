@@ -20,11 +20,11 @@ import qdarkstyle
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import synth
-from qwerty_synth import input as kb_input
+from qwerty_synth import controller
 from qwerty_synth import filter
 from qwerty_synth.delay import DIV2MULT
+from qwerty_synth.keyboard_midi import KeyboardMidiTranslator, MidiEvent
 from qwerty_synth.step_sequencer import StepSequencer
-from qwerty_synth.controller import play_midi_file
 from qwerty_synth import record
 from qwerty_synth import patch
 from qwerty_synth.arpeggiator import Arpeggiator
@@ -32,6 +32,9 @@ from qwerty_synth import arpeggiator
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
+
+# Track the keyboard translator so we can shut it down cleanly
+keyboard_translator: KeyboardMidiTranslator | None = None
 
 class SynthGUI(QMainWindow):
     """GUI for controlling QWERTY Synth parameters using PyQt."""
@@ -1640,6 +1643,7 @@ class SynthGUI(QMainWindow):
         with config.notes_lock:
             config.active_notes.clear()
             config.mono_pressed_keys.clear()
+        controller.reset_keyboard_state()
 
     def update_glide_time(self, value):
         """Update the glide time setting."""
@@ -2040,7 +2044,7 @@ class SynthGUI(QMainWindow):
             config.midi_playback_active = True
 
             # Play the MIDI file
-            play_midi_file(file_path, tempo_scale)
+            controller.play_midi_file(file_path, tempo_scale)
 
             # Don't immediately reset state as the playback runs asynchronously
             # It will be reset when the playback completes or is stopped
@@ -2398,6 +2402,8 @@ class SynthGUI(QMainWindow):
 
 def start_gui():
     """Start the GUI and synth components."""
+    global gui_instance, keyboard_translator  # pylint: disable=global-statement
+
     app = QApplication(sys.argv)
 
     # Apply QDarkStyle dark theme
@@ -2412,7 +2418,6 @@ def start_gui():
     gui = SynthGUI()
 
     # Store global reference to GUI for signal handling
-    global gui_instance
     gui_instance = gui
 
     # Set up signal handler for Ctrl+C
@@ -2430,16 +2435,29 @@ def start_gui():
     timer.start(500)  # Check for signals every 500ms
     timer.timeout.connect(lambda: None)  # Wake up Python interpreter regularly
 
-    # Share the GUI instance with the input module
-    kb_input.gui_instance = gui
-
     # Start audio using synth entry points
     if not synth.start_audio():
         QMessageBox.critical(gui, "Audio Error", "Failed to start audio. Please check your audio system.")
         sys.exit(1)
 
-    # Start keyboard input handling in a separate thread
-    kb_input.start_keyboard_input()
+    controller.reset_keyboard_state()
+
+    def dispatch_keyboard_event(event: MidiEvent) -> None:
+        if event.event_type == 'system_exit':
+            print('Exiting...')
+
+            def close_gui():
+                if gui_instance is not None:
+                    gui_instance.close()
+                app.quit()
+
+            QTimer.singleShot(0, close_gui)
+            return
+
+        controller.handle_midi_message(event)
+
+    keyboard_translator = KeyboardMidiTranslator(dispatcher=dispatch_keyboard_event)
+    keyboard_translator.start()
 
     # Start Qt event loop
     try:
@@ -2451,6 +2469,9 @@ def start_gui():
     finally:
         # Clean up using synth entry points
         synth.stop_audio()
+        if keyboard_translator is not None:
+            keyboard_translator.stop()
+            keyboard_translator = None
 
 
 if __name__ == "__main__":

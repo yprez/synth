@@ -122,15 +122,12 @@ class KeyboardMidiTranslator:
         if (char := self._safe_char(key)) is None:
             return
 
-        match char:
-            case _ if char == CONTROL_KEY_OCTAVE_DOWN:
-                self._handle_control_press(char, semitone_delta=-12)
-            case _ if char == CONTROL_KEY_OCTAVE_UP:
-                self._handle_control_press(char, semitone_delta=12)
-            case _ if char in self._key_midi_map:
-                self._handle_note_press(char)
-            case _:
-                return
+        if char == CONTROL_KEY_OCTAVE_DOWN:
+            self._handle_control_press(char, semitone_delta=-12)
+        elif char == CONTROL_KEY_OCTAVE_UP:
+            self._handle_control_press(char, semitone_delta=12)
+        elif char in self._key_midi_map:
+            self._handle_note_press(char)
 
     def _on_release(self, key: keyboard.Key | keyboard.KeyCode) -> None:
         if key == keyboard.Key.esc:
@@ -139,11 +136,10 @@ class KeyboardMidiTranslator:
         if (char := self._safe_char(key)) is None:
             return
 
-        match char:
-            case _ if char in {CONTROL_KEY_OCTAVE_DOWN, CONTROL_KEY_OCTAVE_UP}:
-                self._handle_control_release(char)
-            case _:
-                self._handle_note_release(char)
+        if char in {CONTROL_KEY_OCTAVE_DOWN, CONTROL_KEY_OCTAVE_UP}:
+            self._handle_control_release(char)
+        else:
+            self._handle_note_release(char)
 
     def _handle_note_press(self, key_char: str) -> None:
         with self._lock:
@@ -222,8 +218,8 @@ class KeyboardMidiTranslator:
     def _dispatch(self, event: MidiEvent) -> None:
         try:
             self._dispatcher(event)
-        except Exception:  # pragma: no cover - defensive logging
-            LOGGER.exception('Unhandled exception while dispatching MIDI event: %s', event)
+        except (TypeError, ValueError, AttributeError, KeyError) as exc:  # pragma: no cover
+            LOGGER.exception('Exception while dispatching MIDI event %s: %s', event, exc)
 
     @staticmethod
     def _safe_char(key: keyboard.Key | keyboard.KeyCode) -> str | None:
