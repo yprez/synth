@@ -21,6 +21,7 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Type hints encouraged
 - Error handling: use try/except with specific exceptions
 - Thread safety: use locks when modifying shared resources
+- Prefer modern Python features (dataclasses with `slots`, structural pattern matching, type aliases) when adding or updating code.
 
 ## Programmatic Checks
 
@@ -40,7 +41,6 @@ This repository contains a Python synthesizer and its accompanying tests.
   - `gui_qt.py` - PyQt-based graphical user interface
   - `config.py` - Configuration management and settings
   - `patch.py` - Sound preset management (save/load patches)
-  - `input.py` - Keyboard input handling and note mapping
 
 ### Audio Effects & Processing
 - `adsr.py` - Attack/Decay/Sustain/Release envelope generator

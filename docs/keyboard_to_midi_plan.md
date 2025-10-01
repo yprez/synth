@@ -1,0 +1,71 @@
+# Keyboard-to-MIDI Translator Plan
+
+## Overview
+- Build a dedicated module that listens to QWERTY keyboard events and emits MIDI-style note messages so downstream components can treat it like any other MIDI instrument.
+- Decouple GUI and controller code from the current ad-hoc keyboard model to simplify future input modes (real MIDI controllers, automation, etc.).
+
+## Design Goals
+- Keep keyboard-to-note mapping explicit and easily swappable.
+- Emit canonical MIDI `note_on`/`note_off` events with velocity and timestamp metadata.
+- Maintain compatibility with mono/poly modes, arpeggiator, transpose, and global config locks.
+- Provide a clean integration layer so the rest of the synth only handles MIDI events.
+
+## Proposed Architecture
+- `qwerty_synth/keyboard_midi.py` will host the new functionality.
+- Core pieces:
+  - `KeyboardMidiTranslator`: wraps `pynput.keyboard.Listener`, handles key state, octave/semitone shifts, and maps QWERTY keys to MIDI note numbers.
+  - `MidiEvent`: lightweight dataclass bundling `type` (`note_on`/`note_off`), `note`, `velocity`, `channel`, and `timestamp`.
+  - `MidiEventDispatcher`: pluggable callback (default: controller integration) invoked sequentially from translator threads while guarding shared state with `config.notes_lock`.
+- Translator responsibilities:
+  - Maintain pressed key set to avoid duplicate `note_on` spam and to support mono note priority logic before handing notes to the controller.
+  - Emit transpose or mode-change commands by publishing control callbacks instead of directly mutating `config` (e.g., dedicated dispatcher hook or new `controller.apply_transpose_delta`).
+  - Allow velocity overrides (initially constant) and expose hooks for future features (e.g., velocity from key press duration).
+- Event flow: QWERTY key → translator produces MIDI event → dispatcher maps to `controller.handle_midi_message` → controller converts to oscillator lifecycle operations in `synth`.
+
+## Integration Strategy
+- Controller layer:
+  - Add `handle_midi_message(message: MidiEvent)` to centralize `note_on`/`note_off` handling, reuse existing helper `play_midi_note` for note-on logic, and add a symmetric release path that operates via oscillator keys rather than raw characters.
+  - Consolidate mono-mode tracking inside controller (possibly using a queue or `MonoVoiceManager`) so the translator no longer manipulates `config.active_notes` directly.
+- GUI / application bootstrap:
+  - Replace imports of `qwerty_synth.input` with the new translator.
+  - Update GUI toggles (octave buttons, arpeggiator, mono mode) to call controller helpers or translator setters rather than mutating module globals.
+  - Ensure controller provides functions the GUI can call when the user changes transpose so translator state stays in sync.
+- Configuration adjustments:
+  - Move `mono_pressed_keys` and any keyboard-specific artifacts into translator-owned state.
+  - Keep `octave_offset`, `semitone_offset`, and locks in `config`, but expose controller helpers that the translator uses to read/write the values under lock.
+
+## Legacy Keyboard Model Removal
+- ✅ Removed `qwerty_synth/input.py` after migrating all call sites to the translator/controller stack.
+- ✅ Replaced the old input tests with controller/translator coverage and smoke tests.
+- ✅ Routed exit behaviour through dispatcher events and eliminated legacy globals.
+- Ongoing: keep an eye out for stale references during future refactors.
+
+## Testing & Validation
+- Unit tests for translator:
+  - Key-to-MIDI mapping integrity, including octave/semitone shifts and boundary checks.
+  - Mono/poly behavior via injected mock dispatcher capturing emitted events.
+  - Arpeggiator enablement path ensures appropriate events (possibly beat-tracked) are pushed.
+- Integration tests:
+  - Controller `handle_midi_message` generates/release oscillators correctly.
+  - GUI smoke test ensuring translator bootstrap occurs without raising and exits cleanly when requested.
+- Manual verification checklist:
+  - Run synth and confirm QWERTY input still plays notes.
+  - Confirm mono glide and octave switches function.
+  - Validate arpeggiator receives held notes.
+
+## Open Assumptions
+- `pynput` remains our keyboard listener and is acceptable for the new module.
+- We will keep using `mido` message semantics (note numbers 0–127, velocity 0–127 scaled internally) without introducing a third-party virtual MIDI device.
+- Mono voice priority can stay "last pressed" for now; no need for configurable priority schemes during this refactor.
+- Escape-to-exit behavior can be mediated through the dispatcher without additional UI prompts.
+- Tests can be refactored in place without large fixture overhauls (current mocking strategy stays workable).
+
+## Current Status
+- ✅ Implemented `qwerty_synth/keyboard_midi.py` with `KeyboardMidiTranslator`, `MidiEvent`, transpose controls, system-exit signaling, duplicate key suppression, and safe config access.
+- ✅ Added translator-focused unit tests (`tests/test_keyboard_midi.py`) and reshaped controller tests (`tests/test_input.py`) around the new API boundary.
+- ✅ Integrated the translator with the controller and GUI bootstrap: `controller.handle_midi_message` now manages keyboard-driven mono/poly voice allocation and transpose events, while `gui_qt` instantiates the translator and routes system-exit requests through Qt-safe callbacks.
+- ✅ Refactored GUI octave/semitone/mono controls to go through controller helpers and introduced `tests/test_keyboard_integration.py` smoke coverage for translator→controller flows.
+
+## Next Implementation Steps
+- **Next Step — Harden integration with broader regression coverage:**
+  Add headless GUI smoke tests or extended translator/controller scenarios (including arpeggiator + mono interactions) and tighten teardown hooks so repeated sessions leave no dangling listeners.

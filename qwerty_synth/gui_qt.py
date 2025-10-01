@@ -20,11 +20,11 @@ import qdarkstyle
 from qwerty_synth import config
 from qwerty_synth import adsr
 from qwerty_synth import synth
-from qwerty_synth import input as kb_input
+from qwerty_synth import controller
 from qwerty_synth import filter
 from qwerty_synth.delay import DIV2MULT
+from qwerty_synth.keyboard_midi import KeyboardMidiTranslator, MidiEvent
 from qwerty_synth.step_sequencer import StepSequencer
-from qwerty_synth.controller import play_midi_file
 from qwerty_synth import record
 from qwerty_synth import patch
 from qwerty_synth.arpeggiator import Arpeggiator
@@ -32,6 +32,9 @@ from qwerty_synth import arpeggiator
 
 # Global variable to hold reference to the GUI instance
 gui_instance = None
+
+# Track the keyboard translator so we can shut it down cleanly
+keyboard_translator: KeyboardMidiTranslator | None = None
 
 class SynthGUI(QMainWindow):
     """GUI for controlling QWERTY Synth parameters using PyQt."""
@@ -171,13 +174,13 @@ class SynthGUI(QMainWindow):
 
         self.octave_dial = QDial()
         self.octave_dial.setRange(config.octave_min, config.octave_max)
-        self.octave_dial.setValue(config.octave_offset // 12)
+        self.octave_dial.setValue(controller.get_octave_offset() // 12)
         self.octave_dial.valueChanged.connect(self.update_octave)
         self.octave_dial.setNotchesVisible(True)
         self.octave_dial.setToolTip("Transpose by octaves (Z/X keys)")
         transpose_layout.addWidget(self.octave_dial, 1, 0)
 
-        self.octave_label = QLabel(f"{config.octave_offset // 12:+d}")
+        self.octave_label = QLabel(f"{controller.get_octave_offset() // 12:+d}")
         self.octave_label.setAlignment(Qt.AlignCenter)
         transpose_layout.addWidget(self.octave_label, 2, 0)
 
@@ -188,13 +191,13 @@ class SynthGUI(QMainWindow):
 
         self.semitone_dial = QDial()
         self.semitone_dial.setRange(config.semitone_min, config.semitone_max)
-        self.semitone_dial.setValue(config.semitone_offset)
+        self.semitone_dial.setValue(controller.get_semitone_offset())
         self.semitone_dial.valueChanged.connect(self.update_semitone)
         self.semitone_dial.setNotchesVisible(True)
         self.semitone_dial.setToolTip("Transpose by semitones")
         transpose_layout.addWidget(self.semitone_dial, 1, 1)
 
-        self.semitone_label = QLabel(f"{config.semitone_offset:+d}")
+        self.semitone_label = QLabel(f"{controller.get_semitone_offset():+d}")
         self.semitone_label.setAlignment(Qt.AlignCenter)
         transpose_layout.addWidget(self.semitone_label, 2, 1)
 
@@ -1267,21 +1270,21 @@ class SynthGUI(QMainWindow):
                 break
 
         # Check if octave has changed and update GUI if needed
-        current_octave_text = f"{config.octave_offset // 12:+d}"
+        current_octave_text = f"{controller.get_octave_offset() // 12:+d}"
         if self.octave_label.text() != current_octave_text:
             self.octave_label.setText(current_octave_text)
             # Update dial without triggering signals
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
         # Check if semitone has changed and update GUI if needed
-        current_semitone_text = f"{config.semitone_offset:+d}"
+        current_semitone_text = f"{controller.get_semitone_offset():+d}"
         if self.semitone_label.text() != current_semitone_text:
             self.semitone_label.setText(current_semitone_text)
             # Update slider without triggering signals
             self.semitone_dial.blockSignals(True)
-            self.semitone_dial.setValue(config.semitone_offset)
+            self.semitone_dial.setValue(controller.get_semitone_offset())
             self.semitone_dial.blockSignals(False)
 
         # Check if filter cutoff has changed and update GUI if needed
@@ -1634,12 +1637,8 @@ class SynthGUI(QMainWindow):
 
     def update_mono_mode(self, state):
         """Update the mono mode setting."""
-        config.mono_mode = state
+        controller.update_mono_mode(state)
         self.mono_button.setChecked(state)
-        # Clear active notes to prevent stuck notes when switching modes
-        with config.notes_lock:
-            config.active_notes.clear()
-            config.mono_pressed_keys.clear()
 
     def update_glide_time(self, value):
         """Update the glide time setting."""
@@ -1840,12 +1839,12 @@ class SynthGUI(QMainWindow):
 
     def decrease_octave(self):
         """Decrease the octave by one."""
-        if config.octave_offset > 12 * config.octave_min:
-            config.octave_offset -= 12
-            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+        if controller.get_octave_offset() > 12 * config.octave_min:
+            controller.apply_transpose_delta(-12)
+            self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
             # Update slider without triggering the signal
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
             # Clear arpeggiator when transpose changes
@@ -1854,12 +1853,12 @@ class SynthGUI(QMainWindow):
 
     def increase_octave(self):
         """Increase the octave by one."""
-        if config.octave_offset < 12 * config.octave_max:
-            config.octave_offset += 12
-            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+        if controller.get_octave_offset() < 12 * config.octave_max:
+            controller.apply_transpose_delta(12)
+            self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
             # Update slider without triggering the signal
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
             # Clear arpeggiator when transpose changes
@@ -1868,9 +1867,8 @@ class SynthGUI(QMainWindow):
 
     def update_octave(self, value):
         """Update the octave from dial value."""
-        # Convert dial value to offset (x12 semitones per octave)
-        config.octave_offset = value * 12
-        self.octave_label.setText(f"{value:+d}")
+        controller.set_octave(value)
+        self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
 
         # Clear arpeggiator when transpose changes
         if hasattr(self, 'arpeggiator') and self.arpeggiator:
@@ -1878,8 +1876,8 @@ class SynthGUI(QMainWindow):
 
     def update_semitone(self, value):
         """Update the semitone transpose from dial value."""
-        config.semitone_offset = value
-        self.semitone_label.setText(f"{value:+d}")
+        controller.set_semitone(value)
+        self.semitone_label.setText(f"{controller.get_semitone_offset():+d}")
 
         # Clear arpeggiator when transpose changes
         if hasattr(self, 'arpeggiator') and self.arpeggiator:
@@ -2040,7 +2038,7 @@ class SynthGUI(QMainWindow):
             config.midi_playback_active = True
 
             # Play the MIDI file
-            play_midi_file(file_path, tempo_scale)
+            controller.play_midi_file(file_path, tempo_scale)
 
             # Don't immediately reset state as the playback runs asynchronously
             # It will be reset when the playback completes or is stopped
@@ -2398,6 +2396,8 @@ class SynthGUI(QMainWindow):
 
 def start_gui():
     """Start the GUI and synth components."""
+    global gui_instance, keyboard_translator  # pylint: disable=global-statement
+
     app = QApplication(sys.argv)
 
     # Apply QDarkStyle dark theme
@@ -2412,7 +2412,6 @@ def start_gui():
     gui = SynthGUI()
 
     # Store global reference to GUI for signal handling
-    global gui_instance
     gui_instance = gui
 
     # Set up signal handler for Ctrl+C
@@ -2430,16 +2429,29 @@ def start_gui():
     timer.start(500)  # Check for signals every 500ms
     timer.timeout.connect(lambda: None)  # Wake up Python interpreter regularly
 
-    # Share the GUI instance with the input module
-    kb_input.gui_instance = gui
-
     # Start audio using synth entry points
     if not synth.start_audio():
         QMessageBox.critical(gui, "Audio Error", "Failed to start audio. Please check your audio system.")
         sys.exit(1)
 
-    # Start keyboard input handling in a separate thread
-    kb_input.start_keyboard_input()
+    controller.reset_keyboard_state()
+
+    def dispatch_keyboard_event(event: MidiEvent) -> None:
+        if event.event_type == 'system_exit':
+            print('Exiting...')
+
+            def close_gui():
+                if gui_instance is not None:
+                    gui_instance.close()
+                app.quit()
+
+            QTimer.singleShot(0, close_gui)
+            return
+
+        controller.handle_midi_message(event)
+
+    keyboard_translator = KeyboardMidiTranslator(dispatcher=dispatch_keyboard_event)
+    keyboard_translator.start()
 
     # Start Qt event loop
     try:
@@ -2451,6 +2463,9 @@ def start_gui():
     finally:
         # Clean up using synth entry points
         synth.stop_audio()
+        if keyboard_translator is not None:
+            keyboard_translator.stop()
+            keyboard_translator = None
 
 
 if __name__ == "__main__":
