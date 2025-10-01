@@ -82,6 +82,9 @@ class MidiPortTranslator:
 
     def stop(self) -> None:
         """Stop listening and close the MIDI port."""
+        if self._thread is None and self._port is None:
+            return  # Already stopped
+
         self._stop_event.set()
 
         # Close port first to unblock the iterator in the thread
@@ -95,9 +98,11 @@ class MidiPortTranslator:
 
         # Now join the thread (should exit quickly since port is closed)
         if self._thread is not None:
-            self._thread.join(timeout=2.0)
+            # Give thread time to notice port closed and exit cleanly
+            self._thread.join(timeout=1.0)
             if self._thread.is_alive():
-                LOGGER.warning('MIDI listener thread did not stop cleanly')
+                # Thread is daemon, so it will be cleaned up anyway
+                LOGGER.debug('MIDI listener thread still running, will be cleaned up on exit')
             self._thread = None
 
         LOGGER.info('MIDI port translator stopped')
