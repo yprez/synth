@@ -35,10 +35,10 @@
   - Keep `octave_offset`, `semitone_offset`, and locks in `config`, but expose controller helpers that the translator uses to read/write the values under lock.
 
 ## Legacy Keyboard Model Removal
-- Delete `qwerty_synth/input.py` once the translator is integrated and all call sites are updated.
-- Remove or rewrite tests in `tests/test_input.py` so they target the new translator module and controller message handling instead of direct oscillator creation.
-- Strip unused globals (`gui_instance`, keyboard print statements) and ensure exit behavior (Esc key) is handled via dispatcher (e.g., produce a `system_exit` control event routed by the main loop).
-- Verify no residual imports reference the old keyboard model (search in `main.py`, `controller.py`, `gui_qt.py`, examples, and tests).
+- ✅ Removed `qwerty_synth/input.py` after migrating all call sites to the translator/controller stack.
+- ✅ Replaced the old input tests with controller/translator coverage and smoke tests.
+- ✅ Routed exit behaviour through dispatcher events and eliminated legacy globals.
+- Ongoing: keep an eye out for stale references during future refactors.
 
 ## Testing & Validation
 - Unit tests for translator:
@@ -69,4 +69,3 @@
 ## Next Implementation Steps
 - **Next Step — Harden integration with broader regression coverage:**
   Add headless GUI smoke tests or extended translator/controller scenarios (including arpeggiator + mono interactions) and tighten teardown hooks so repeated sessions leave no dangling listeners.
-- **Following Step — Remove the legacy keyboard input module.**
