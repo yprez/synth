@@ -174,13 +174,13 @@ class SynthGUI(QMainWindow):
 
         self.octave_dial = QDial()
         self.octave_dial.setRange(config.octave_min, config.octave_max)
-        self.octave_dial.setValue(config.octave_offset // 12)
+        self.octave_dial.setValue(controller.get_octave_offset() // 12)
         self.octave_dial.valueChanged.connect(self.update_octave)
         self.octave_dial.setNotchesVisible(True)
         self.octave_dial.setToolTip("Transpose by octaves (Z/X keys)")
         transpose_layout.addWidget(self.octave_dial, 1, 0)
 
-        self.octave_label = QLabel(f"{config.octave_offset // 12:+d}")
+        self.octave_label = QLabel(f"{controller.get_octave_offset() // 12:+d}")
         self.octave_label.setAlignment(Qt.AlignCenter)
         transpose_layout.addWidget(self.octave_label, 2, 0)
 
@@ -191,13 +191,13 @@ class SynthGUI(QMainWindow):
 
         self.semitone_dial = QDial()
         self.semitone_dial.setRange(config.semitone_min, config.semitone_max)
-        self.semitone_dial.setValue(config.semitone_offset)
+        self.semitone_dial.setValue(controller.get_semitone_offset())
         self.semitone_dial.valueChanged.connect(self.update_semitone)
         self.semitone_dial.setNotchesVisible(True)
         self.semitone_dial.setToolTip("Transpose by semitones")
         transpose_layout.addWidget(self.semitone_dial, 1, 1)
 
-        self.semitone_label = QLabel(f"{config.semitone_offset:+d}")
+        self.semitone_label = QLabel(f"{controller.get_semitone_offset():+d}")
         self.semitone_label.setAlignment(Qt.AlignCenter)
         transpose_layout.addWidget(self.semitone_label, 2, 1)
 
@@ -1270,21 +1270,21 @@ class SynthGUI(QMainWindow):
                 break
 
         # Check if octave has changed and update GUI if needed
-        current_octave_text = f"{config.octave_offset // 12:+d}"
+        current_octave_text = f"{controller.get_octave_offset() // 12:+d}"
         if self.octave_label.text() != current_octave_text:
             self.octave_label.setText(current_octave_text)
             # Update dial without triggering signals
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
         # Check if semitone has changed and update GUI if needed
-        current_semitone_text = f"{config.semitone_offset:+d}"
+        current_semitone_text = f"{controller.get_semitone_offset():+d}"
         if self.semitone_label.text() != current_semitone_text:
             self.semitone_label.setText(current_semitone_text)
             # Update slider without triggering signals
             self.semitone_dial.blockSignals(True)
-            self.semitone_dial.setValue(config.semitone_offset)
+            self.semitone_dial.setValue(controller.get_semitone_offset())
             self.semitone_dial.blockSignals(False)
 
         # Check if filter cutoff has changed and update GUI if needed
@@ -1637,13 +1637,8 @@ class SynthGUI(QMainWindow):
 
     def update_mono_mode(self, state):
         """Update the mono mode setting."""
-        config.mono_mode = state
+        controller.update_mono_mode(state)
         self.mono_button.setChecked(state)
-        # Clear active notes to prevent stuck notes when switching modes
-        with config.notes_lock:
-            config.active_notes.clear()
-            config.mono_pressed_keys.clear()
-        controller.reset_keyboard_state()
 
     def update_glide_time(self, value):
         """Update the glide time setting."""
@@ -1844,12 +1839,12 @@ class SynthGUI(QMainWindow):
 
     def decrease_octave(self):
         """Decrease the octave by one."""
-        if config.octave_offset > 12 * config.octave_min:
-            config.octave_offset -= 12
-            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+        if controller.get_octave_offset() > 12 * config.octave_min:
+            controller.apply_transpose_delta(-12)
+            self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
             # Update slider without triggering the signal
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
             # Clear arpeggiator when transpose changes
@@ -1858,12 +1853,12 @@ class SynthGUI(QMainWindow):
 
     def increase_octave(self):
         """Increase the octave by one."""
-        if config.octave_offset < 12 * config.octave_max:
-            config.octave_offset += 12
-            self.octave_label.setText(f"{config.octave_offset // 12:+d}")
+        if controller.get_octave_offset() < 12 * config.octave_max:
+            controller.apply_transpose_delta(12)
+            self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
             # Update slider without triggering the signal
             self.octave_dial.blockSignals(True)
-            self.octave_dial.setValue(config.octave_offset // 12)
+            self.octave_dial.setValue(controller.get_octave_offset() // 12)
             self.octave_dial.blockSignals(False)
 
             # Clear arpeggiator when transpose changes
@@ -1872,9 +1867,8 @@ class SynthGUI(QMainWindow):
 
     def update_octave(self, value):
         """Update the octave from dial value."""
-        # Convert dial value to offset (x12 semitones per octave)
-        config.octave_offset = value * 12
-        self.octave_label.setText(f"{value:+d}")
+        controller.set_octave(value)
+        self.octave_label.setText(f"{controller.get_octave_offset() // 12:+d}")
 
         # Clear arpeggiator when transpose changes
         if hasattr(self, 'arpeggiator') and self.arpeggiator:
@@ -1882,8 +1876,8 @@ class SynthGUI(QMainWindow):
 
     def update_semitone(self, value):
         """Update the semitone transpose from dial value."""
-        config.semitone_offset = value
-        self.semitone_label.setText(f"{value:+d}")
+        controller.set_semitone(value)
+        self.semitone_label.setText(f"{controller.get_semitone_offset():+d}")
 
         # Clear arpeggiator when transpose changes
         if hasattr(self, 'arpeggiator') and self.arpeggiator:

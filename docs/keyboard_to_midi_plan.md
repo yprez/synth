@@ -62,12 +62,11 @@
 
 ## Current Status
 - ✅ Implemented `qwerty_synth/keyboard_midi.py` with `KeyboardMidiTranslator`, `MidiEvent`, transpose controls, system-exit signaling, duplicate key suppression, and safe config access.
-- ✅ Added `tests/test_keyboard_midi.py` covering note-on/off emission, octave shifts, transpose limits, escape handling, MIDI range clamping, and listener lifecycle behaviour.
+- ✅ Added translator-focused unit tests (`tests/test_keyboard_midi.py`) and reshaped controller tests (`tests/test_input.py`) around the new API boundary.
 - ✅ Integrated the translator with the controller and GUI bootstrap: `controller.handle_midi_message` now manages keyboard-driven mono/poly voice allocation and transpose events, while `gui_qt` instantiates the translator and routes system-exit requests through Qt-safe callbacks.
+- ✅ Refactored GUI octave/semitone/mono controls to go through controller helpers and introduced `tests/test_keyboard_integration.py` smoke coverage for translator→controller flows.
 
 ## Next Implementation Steps
-- **Next Step — Update GUI/config pathways and automated tests:**
-  Refactor the remaining GUI controls (octave/semitone dials, mono toggle, arpeggiator switches) so they delegate to controller helpers rather than mutating `config` directly, extend controller helper surface where needed (e.g., setters for transpose and mono state), and migrate the high-level tests (currently `tests/test_input.py`) to cover translator-to-controller behaviour using the new API boundaries.
-- **Following Step — Harden integration with broader regression coverage:**
-  Add integration smoke tests that load the GUI bootstrap in headless mode or exercise controller/translator wiring, ensure arpeggiator and mono fallback logic behave via mocks, and tighten teardown hooks so repeated sessions leave no dangling listeners.
-- **Subsequent Step — Remove the legacy keyboard input module.**
+- **Next Step — Harden integration with broader regression coverage:**
+  Add headless GUI smoke tests or extended translator/controller scenarios (including arpeggiator + mono interactions) and tighten teardown hooks so repeated sessions leave no dangling listeners.
+- **Following Step — Remove the legacy keyboard input module.**

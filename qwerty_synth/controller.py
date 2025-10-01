@@ -55,13 +55,17 @@ def _get_arpeggiator_module():
     return arpeggiator_module
 
 
+def _clear_keyboard_state_unlocked() -> None:
+    _keyboard_active_note_keys.clear()
+    _keyboard_pressed_notes.clear()
+    _keyboard_note_velocities.clear()
+    config.mono_pressed_keys.clear()
+
+
 def reset_keyboard_state() -> None:
     """Clear cached keyboard tracking structures."""
     with config.notes_lock:
-        _keyboard_active_note_keys.clear()
-        _keyboard_pressed_notes.clear()
-        _keyboard_note_velocities.clear()
-        config.mono_pressed_keys.clear()
+        _clear_keyboard_state_unlocked()
 
 
 def update_mono_mode(enabled: bool) -> None:
@@ -69,7 +73,7 @@ def update_mono_mode(enabled: bool) -> None:
     with config.notes_lock:
         config.mono_mode = enabled
         config.active_notes.clear()
-        reset_keyboard_state()
+        _clear_keyboard_state_unlocked()
 
 
 def set_octave(value: int) -> None:
