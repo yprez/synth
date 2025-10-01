@@ -73,6 +73,10 @@ mono_mode = False
 glide_time = 0.05  # in seconds, default 50 ms
 mono_pressed_keys = []  # to track currently pressed keys in mono mode
 
+# MIDI input settings
+midi_input_enabled = False  # Enable MIDI controller input
+midi_input_port = None  # Last-used MIDI port name (None = auto-select)
+
 # LFO settings
 lfo_rate = 5.0  # Hz
 lfo_depth = 0.1  # modulation intensity (0.0-1.0)

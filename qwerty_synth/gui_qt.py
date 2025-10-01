@@ -24,6 +24,7 @@ from qwerty_synth import controller
 from qwerty_synth import filter
 from qwerty_synth.delay import DIV2MULT
 from qwerty_synth.keyboard_midi import KeyboardMidiTranslator, MidiEvent
+from qwerty_synth.midi_input import MidiPortTranslator, list_midi_ports
 from qwerty_synth.step_sequencer import StepSequencer
 from qwerty_synth import record
 from qwerty_synth import patch
@@ -85,6 +86,10 @@ class SynthGUI(QMainWindow):
         # Current patch name
         self.current_patch_name = "Untitled"
         self.current_patch_path = None
+
+        # MIDI translator instance
+        self.midi_translator = None
+        self.midi_dispatcher = None
 
         # Set up the user interface
         self.setup_ui()
@@ -1249,6 +1254,66 @@ class SynthGUI(QMainWindow):
         # Add spacer to push controls to the top
         recording_layout.addStretch(1)
 
+        # Create the MIDI Input tab
+        midi_input_widget = QWidget()
+        midi_input_layout = QVBoxLayout(midi_input_widget)
+        envelope_tabs.addTab(midi_input_widget, "MIDI Input")
+
+        # MIDI Input controls
+        midi_controls_group = QGroupBox("MIDI Controller Settings")
+        midi_controls_layout = QVBoxLayout(midi_controls_group)
+        midi_input_layout.addWidget(midi_controls_group)
+
+        # Enable checkbox
+        enable_layout = QHBoxLayout()
+        midi_controls_layout.addLayout(enable_layout)
+
+        self.midi_input_checkbox = QCheckBox("Enable MIDI Input")
+        self.midi_input_checkbox.setChecked(config.midi_input_enabled)
+        self.midi_input_checkbox.stateChanged.connect(self.toggle_midi_input)
+        enable_layout.addWidget(self.midi_input_checkbox)
+        enable_layout.addStretch(1)
+
+        # Port selection
+        port_layout = QHBoxLayout()
+        midi_controls_layout.addLayout(port_layout)
+
+        port_layout.addWidget(QLabel("MIDI Port:"))
+        self.midi_port_combo = QComboBox()
+        self.midi_port_combo.currentTextChanged.connect(self.change_midi_port)
+        port_layout.addWidget(self.midi_port_combo)
+
+        refresh_button = QPushButton("Refresh Ports")
+        refresh_button.clicked.connect(self.refresh_midi_ports)
+        port_layout.addWidget(refresh_button)
+        port_layout.addStretch(1)
+
+        # Status
+        self.midi_input_status_label = QLabel("Status: Disabled")
+        midi_controls_layout.addWidget(self.midi_input_status_label)
+
+        # Info section
+        info_group = QGroupBox("Information")
+        info_layout = QVBoxLayout(info_group)
+        midi_input_layout.addWidget(info_group)
+
+        info_text = QLabel(
+            "Connect a MIDI keyboard or controller to play notes directly.\n\n"
+            "Features:\n"
+            "• Velocity-sensitive note input\n"
+            "• Works alongside QWERTY keyboard\n"
+            "• Respects mono/poly modes and effects\n"
+            "• Changes take effect immediately"
+        )
+        info_text.setWordWrap(True)
+        info_layout.addWidget(info_text)
+
+        # Add spacer
+        midi_input_layout.addStretch(1)
+
+        # Initialize port list
+        self.refresh_midi_ports()
+
     def start_animation(self):
         """Start the QTimer for updating plots."""
         self.timer = QTimer()
@@ -2393,6 +2458,89 @@ class SynthGUI(QMainWindow):
             else:
                 item.setHidden(True)
 
+    def refresh_midi_ports(self):
+        """Refresh the list of available MIDI ports."""
+        self.midi_port_combo.blockSignals(True)
+        self.midi_port_combo.clear()
+
+        ports = list_midi_ports()
+        if ports:
+            self.midi_port_combo.addItems(ports)
+            # Select the configured port if available
+            if config.midi_input_port and config.midi_input_port in ports:
+                index = ports.index(config.midi_input_port)
+                self.midi_port_combo.setCurrentIndex(index)
+        else:
+            self.midi_port_combo.addItem("No ports detected")
+
+        self.midi_port_combo.blockSignals(False)
+        self.update_midi_status()
+
+    def toggle_midi_input(self, state):
+        """Toggle MIDI input on/off."""
+        config.midi_input_enabled = bool(state)
+
+        if config.midi_input_enabled:
+            self.start_midi_translator()
+        else:
+            self.stop_midi_translator()
+
+        self.update_midi_status()
+
+    def change_midi_port(self, port_name):
+        """Change the selected MIDI port."""
+        if port_name and port_name != "No ports detected":
+            config.midi_input_port = port_name
+
+            # Restart translator if currently enabled
+            if config.midi_input_enabled:
+                self.stop_midi_translator()
+                self.start_midi_translator()
+
+            self.update_midi_status()
+
+    def start_midi_translator(self):
+        """Start the MIDI port translator."""
+        if self.midi_translator is not None:
+            return  # Already running
+
+        if self.midi_dispatcher is None:
+            return  # No dispatcher set
+
+        available_ports = list_midi_ports()
+        if not available_ports:
+            self.midi_input_status_label.setText("Status: No ports available")
+            return
+
+        port_name = config.midi_input_port if config.midi_input_port in available_ports else None
+        self.midi_translator = MidiPortTranslator(dispatcher=self.midi_dispatcher, port_name=port_name)
+
+        if self.midi_translator.start():
+            actual_port = port_name if port_name else available_ports[0]
+            config.midi_input_port = actual_port
+            self.update_midi_status()
+        else:
+            self.midi_translator = None
+            self.midi_input_status_label.setText("Status: Failed to open port")
+
+    def stop_midi_translator(self):
+        """Stop the MIDI port translator."""
+        if self.midi_translator is not None:
+            self.midi_translator.stop()
+            self.midi_translator = None
+            self.update_midi_status()
+
+    def update_midi_status(self):
+        """Update the MIDI status label."""
+        if config.midi_input_enabled:
+            if self.midi_translator is not None:
+                port = config.midi_input_port or "Auto-select"
+                self.midi_input_status_label.setText(f"Status: Connected ({port})")
+            else:
+                self.midi_input_status_label.setText("Status: Enabled but not connected")
+        else:
+            self.midi_input_status_label.setText("Status: Disabled")
+
 
 def start_gui():
     """Start the GUI and synth components."""
@@ -2436,7 +2584,8 @@ def start_gui():
 
     controller.reset_keyboard_state()
 
-    def dispatch_keyboard_event(event: MidiEvent) -> None:
+    def dispatch_midi_event(event: MidiEvent) -> None:
+        """Unified dispatcher for both keyboard and MIDI controller events."""
         if event.event_type == 'system_exit':
             print('Exiting...')
 
@@ -2450,8 +2599,22 @@ def start_gui():
 
         controller.handle_midi_message(event)
 
-    keyboard_translator = KeyboardMidiTranslator(dispatcher=dispatch_keyboard_event)
+    # Start keyboard translator
+    keyboard_translator = KeyboardMidiTranslator(dispatcher=dispatch_midi_event)
     keyboard_translator.start()
+
+    # Set dispatcher for GUI to manage MIDI translator
+    gui.midi_dispatcher = dispatch_midi_event
+
+    # Start MIDI port translator if enabled in config
+    if config.midi_input_enabled:
+        gui.start_midi_translator()
+        if gui.midi_translator is not None:
+            print(f'MIDI input enabled on port: {config.midi_input_port}')
+        else:
+            print('Failed to start MIDI input')
+    else:
+        print('MIDI input disabled (enable in GUI)')
 
     # Start Qt event loop
     try:
@@ -2466,6 +2629,8 @@ def start_gui():
         if keyboard_translator is not None:
             keyboard_translator.stop()
             keyboard_translator = None
+        if gui is not None:
+            gui.stop_midi_translator()
 
 
 if __name__ == "__main__":
