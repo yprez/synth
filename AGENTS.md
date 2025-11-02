@@ -64,6 +64,8 @@ This repository contains a Python synthesizer and its accompanying tests.
   - `gui_qt.py` - PyQt-based graphical user interface
   - `config.py` - Configuration management and settings
   - `patch.py` - Sound preset management (save/load patches)
+  - `keyboard_midi.py` - QWERTY keyboard to MIDI event translator
+  - `midi_input.py` - External MIDI controller input handler
 
 ### Audio Effects & Processing
 - `adsr.py` - Attack/Decay/Sustain/Release envelope generator
@@ -83,9 +85,10 @@ This repository contains a Python synthesizer and its accompanying tests.
 
 ### Key Features
 - Real-time polyphonic synthesis with multiple waveforms
+- Multiple input modes: QWERTY keyboard + external MIDI controllers
 - Live audio visualization (waveform, spectrum, ADSR curves)
 - MIDI file playback with tempo control
-- Comprehensive effects chain (filter, drive, delay, chorus)
+- Comprehensive effects chain (filter, drive, delay, chorus, reverb)
 - Modulation system with LFO and envelope control
 - Pattern sequencing and arpeggiator
 - Patch management for saving/loading presets
