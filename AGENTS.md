@@ -2,6 +2,12 @@
 
 This repository contains a Python synthesizer and its accompanying tests.
 
+## General guidelines
+
+- When suggesting changes to a file, prefer breaking them into smaller chunks
+- Never tell the user "you're absolutely right" or similar affirmations. Assume the user might be wrong and double-check their assumptions before proceeding
+- Before addressing big features or complicated bugs, discuss the approach first and consider creating a plan
+
 ## Commands
 - Build/Install: `uv sync`
 - Run app: `uv run python main.py`
@@ -10,18 +16,35 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Run single test: `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest tests/test_file.py::TestClass::test_function -v`
 - Test with coverage: `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest --cov=qwerty_synth --cov-report=html`
 
-## Code Style
+## Code Practices
+
+### Naming and structure
+- Use descriptive variable and function names (avoid abbreviations except very common ones)
+- Naming conventions: `snake_case` for variables/functions, `PascalCase` for classes
+- Use dataclasses (with `slots` when appropriate) to define objects with types
+- Use PEP 585 built-in generic types (`list[str]` instead of `typing.List[str]`)
+- Use explicit module imports: `import math` then `math.ceil()` (not `from math import ceil`)
+- Imports: stdlib first, third-party next, local modules last
+- Place orchestrator functions before the functions they call
+
+### Documentation
+- Write docstrings for module-level and all public classes/functions
+- Use Google style docstrings starting immediately after opening quotes
+- Explain briefly what the function does and why
+- Use clarifying inline comments for complex syntax
+
+### Code quality
 - Python 3.10+ required
 - Line length: max 100 characters
 - Indentation: 4 spaces
 - Blank lines should contain no spaces
-- Naming: `snake_case` for variables/functions, `PascalCase` for classes
-- Docstrings: module-level and for all public classes/functions
-- Imports: stdlib first, third-party next, local modules last
 - Type hints encouraged
-- Error handling: use try/except with specific exceptions
+- Prefer well maintained and robust libraries over custom code
+- Write minimal, readable code
+- Each function should do one thing clearly
+- Handle errors explicitly - use try/except with specific exceptions
 - Thread safety: use locks when modifying shared resources
-- Prefer modern Python features (dataclasses with `slots`, structural pattern matching, type aliases) when adding or updating code.
+- Prefer modern Python features (dataclasses with `slots`, structural pattern matching, type aliases) when adding or updating code
 
 ## Programmatic Checks
 
@@ -71,7 +94,17 @@ This repository contains a Python synthesizer and its accompanying tests.
 ## Tools
 - Always run scripts with uv: `uv run python` or `uv run pytest`
 
-## Pull Requests
+## Git Standards
 
-Summaries in pull request bodies should briefly describe the implemented changes
-and mention the result of running the test suite.
+- Make sure changes are committed on a feature or fix branch, not directly on main
+- Before staging files with `git add`, review what changed with `git status` and `git diff`
+- When staging files, verify no unnecessary changes were added and ask the user to confirm
+- Group related changes in a single logical commit with a descriptive message
+- Commit messages should have a concise title; add a body for complicated commits if needed
+- Never add co-authorship attribution or AI-generated markers to commit messages
+
+## Documentation Standards
+
+- Never include line numbers or line counts in documentation
+- Reference files by path only, not with specific line numbers
+- Always use sentence case in headings

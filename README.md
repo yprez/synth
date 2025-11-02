@@ -1,22 +1,8 @@
 # QWERTY Synth
 
-A minimalist real-time synthesizer built in Python using your keyboard as a piano. It includes:
+> **Note:** This is a toy project I created to get better at AI assisted coding and was not intended for public use.
 
-- Polyphony (multiple notes at once)
-- Waveform switching (sine, square, triangle, sawtooth)
-- Octave shifting
-- ADSR envelope control (with live tweaking)
-- Multi-mode filter (low-pass, high-pass, band-pass, notch) with cutoff and resonance control
-- Drive/distortion effect for adding warmth and grit
-- Tempo-synced stereo delay effect
-- LFO modulation for pitch, volume, and filter cutoff
-- Step sequencer with scale and rhythm controls
-- Live waveform, frequency spectrum, and ADSR curve visualization
-- Patch management for saving and loading sound presets
-- MIDI file playback with tempo control and progress tracking
-- Audio recording to WAV files (16-bit or 24-bit)
-- Chorus effect for creating richer sounds
-- A graphical user interface
+A minimalist real-time synthesizer built in Python using the keyboard as a piano.
 
 ## Features
 
@@ -41,7 +27,9 @@ A minimalist real-time synthesizer built in Python using your keyboard as a pian
 - Python 3.10+
 - Linux (tested on Ubuntu)
 
-### Install dependencies using `uv`:
+## Installation
+
+Install dependencies using `uv`:
 
 ```bash
 uv sync
@@ -63,23 +51,23 @@ Run the synth with:
 uv run python main.py
 ```
 
-Then press keys on your keyboard to play or use the GUI controls.
+Then press keys on the keyboard to play or use the GUI controls.
 
-### Exiting
+## Exiting
 
 * Press ESC to quit the program and close all windows gracefully.
 
 
-### Notes
+## Notes
 
 * You can tweak the envelope (ADSR) in real time while playing notes.
 * Your system should support low-latency audio (e.g. ALSA on Linux).
-* Ensure your keyboard layout matches QWERTY for accurate note mapping.
+* Ensure the keyboard layout matches QWERTY for accurate note mapping.
 * The step sequencer allows you to create patterns in various musical scales.
 * Use mono mode and portamento for lead sounds with smooth note transitions.
 
 
-### TODO
+## TODO
 
 * Real-time MIDI input support (hardware MIDI devices)
 * Additional waveform types (FM synthesis, wavetables)
