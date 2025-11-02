@@ -8,14 +8,17 @@ A minimalist real-time synthesizer built in Python using the keyboard as a piano
 
 - Play notes using keys A–K, W, E, T, Y, U, O, P, etc.
 - Octave shift with `Z` (down) / `X` (up)
+- MIDI controller input support for hardware MIDI devices
 - GUI with additional features:
   - Filter controls (cutoff, resonance, envelope)
   - Drive effect for soft-clipping distortion
   - Delay effect with tempo sync and ping-pong mode
+  - Reverb effect with configurable room size and mix
+  - Chorus effect with configurable voices and modulation
   - LFO for creating vibrato, tremolo, or filter wobble effects
+  - Arpeggiator for automatic note patterns
   - Step sequencer with customizable scales and patterns
   - Audio recording to WAV files (16-bit or 24-bit)
-  - Chorus effect with configurable voices and modulation
   - MIDI file browser and playback controls
 - Real-time plots:
   - Waveform view
@@ -69,7 +72,5 @@ Then press keys on the keyboard to play or use the GUI controls.
 
 ## TODO
 
-* Real-time MIDI input support (hardware MIDI devices)
 * Additional waveform types (FM synthesis, wavetables)
 * More filter types (comb, formant filters)
-* Reverb effect integration
