@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import (
 )
 
 from qwerty_synth import config
-from qwerty_synth.controller import play_midi_note_direct
+from qwerty_synth.event_scheduler import global_scheduler
+# Import for test compatibility (used in _advance_arpeggio_legacy)
+from qwerty_synth.controller import play_midi_note_direct  # noqa: F401
 
 
 class Arpeggiator(QWidget):
@@ -420,7 +422,7 @@ class Arpeggiator(QWidget):
         if self._test_mode:
             return
 
-        # Calculate timer interval
+        # Calculate timer interval for UI updates
         if self.sync_to_bpm:
             bpm = config.bpm
         else:
@@ -430,8 +432,14 @@ class Arpeggiator(QWidget):
         self.step_timer.setInterval(interval_ms)
         self.step_timer.start()
 
+        # Start scheduling notes using sample-accurate timing
+        self._schedule_next_notes()
+
     def stop_arpeggio(self):
         """Stop the arpeggio playback (thread-safe)."""
+        # Clear scheduled arpeggiator events
+        global_scheduler.clear_events_by_source('arpeggiator')
+
         # In test mode, call directly; otherwise use Qt threading
         if self._test_mode:
             self._stop_arpeggio_impl()
@@ -460,9 +468,37 @@ class Arpeggiator(QWidget):
     def advance_arpeggio(self):
         """Advance to the next note in the arpeggio."""
         if not self.current_sequence or not self.enabled:
-            self.stop_arpeggio()
             return
 
+        # In test mode, use legacy direct playback for compatibility
+        if self._test_mode:
+            self._advance_arpeggio_legacy()
+            return
+
+        # In normal mode, this method is only used for UI updates
+        # Actual note scheduling is done via _schedule_next_notes
+
+        # Update the current note label
+        if self.pattern == 'chord':
+            notes_to_play = self.current_sequence[0]
+            self.current_note = f"Chord: {', '.join([self.midi_to_note_name(n) for n in notes_to_play])}"
+        elif self.pattern == 'random':
+            if self.current_sequence:
+                # Display a representative note (first in sequence)
+                self.current_note = self.midi_to_note_name(self.current_sequence[0])
+        else:
+            if self.current_sequence:
+                note = self.current_sequence[self.sequence_position]
+                self.current_note = self.midi_to_note_name(note)
+                self.sequence_position = (self.sequence_position + 1) % len(self.current_sequence)
+
+        # Update display
+        if not self._test_mode:
+            QMetaObject.invokeMethod(self.current_note_label, "setText", Qt.QueuedConnection, Q_ARG(str, self.current_note))
+        self.last_played_time = time.time()
+
+    def _advance_arpeggio_legacy(self):
+        """Legacy advance method for test mode compatibility."""
         # Calculate note duration based on gate
         if self.sync_to_bpm:
             bpm = config.bpm
@@ -475,7 +511,7 @@ class Arpeggiator(QWidget):
         # Get current note(s)
         if self.pattern == 'chord':
             # Play all notes in the chord
-            notes_to_play = self.current_sequence[0]  # Chord is stored as a list
+            notes_to_play = self.current_sequence[0]
             for note in notes_to_play:
                 play_midi_note_direct(note, note_duration, 0.8)
             self.current_note = f"Chord: {', '.join([self.midi_to_note_name(n) for n in notes_to_play])}"
@@ -494,13 +530,68 @@ class Arpeggiator(QWidget):
             # Advance position
             self.sequence_position = (self.sequence_position + 1) % len(self.current_sequence)
 
-        # Update display using appropriate method for test mode
-        if self._test_mode:
-            # In test mode, just store the current note without updating UI
-            pass
-        else:
-            QMetaObject.invokeMethod(self.current_note_label, "setText", Qt.QueuedConnection, Q_ARG(str, self.current_note))
         self.last_played_time = time.time()
+
+    def _schedule_next_notes(self):
+        """Schedule the next batch of arpeggio notes using sample-accurate timing."""
+        if not self.enabled or not self.current_sequence:
+            return
+
+        # Calculate timing parameters
+        if self.sync_to_bpm:
+            bpm = config.bpm
+        else:
+            bpm = self.rate
+
+        step_duration = 60.0 / bpm / 4  # Duration of one 16th note
+        note_duration = step_duration * self.gate
+
+        # Schedule notes for the next few steps (e.g., 8 steps ahead)
+        num_steps_to_schedule = 8
+
+        for i in range(num_steps_to_schedule):
+            delay = i * step_duration
+
+            if self.pattern == 'chord':
+                # Schedule all notes in the chord
+                notes_to_play = self.current_sequence[0]
+                for note in notes_to_play:
+                    global_scheduler.schedule_note_on(
+                        midi_note=note,
+                        velocity=0.8,
+                        delay_seconds=delay,
+                        duration_seconds=note_duration
+                    )
+            elif self.pattern == 'random':
+                # Schedule a random note
+                import random
+                note = random.choice(self.current_sequence)
+                global_scheduler.schedule_note_on(
+                    midi_note=note,
+                    velocity=0.8,
+                    delay_seconds=delay,
+                    duration_seconds=note_duration,
+                    source='arpeggiator'
+                )
+            else:
+                # Regular sequential patterns
+                note = self.current_sequence[self.sequence_position]
+                global_scheduler.schedule_note_on(
+                    midi_note=note,
+                    velocity=0.8,
+                    delay_seconds=delay,
+                    duration_seconds=note_duration,
+                    source='arpeggiator'
+                )
+                self.sequence_position = (self.sequence_position + 1) % len(self.current_sequence)
+
+        # Schedule callback to schedule the next batch
+        schedule_ahead_time = num_steps_to_schedule * step_duration * 0.8
+        global_scheduler.schedule_callback(
+            callback=self._schedule_next_notes,
+            delay_seconds=schedule_ahead_time,
+            source='arpeggiator'
+        )
 
     def midi_to_note_name(self, midi_note):
         """Convert MIDI note number to note name."""

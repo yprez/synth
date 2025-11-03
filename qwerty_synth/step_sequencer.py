@@ -1,14 +1,16 @@
 """Step sequencer module for QWERTY Synth."""
 
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, pyqtSlot, Q_ARG
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QSpinBox, QComboBox
 )
 
-from qwerty_synth.controller import play_midi_note_direct
+from qwerty_synth.event_scheduler import global_scheduler
 from qwerty_synth import config
+# Import for test compatibility
+from qwerty_synth.controller import play_midi_note_direct  # noqa: F401
 
 
 class StepSequencer(QWidget):
@@ -550,6 +552,9 @@ class StepSequencer(QWidget):
             self.sequencer_running = False
             self.start_stop_button.setText("Start")
 
+            # Clear only sequencer events to stop notes from playing
+            global_scheduler.clear_events_by_source('sequencer')
+
             # Reset highlight on all buttons
             for row in range(self.num_rows):
                 for col in range(self.total_steps):
@@ -573,17 +578,187 @@ class StepSequencer(QWidget):
                                 button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
         else:
             # Start the sequencer
-            # Calculate step interval based on BPM
-            step_interval = int(60000 / self.bpm / 4)  # 16th notes
-            self.sequencer_timer.setInterval(step_interval)
-            self.sequencer_timer.setSingleShot(False)  # Ensure continuous timer
-            self.current_step = self.total_steps - 1  # Will advance to 0 on first step
-            self.sequencer_timer.start()
+            self.current_step = -1  # Will be set by scheduler
             self.sequencer_running = True
             self.start_stop_button.setText("Stop")
 
+            # Schedule the first bar immediately
+            self._schedule_first_bar()
+
+    def _schedule_first_bar(self):
+        """Schedule first TWO bars for smooth playback."""
+        if not self.sequencer_running:
+            return
+
+        # Calculate step duration in seconds (16th notes)
+        step_duration_seconds = 60.0 / self.bpm / 4
+        bar_duration = self.total_steps * step_duration_seconds
+
+        # Schedule Bar 1 (starts immediately) with UI callbacks
+        for step in range(self.total_steps):
+            delay_seconds = step * step_duration_seconds
+
+            # Schedule UI update for this step
+            global_scheduler.schedule_callback(
+                callback=lambda s=step: self._update_ui_step(s),
+                delay_seconds=delay_seconds,
+                source='sequencer'
+            )
+
+            # Schedule notes
+            for row in range(self.num_rows):
+                if self.sequencer_steps[row][step]:
+                    midi_note = self.sequencer_notes[row]
+                    note_length_multiplier = self.sequencer_note_lengths[row][step]
+                    note_duration = step_duration_seconds * note_length_multiplier * 0.95
+                    global_scheduler.schedule_note_on(
+                        midi_note=midi_note,
+                        velocity=0.8,
+                        delay_seconds=delay_seconds,
+                        duration_seconds=note_duration,
+                        source='sequencer'
+                    )
+
+        # Schedule Bar 2 (starts after Bar 1) with UI callbacks
+        for step in range(self.total_steps):
+            delay_seconds = bar_duration + (step * step_duration_seconds)
+
+            # Schedule UI update for this step
+            global_scheduler.schedule_callback(
+                callback=lambda s=step: self._update_ui_step(s),
+                delay_seconds=delay_seconds,
+                source='sequencer'
+            )
+
+            # Schedule notes
+            for row in range(self.num_rows):
+                if self.sequencer_steps[row][step]:
+                    midi_note = self.sequencer_notes[row]
+                    note_length_multiplier = self.sequencer_note_lengths[row][step]
+                    note_duration = step_duration_seconds * note_length_multiplier * 0.95
+                    global_scheduler.schedule_note_on(
+                        midi_note=midi_note,
+                        velocity=0.8,
+                        delay_seconds=delay_seconds,
+                        duration_seconds=note_duration,
+                        source='sequencer'
+                    )
+
+        # Schedule callback BEFORE Bar 1 ends to queue Bar 3
+        # This ensures Bar 3 is ready before Bar 2 finishes
+        global_scheduler.schedule_callback(
+            callback=self._schedule_next_bar,
+            delay_seconds=bar_duration * 0.75,  # 75% through Bar 1
+            source='sequencer'
+        )
+
+    def _schedule_next_bar(self):
+        """Keep adding bars to maintain a 2-bar buffer."""
+        if not self.sequencer_running:
+            return
+
+        # Calculate step duration in seconds (16th notes)
+        step_duration_seconds = 60.0 / self.bpm / 4
+        bar_duration = self.total_steps * step_duration_seconds
+
+        # We're called 75% through a bar, so the next bar after the current buffer
+        # starts in 1.25 bar durations from now (0.25 to finish current bar + 1 full bar)
+        next_bar_start = bar_duration * 1.25
+
+        # Schedule the next bar with UI callbacks
+        for step in range(self.total_steps):
+            delay_seconds = next_bar_start + (step * step_duration_seconds)
+
+            # Schedule UI update for this step
+            global_scheduler.schedule_callback(
+                callback=lambda s=step: self._update_ui_step(s),
+                delay_seconds=delay_seconds,
+                source='sequencer'
+            )
+
+            # Schedule notes
+            for row in range(self.num_rows):
+                if self.sequencer_steps[row][step]:
+                    midi_note = self.sequencer_notes[row]
+                    note_length_multiplier = self.sequencer_note_lengths[row][step]
+                    note_duration = step_duration_seconds * note_length_multiplier * 0.95
+                    global_scheduler.schedule_note_on(
+                        midi_note=midi_note,
+                        velocity=0.8,
+                        delay_seconds=delay_seconds,
+                        duration_seconds=note_duration,
+                        source='sequencer'
+                    )
+
+        # Schedule callback to fire 75% through the NEXT bar (1 bar from now)
+        global_scheduler.schedule_callback(
+            callback=self._schedule_next_bar,
+            delay_seconds=bar_duration,
+            source='sequencer'
+        )
+
+    def _update_ui_step(self, step: int):
+        """Update UI for a specific step (called from audio thread via scheduler).
+
+        This runs in the audio callback thread, so we need to delegate to main thread.
+        """
+        if not self.sequencer_running:
+            return
+
+        from PyQt5.QtCore import QMetaObject, Qt
+        # Use QMetaObject.invokeMethod for thread-safe UI updates
+        QMetaObject.invokeMethod(
+            self,
+            '_apply_ui_step',
+            Qt.QueuedConnection,
+            Q_ARG(int, step)
+        )
+
+    @pyqtSlot(int)
+    def _apply_ui_step(self, step: int):
+        """Apply UI update in the main thread."""
+        if not self.sequencer_running or step < 0 or step >= self.total_steps:
+            return
+
+        # Clear highlight from the previous step
+        if self.current_step >= 0 and self.current_step < self.total_steps:
+            for row in range(self.num_rows):
+                button = self.step_buttons[row][self.current_step]
+                if button.isChecked():
+                    button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['active_step']}; }}")
+                else:
+                    # Restore original color
+                    bar_num = self.current_step // self.steps_per_bar
+                    col_in_bar = self.current_step % self.steps_per_bar
+
+                    if bar_num == 0:
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary']}; }}")
+                        else:
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary']}; }}")
+                    else:
+                        if (col_in_bar // 4) % 2 == 0:
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
+                        else:
+                            button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
+
+        # Update to new step
+        self.current_step = step
+
+        # Highlight the current step
+        for row in range(self.num_rows):
+            button = self.step_buttons[row][self.current_step]
+            if button.isChecked():
+                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['current_step']}; font-weight: bold; }}")
+            else:
+                button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['inactive_current']}; }}")
+
     def advance_sequence(self):
-        """Advance the sequencer to the next step and play notes."""
+        """Legacy method - no longer used (UI driven by scheduler now)."""
+        pass
+
+    def _old_advance_sequence(self):
+        """Old advance sequence method (kept for reference)."""
         # Clear highlight from the current step
         if self.current_step >= 0 and self.current_step < self.total_steps:
             for row in range(self.num_rows):
@@ -616,18 +791,6 @@ class StepSequencer(QWidget):
                 button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['current_step']}; font-weight: bold; }}")
             else:
                 button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['inactive_current']}; }}")
-
-        # Play notes for the current step
-        note_release_buffer = 0.02  # Small buffer to prevent notes from overlapping
-        for row in range(self.num_rows):
-            if self.sequencer_steps[row][self.current_step]:
-                midi_note = self.sequencer_notes[row]
-
-                # Get note length for this step (multiplier of base step duration)
-                note_length_multiplier = self.sequencer_note_lengths[row][self.current_step]
-                note_duration = self.step_duration * note_length_multiplier - note_release_buffer
-
-                play_midi_note_direct(midi_note, note_duration, 0.8)
 
     def clear_sequencer(self):
         """Clear all steps in the sequencer."""

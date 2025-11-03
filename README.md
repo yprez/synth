@@ -1,6 +1,6 @@
 # QWERTY Synth
 
-> **Note:** This is a toy project I created to get better at AI assisted coding and was not intended for public use.
+> **Note:** This is a toy project I created to get better at AI assisted coding and is not intended for public use.
 
 A minimalist real-time synthesizer built in Python using the keyboard as a piano.
 

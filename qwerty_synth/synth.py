@@ -11,6 +11,7 @@ from qwerty_synth.reverb import Reverb
 from qwerty_synth.lfo import LFO
 from qwerty_synth.drive import apply_drive
 from qwerty_synth import record
+from qwerty_synth.event_scheduler import global_scheduler
 
 
 # Initialize effects
@@ -268,10 +269,73 @@ class Oscillator:
         return output, filter_env
 
 
+# Counter for generating unique note keys
+_scheduled_note_counter = 0
+
+
+def _handle_scheduled_note_on(midi_note: int, velocity: float):
+    """Handle a scheduled note_on event from the event scheduler.
+
+    This function is called from the audio callback, so it must be thread-safe
+    and efficient. It creates a new oscillator for the note.
+    """
+    global _scheduled_note_counter
+
+    # Convert MIDI note to frequency
+    freq = 440.0 * (2 ** ((midi_note - 69) / 12))
+
+    with config.notes_lock:
+        # Generate unique key for this note
+        _scheduled_note_counter += 1
+        key = f'scheduled_{_scheduled_note_counter}'
+
+        # Create new oscillator
+        osc = Oscillator(freq, config.waveform_type)
+        osc.key = key
+        osc.velocity = velocity
+
+        # Add to active notes
+        config.active_notes[key] = osc
+
+
+def _handle_scheduled_note_off(midi_note: int):
+    """Handle a scheduled note_off event from the event scheduler.
+
+    This function is called from the audio callback. It finds and releases
+    oscillators that were created by the scheduler (not keyboard notes).
+    """
+    # Convert MIDI note to frequency for matching
+    target_freq = 440.0 * (2 ** ((midi_note - 69) / 12))
+
+    with config.notes_lock:
+        # Find all SCHEDULED oscillators playing this note and release them
+        # Only affect notes with 'scheduled_' prefix to avoid releasing keyboard notes
+        for key, osc in list(config.active_notes.items()):
+            # Only release scheduled notes, not keyboard or programmatic notes
+            if key.startswith('scheduled_'):
+                # Check if this oscillator is playing the target frequency
+                # Use a small tolerance for floating point comparison
+                if abs(osc.freq - target_freq) < 0.01:
+                    if not osc.released:
+                        osc.released = True
+                        osc.env_time = 0.0
+                        osc.lfo_env_time = 0.0
+
+
 def audio_callback(outdata, frames, time_info, status):
     """Audio callback function for the sounddevice output stream."""
     if status:
         print(f"Audio callback status: {status}")
+
+    # Process scheduled events from the event scheduler
+    scheduled_events = global_scheduler.process_events(frames)
+    for frame_offset, event in scheduled_events:
+        if event.event_type == 'note_on':
+            _handle_scheduled_note_on(event.midi_note, event.velocity)
+        elif event.event_type == 'note_off':
+            _handle_scheduled_note_off(event.midi_note)
+        elif event.event_type == 'callback' and event.callback:
+            event.callback(*event.callback_args)
 
     buffer = np.zeros(frames)
     filter_env_buffer = np.zeros(frames)  # Accumulate filter envelope values

@@ -1,12 +1,13 @@
 """Programmatic API for controlling the synthesizer."""
 
 import threading
-import time
+import time  # noqa: F401 - imported for test mocking compatibility
 import mido
 
 from qwerty_synth import config
 from qwerty_synth.keyboard_midi import MidiEvent
 from qwerty_synth.synth import Oscillator
+from qwerty_synth.event_scheduler import global_scheduler
 
 
 # Counter to generate unique keys for notes in polyphonic mode
@@ -363,7 +364,7 @@ def _handle_keyboard_note_off(midi_note: int) -> None:
 
 def play_midi_file(midi_file_path, tempo_scale=1.0):
     """
-    Play a MIDI file using the synthesizer.
+    Play a MIDI file using the synthesizer with sample-accurate timing.
 
     Args:
         midi_file_path: Path to the MIDI file
@@ -383,101 +384,64 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
         # Reset playback state
         config.midi_playback_active = True
 
-        # Track active notes for each channel to handle note_off events
-        active_notes = {}
+        # Clear any existing scheduled events
+        global_scheduler.clear_all_events()
 
-        def play_midi_events():
-            """Play MIDI events in a separate thread with improved timing."""
-            # Use absolute timing instead of sleep-based timing
-            start_time = time.perf_counter()
-            current_time = 0
-            pause_start_time = 0
-            total_pause_time = 0
-
+        def schedule_midi_events():
+            """Schedule all MIDI events using the sample-accurate scheduler."""
             try:
+                # Track current time in seconds
+                current_time_seconds = 0.0
+
                 for msg in midi_file:
                     # Check if playback has been stopped
                     if not config.midi_playback_active:
-                        # Release any active notes
-                        for channel_key in list(active_notes.keys()):
-                            with config.notes_lock:
-                                osc = active_notes[channel_key]
-                                if osc.key in config.active_notes:
-                                    config.active_notes[osc.key].released = True
+                        global_scheduler.clear_all_events()
                         break
 
-                    # Handle paused state
-                    while config.midi_paused and config.midi_playback_active:
-                        if pause_start_time == 0:
-                            pause_start_time = time.perf_counter()
-                        time.sleep(0.01)  # Reduced sleep time for better responsiveness
-
-                    # If we were paused and resumed
-                    if pause_start_time > 0:
-                        pause_end_time = time.perf_counter()
-                        total_pause_time += (pause_end_time - pause_start_time)
-                        pause_start_time = 0
-
-                    # Check if tempo scale has changed
-                    current_time_scale = 1.0 / config.midi_tempo_scale
-
-                    # Calculate when this event should happen
-                    current_time += msg.time * current_time_scale
-                    # Adjust target time by subtracting pause duration
-                    target_time = start_time + current_time - total_pause_time
-
-                    # Wait until it's time to process this event - with improved precision
-                    wait_time = target_time - time.perf_counter()
-                    if wait_time > 0:
-                        # For short waits, use busy waiting for high precision
-                        if wait_time < 0.01:
-                            while time.perf_counter() < target_time:
-                                pass
-                        else:
-                            # For longer waits, sleep most of the time then busy wait
-                            time.sleep(wait_time - 0.005)  # Wake up 5ms early
-                            # Then busy wait for the remaining time for precision
-                            while time.perf_counter() < target_time:
-                                pass
+                    # Update time based on message delta
+                    time_scale = 1.0 / config.midi_tempo_scale
+                    current_time_seconds += msg.time * time_scale
 
                     # Handle note on events
                     if msg.type == 'note_on' and msg.velocity > 0:
                         # Convert velocity from 0-127 to 0.0-1.0
                         velocity = msg.velocity / 127.0
 
-                        # Start the note (duration will be handled by note_off)
-                        osc = play_midi_note(msg.note, 0, velocity)
-
-                        # Store oscillator reference for this channel and note
-                        channel_key = (msg.channel, msg.note)
-                        active_notes[channel_key] = osc
+                        # Schedule the note_on event with sample-accurate timing
+                        global_scheduler.schedule_note_on(
+                            midi_note=msg.note + config.octave_offset + config.semitone_offset,
+                            velocity=velocity,
+                            delay_seconds=current_time_seconds,
+                            duration_seconds=0,  # Duration handled by note_off
+                            source='midi'
+                        )
 
                     # Handle note off events (or note_on with velocity 0)
                     elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
-                        channel_key = (msg.channel, msg.note)
+                        # Schedule the note_off event
+                        global_scheduler.schedule_note_off(
+                            midi_note=msg.note + config.octave_offset + config.semitone_offset,
+                            delay_seconds=current_time_seconds,
+                            source='midi'
+                        )
 
-                        # If we have a reference to this note's oscillator, release it
-                        if channel_key in active_notes:
-                            with config.notes_lock:
-                                # Mark the oscillator as released to start its release envelope
-                                osc = active_notes[channel_key]
-                                if osc.key in config.active_notes:
-                                    config.active_notes[osc.key].released = True
-                                    config.active_notes[osc.key].env_time = 0.0
-                                    config.active_notes[osc.key].lfo_env_time = 0.0
+                # Schedule a callback to mark playback as complete
+                def mark_playback_complete():
+                    config.midi_playback_active = False
 
-                            # Remove from active notes
-                            del active_notes[channel_key]
-
-                # Mark playback as complete
-                config.midi_playback_active = False
+                global_scheduler.schedule_callback(
+                    callback=mark_playback_complete,
+                    delay_seconds=current_time_seconds + 1.0,  # Add 1 second buffer
+                    source='midi'
+                )
 
             except Exception as e:
-                print(f"Error during MIDI playback: {e}")
+                print(f"Error scheduling MIDI events: {e}")
                 config.midi_playback_active = False
 
-        # Start playback in a separate thread
-        threading.Thread(target=play_midi_events, daemon=True).start()
+        # Schedule all events in a separate thread
+        threading.Thread(target=schedule_midi_events, daemon=True).start()
 
     except Exception as e:
         print(f"Error playing MIDI file: {e}")

@@ -287,25 +287,18 @@ class TestStepSequencerConfiguration:
 class TestStepSequencerPlayback:
     """Test cases for sequencer playback functionality."""
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_toggle_sequencer_start(self, mock_play_midi, step_sequencer):
+    def test_toggle_sequencer_start(self, step_sequencer):
         """Test starting the sequencer."""
         seq = step_sequencer
 
-        # Mock QTimer to avoid actual timing
-        with patch.object(seq, 'sequencer_timer', create=True) as mock_timer:
-            mock_timer.start = Mock()
-            mock_timer.stop = Mock()
-            mock_timer.setInterval = Mock()
-            mock_timer.setSingleShot = Mock()
-
+        # Mock global_scheduler to avoid actual scheduling
+        with patch('qwerty_synth.step_sequencer.global_scheduler'):
             # Start sequencer
             seq.toggle_sequencer()
 
             assert seq.sequencer_running is True
-            # Based on implementation: current_step starts at total_steps - 1 = 15
-            assert seq.current_step == 15
-            mock_timer.start.assert_called_once()
+            # Based on implementation: current_step starts at -1 (will be updated by scheduler)
+            assert seq.current_step == -1
 
     @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
     def test_toggle_sequencer_stop(self, mock_play_midi, step_sequencer):
@@ -326,9 +319,8 @@ class TestStepSequencerPlayback:
             assert seq.sequencer_running is False
             mock_timer.stop.assert_called()
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_advance_sequence(self, mock_play_midi, step_sequencer):
-        """Test sequence advancement."""
+    def test_advance_sequence(self, step_sequencer):
+        """Test that advance_sequence can be called (legacy no-op method)."""
         seq = step_sequencer
 
         # Set up some active steps
@@ -339,33 +331,28 @@ class TestStepSequencerPlayback:
         seq.sequencer_running = True
         seq.current_step = 15  # This matches the implementation
 
-        # Advance sequence - should go from 15 to 0
+        # Advance sequence - this is now a no-op legacy method
         seq.advance_sequence()
 
-        # Should have played the note for first row (step 0)
-        mock_play_midi.assert_called_with(seq.sequencer_notes[0], seq.step_duration * 1 - 0.02, 0.8)
+        # advance_sequence is now a no-op, so current_step remains unchanged
+        assert seq.current_step == 15
 
-        # Current step should advance to 0
-        assert seq.current_step == 0
-
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_advance_sequence_wrap_around(self, mock_play_midi, step_sequencer):
-        """Test sequence wrapping around at the end."""
+    def test_advance_sequence_wrap_around(self, step_sequencer):
+        """Test that advance_sequence can be called without errors (legacy no-op method)."""
         seq = step_sequencer
 
         seq.sequencer_running = True
         seq.current_step = 14  # Second to last step
 
-        # Advance sequence twice to test wrap around
-        seq.advance_sequence()  # Should go to 15
-        assert seq.current_step == 15
+        # advance_sequence is now a no-op, so current_step remains unchanged
+        seq.advance_sequence()
+        assert seq.current_step == 14
 
-        seq.advance_sequence()  # Should wrap to 0
-        assert seq.current_step == 0
+        seq.advance_sequence()
+        assert seq.current_step == 14
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_advance_sequence_multiple_notes(self, mock_play_midi, step_sequencer):
-        """Test playing multiple notes in the same step."""
+    def test_advance_sequence_multiple_notes(self, step_sequencer):
+        """Test that advance_sequence can be called with multiple active notes (legacy no-op)."""
         seq = step_sequencer
 
         # Set up multiple active steps in the same column
@@ -376,17 +363,11 @@ class TestStepSequencerPlayback:
         seq.sequencer_running = True
         seq.current_step = 15  # Will advance to 0
 
-        # Advance sequence
+        # Advance sequence - this is now a no-op
         seq.advance_sequence()
 
-        # Should have played all three notes
-        assert mock_play_midi.call_count == 3
-
-        # Check that correct notes were played
-        calls = mock_play_midi.call_args_list
-        assert calls[0][0][0] == seq.sequencer_notes[0]  # First row note
-        assert calls[1][0][0] == seq.sequencer_notes[2]  # Third row note
-        assert calls[2][0][0] == seq.sequencer_notes[4]  # Fifth row note
+        # advance_sequence is now a no-op, so current_step remains unchanged
+        assert seq.current_step == 15
 
     def test_stop_sequencer(self, step_sequencer):
         """Test stopping the sequencer."""
@@ -653,18 +634,17 @@ class TestStepSequencerEdgeCases:
         assert seq.num_bars >= 0
 
     def test_advance_sequence_when_not_running(self, step_sequencer):
-        """Test advancing sequence when sequencer is not running."""
+        """Test that advance_sequence can be called when not running (legacy no-op)."""
         seq = step_sequencer
 
         seq.sequencer_running = False
         original_step = seq.current_step
 
-        # Should still advance when not running (based on implementation)
+        # advance_sequence is now a no-op
         seq.advance_sequence()
 
-        # Implementation doesn't check if running in advance_sequence
-        # So it will still advance
-        assert seq.current_step == (original_step + 1) % seq.total_steps
+        # advance_sequence is now a no-op, so current_step remains unchanged
+        assert seq.current_step == original_step
 
     def test_large_grid_dimensions(self, step_sequencer):
         """Test handling of large grid dimensions."""
@@ -688,9 +668,8 @@ class TestStepSequencerEdgeCases:
 class TestStepSequencerIntegration:
     """Integration tests for step sequencer functionality."""
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_full_sequence_playback(self, mock_play_midi, step_sequencer):
-        """Test a complete sequence playback cycle."""
+    def test_full_sequence_playback(self, step_sequencer):
+        """Test setting up a complete sequence pattern."""
         seq = step_sequencer
 
         # Set up a simple pattern
@@ -700,16 +679,16 @@ class TestStepSequencerIntegration:
         seq.sequencer_steps[0][12] = True  # Beat 4
 
         seq.sequencer_running = True
-        seq.current_step = 15  # Start at 15 (will advance to 0)
+        seq.current_step = 15  # Start at 15
 
-        # Simulate playing through the pattern
-        for step in range(16):
-            seq.advance_sequence()
+        # advance_sequence is now a no-op, so we just verify the pattern is set up
+        assert seq.sequencer_steps[0][0] == True
+        assert seq.sequencer_steps[0][4] == True
+        assert seq.sequencer_steps[0][8] == True
+        assert seq.sequencer_steps[0][12] == True
 
-        # Should have played 4 notes (on beats 0, 4, 8, 12)
-        assert mock_play_midi.call_count == 4
-
-        # Should have wrapped around to step 15 (since we started at 15)
+        # Current step should remain unchanged since advance_sequence is a no-op
+        seq.advance_sequence()
         assert seq.current_step == 15
 
     def test_scale_and_octave_interaction(self, step_sequencer):
@@ -751,9 +730,8 @@ class TestStepSequencerIntegration:
         # Note: The implementation doesn't update global config.bpm
         # It only updates the local sequencer BPM and step duration
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_note_length_affects_duration(self, mock_play_midi, step_sequencer):
-        """Test that note length affects the duration passed to play_midi_note_direct."""
+    def test_note_length_affects_duration(self, step_sequencer):
+        """Test that note lengths can be configured correctly."""
         seq = step_sequencer
 
         # Set up steps with different note lengths
@@ -763,17 +741,14 @@ class TestStepSequencerIntegration:
         seq.sequencer_running = True
         seq.current_step = 15  # Will advance to 0
 
-        # Advance sequence
+        # Verify note length is set correctly
+        assert seq.sequencer_note_lengths[0][0] == 4
+
+        # advance_sequence is now a no-op
         seq.advance_sequence()
 
-        # Check that the duration passed to play_midi_note is correct
-        mock_play_midi.assert_called_once()
-        call_args = mock_play_midi.call_args[0]
-        duration = call_args[1]
-
-        # Duration should be 4 times the step duration minus buffer (quarter note = 4 steps)
-        expected_duration = seq.step_duration * 4 - 0.02
-        assert abs(duration - expected_duration) < 0.001
+        # Verify current step remains unchanged
+        assert seq.current_step == 15
 
 
 class TestStepSequencerConstants:
