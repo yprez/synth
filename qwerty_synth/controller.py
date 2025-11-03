@@ -1,7 +1,6 @@
 """Programmatic API for controlling the synthesizer."""
 
 import threading
-import time  # noqa: F401 - imported for test mocking compatibility
 import mido
 
 from qwerty_synth import config

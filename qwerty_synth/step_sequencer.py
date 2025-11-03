@@ -9,8 +9,6 @@ from PyQt5.QtWidgets import (
 
 from qwerty_synth.event_scheduler import global_scheduler
 from qwerty_synth import config
-# Import for test compatibility
-from qwerty_synth.controller import play_midi_note_direct  # noqa: F401
 
 
 class StepSequencer(QWidget):

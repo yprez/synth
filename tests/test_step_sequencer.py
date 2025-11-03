@@ -300,24 +300,24 @@ class TestStepSequencerPlayback:
             # Based on implementation: current_step starts at -1 (will be updated by scheduler)
             assert seq.current_step == -1
 
-    @patch('qwerty_synth.step_sequencer.play_midi_note_direct')
-    def test_toggle_sequencer_stop(self, mock_play_midi, step_sequencer):
+    def test_toggle_sequencer_stop(self, step_sequencer):
         """Test stopping the sequencer."""
         seq = step_sequencer
 
-        # Mock QTimer
-        with patch.object(seq, 'sequencer_timer', create=True) as mock_timer:
-            mock_timer.start = Mock()
-            mock_timer.stop = Mock()
-            mock_timer.setInterval = Mock()
-            mock_timer.setSingleShot = Mock()
+        # Mock global_scheduler and QTimer
+        with patch('qwerty_synth.step_sequencer.global_scheduler'):
+            with patch.object(seq, 'sequencer_timer', create=True) as mock_timer:
+                mock_timer.start = Mock()
+                mock_timer.stop = Mock()
+                mock_timer.setInterval = Mock()
+                mock_timer.setSingleShot = Mock()
 
-            # Start then stop sequencer
-            seq.toggle_sequencer()  # Start
-            seq.toggle_sequencer()  # Stop
+                # Start then stop sequencer
+                seq.toggle_sequencer()  # Start
+                seq.toggle_sequencer()  # Stop
 
-            assert seq.sequencer_running is False
-            mock_timer.stop.assert_called()
+                assert seq.sequencer_running is False
+                mock_timer.stop.assert_called()
 
     def test_advance_sequence(self, step_sequencer):
         """Test that advance_sequence can be called (legacy no-op method)."""
