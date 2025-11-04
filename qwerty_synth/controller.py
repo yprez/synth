@@ -373,11 +373,15 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
         # Load the MIDI file
         midi_file = mido.MidiFile(midi_file_path)
 
+        # Convert to list so we can iterate multiple times
+        # (mido.MidiFile is an iterator that gets exhausted after first use)
+        messages = list(midi_file)
+
         # Store original tempo scale for potential later adjustments
         config.midi_tempo_scale = tempo_scale
 
         # Estimate total duration for progress tracking
-        total_duration = sum(msg.time for msg in midi_file) / tempo_scale
+        total_duration = sum(msg.time for msg in messages) / tempo_scale
         config.midi_playback_duration = total_duration
 
         # Reset playback state
@@ -392,7 +396,7 @@ def play_midi_file(midi_file_path, tempo_scale=1.0):
                 # Track current time in seconds
                 current_time_seconds = 0.0
 
-                for msg in midi_file:
+                for msg in messages:
                     # Check if playback has been stopped
                     if not config.midi_playback_active:
                         global_scheduler.clear_all_events()

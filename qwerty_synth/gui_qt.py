@@ -2542,8 +2542,14 @@ class SynthGUI(QMainWindow):
             self.midi_input_status_label.setText("Status: Disabled")
 
 
-def start_gui():
-    """Start the GUI and synth components."""
+def start_gui(midi_file=None, auto_play=False, patch_name=None):
+    """Start the GUI and synth components.
+
+    Args:
+        midi_file: Optional path to MIDI file to load on startup
+        auto_play: If True, automatically play the MIDI file after loading
+        patch_name: Optional name of patch to load on startup
+    """
     global gui_instance, keyboard_translator  # pylint: disable=global-statement
 
     app = QApplication(sys.argv)
@@ -2615,6 +2621,45 @@ def start_gui():
             print('Failed to start MIDI input')
     else:
         print('MIDI input disabled (enable in GUI)')
+
+    # Load patch from command line
+    if patch_name:
+        def load_patch_by_name():
+            patches = patch.list_patches()
+            matching_patch = None
+
+            # Find patch by name (case-insensitive)
+            for p in patches:
+                if p['name'].lower() == patch_name.lower():
+                    matching_patch = p
+                    break
+
+            if matching_patch:
+                gui.load_patch_from_path(matching_patch['path'])
+            else:
+                print(f'Patch "{patch_name}" not found')
+                available = ', '.join([p['name'] for p in patches])
+                if available:
+                    print(f'Available patches: {available}')
+                else:
+                    print('No patches available')
+
+        # Delay to ensure GUI is fully initialized
+        QTimer.singleShot(500, load_patch_by_name)
+
+    # Load and optionally play MIDI file from command line
+    if midi_file:
+        def load_midi():
+            gui.midi_file_path = midi_file
+            gui.midi_file_label.setText(os.path.basename(midi_file))
+            gui.play_button.setEnabled(True)
+            gui.midi_status_label.setText("Ready to play")
+
+            if auto_play:
+                QTimer.singleShot(100, gui.play_midi)
+
+        # Delay to ensure GUI is fully initialized
+        QTimer.singleShot(600, load_midi)
 
     # Start Qt event loop
     try:
