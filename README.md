@@ -6,7 +6,7 @@ A minimalist real-time synthesizer built in Python using the keyboard as a piano
 
 ## Features
 
-- Play notes using keys A–K, W, E, T, Y, U, O, P, etc.
+- Play notes using keys A-K, W, E, T, Y, U, O, P, etc.
 - Octave shift with `Z` (down) / `X` (up)
 - MIDI controller input support for hardware MIDI devices
 - GUI with additional features:
@@ -38,14 +38,6 @@ Install dependencies using `uv`:
 uv sync
 ```
 
-## Testing
-
-Run the test suite to verify everything is working correctly:
-
-```bash
-uv run pytest
-```
-
 ## Running
 
 Run the synth with:
@@ -54,14 +46,17 @@ Run the synth with:
 uv run python main.py
 ```
 
-Then press keys on the keyboard to play or use the GUI controls.
+Then press keys on the keyboard to play or use the GUI controls. Press ESC to quit.
 
-## Exiting
+## Testing
 
-* Press ESC to quit the program and close all windows gracefully.
+Run the test suite to verify everything is working correctly:
 
+```bash
+uv run pytest
+```
 
-## Notes
+## Usage tips
 
 * You can tweak the envelope (ADSR) in real time while playing notes.
 * Your system should support low-latency audio (e.g. ALSA on Linux).
