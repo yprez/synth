@@ -69,3 +69,7 @@ uv run pytest
 
 * Additional waveform types (FM synthesis, wavetables)
 * More filter types (comb, formant filters)
+
+## Demo video
+https://github.com/user-attachments/assets/6c35c888-a61f-4219-97a1-2ab8da18e066
+
