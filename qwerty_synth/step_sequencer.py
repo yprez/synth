@@ -487,9 +487,8 @@ class StepSequencer(QWidget):
         # Calculate step duration - use a slightly shorter duration to prevent overlap
         self.step_duration = (step_interval / 1000) * 0.98  # 98% of step interval
 
-        if self.sequencer_running:
-            # Update timer if running
-            self.sequencer_timer.setInterval(step_interval)
+        # Reschedule if running to apply new BPM immediately
+        self._reschedule_on_change()
 
     def update_root_note(self, root_name):
         """Update the root note and regenerate notes."""
@@ -503,6 +502,9 @@ class StepSequencer(QWidget):
         # Update note labels to show correct names
         self.update_note_labels()
 
+        # Reschedule if running to apply new notes immediately
+        self._reschedule_on_change()
+
     def update_scale(self, scale_name):
         """Update the current scale and regenerate notes."""
         self.current_scale = scale_name
@@ -513,6 +515,9 @@ class StepSequencer(QWidget):
 
         # Update note labels to show correct names
         self.update_note_labels()
+
+        # Reschedule if running to apply new scale immediately
+        self._reschedule_on_change()
 
     def update_note_labels(self):
         """Update all note labels based on current scale and root."""
@@ -695,6 +700,18 @@ class StepSequencer(QWidget):
             source='sequencer'
         )
 
+    def _reschedule_on_change(self):
+        """Reschedule sequencer events after parameter changes during playback."""
+        if not self.sequencer_running:
+            return
+
+        # Clear all scheduled sequencer events
+        global_scheduler.clear_events_by_source('sequencer')
+
+        # Reschedule from the beginning
+        # The scheduler will handle proper timing based on current sample position
+        self._schedule_first_bar()
+
     def _update_ui_step(self, step: int):
         """Update UI for a specific step (called from audio thread via scheduler).
 
@@ -863,6 +880,9 @@ class StepSequencer(QWidget):
         # Update note labels
         self.update_note_labels()
 
+        # Reschedule if running to apply new octave immediately
+        self._reschedule_on_change()
+
     def toggle_step(self):
         """Handle toggling a step button in the sequencer grid."""
         button = self.sender()
@@ -904,6 +924,9 @@ class StepSequencer(QWidget):
                             button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_primary_alt']}; }}")
                         else:
                             button.setStyleSheet(f"QPushButton {{ background-color: {self.COLORS['grid_secondary_alt']}; }}")
+
+                # Reschedule if running to apply step changes immediately
+                self._reschedule_on_change()
 
     def _update_octave_display(self, value):
         """Update the display format of the octave spinbox."""
