@@ -32,7 +32,13 @@ A minimalist real-time synthesizer built in Python using the keyboard as a piano
 
 ## Installation
 
-Install dependencies using `uv`:
+First, install the required system package:
+
+```bash
+sudo apt install portaudio19-dev
+```
+
+Then install Python dependencies using `uv`:
 
 ```bash
 uv sync
@@ -47,6 +53,31 @@ uv run python main.py
 ```
 
 Then press keys on the keyboard to play or use the GUI controls. Press ESC to quit.
+
+## Command line options
+
+```bash
+uv run python main.py [OPTIONS]
+```
+
+- `--midi FILE` - Load MIDI file on startup
+- `--play` - Auto-play the loaded MIDI file (requires `--midi`)
+- `--patch NAME` - Load a saved patch preset
+
+Example:
+```bash
+uv run python main.py --midi song.mid --play --patch "Bass"
+```
+
+## Input methods
+
+The synth supports three distinct ways to create sound:
+
+- **QWERTY Keyboard**: Play notes using computer keys A-K, W, E, T, Y, U, O, P, etc. (default)
+- **MIDI Controller**: Connect external MIDI keyboard/controller hardware (enable in MIDI Input tab)
+- **MIDI File Playback**: Play pre-recorded .mid files like a music player (use MIDI Player tab or `--midi` flag)
+
+Note: MIDI controller input and MIDI file playback are separate features that can be used independently.
 
 ## Testing
 
@@ -69,6 +100,7 @@ uv run pytest
 
 * Additional waveform types (FM synthesis, wavetables)
 * More filter types (comb, formant filters)
+* MIDI input enhancements (sustain pedal, pitch bend, MIDI learn, etc.)
 
 ## Demo video
 https://github.com/user-attachments/assets/6c35c888-a61f-4219-97a1-2ab8da18e066
