@@ -77,16 +77,17 @@ This repository contains a Python synthesizer and its accompanying tests.
 - `step_sequencer.py` - Step sequencer with scale and rhythm controls
 - `record.py` - Audio recording functionality (WAV export)
 
-### Testing & Examples
+### Testing & Benchmarking
 - `tests/` - Comprehensive test suite for all modules
-- `examples/` - Example scripts demonstrating various features
 - `synth_performance_benchmark.py` - Performance benchmarking tool
 
 ### Key Features
 - Real-time polyphonic synthesis with multiple waveforms
-- Multiple input modes: QWERTY keyboard + external MIDI controllers
+- Three input methods:
+  - QWERTY keyboard (default)
+  - External MIDI controller input (real-time hardware)
+  - MIDI file playback (pre-recorded files with tempo control)
 - Live audio visualization (waveform, spectrum, ADSR curves)
-- MIDI file playback with tempo control
 - Comprehensive effects chain (filter, drive, delay, chorus, reverb)
 - Modulation system with LFO and envelope control
 - Pattern sequencing and arpeggiator
