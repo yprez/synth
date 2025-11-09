@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-from unittest.mock import patch
 from qwerty_synth import config
 from qwerty_synth.reverb import Reverb
 

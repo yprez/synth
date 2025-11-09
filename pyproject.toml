@@ -1,7 +1,7 @@
 [project]
-name = "synth1"
+name = "qwerty-synth"
 version = "0.1.0"
-description = "Add your description here"
+description = "A minimalist real-time synthesizer with QWERTY keyboard input"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

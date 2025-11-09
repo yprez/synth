@@ -9,5 +9,13 @@ wheels/
 # Virtual environments
 .venv
 
-# Other
+# Testing and coverage
+.pytest_cache/
 .coverage
+htmlcov/
+
+# Linting
+.ruff_cache/
+
+# Audio recordings
+*.wav

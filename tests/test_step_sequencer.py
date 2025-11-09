@@ -682,10 +682,10 @@ class TestStepSequencerIntegration:
         seq.current_step = 15  # Start at 15
 
         # advance_sequence is now a no-op, so we just verify the pattern is set up
-        assert seq.sequencer_steps[0][0] == True
-        assert seq.sequencer_steps[0][4] == True
-        assert seq.sequencer_steps[0][8] == True
-        assert seq.sequencer_steps[0][12] == True
+        assert seq.sequencer_steps[0][0]
+        assert seq.sequencer_steps[0][4]
+        assert seq.sequencer_steps[0][8]
+        assert seq.sequencer_steps[0][12]
 
         # Current step should remain unchanged since advance_sequence is a no-op
         seq.advance_sequence()
