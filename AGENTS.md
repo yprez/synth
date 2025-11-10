@@ -12,9 +12,9 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Build/Install: `uv sync`
 - Run app: `uv run python main.py`
 - Lint: `uv run ruff check .`
-- Run all tests: `uv run pytest`
-- Run single test: `uv run pytest tests/test_file.py::TestClass::test_function -v`
-- Test with coverage: `uv run pytest --cov=qwerty_synth --cov-report=html`
+- Run all tests: `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest`
+- Run single test: `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest tests/test_file.py::TestClass::test_function -v`
+- Test with coverage: `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest --cov=qwerty_synth --cov-report=html`
 
 ## Code Practices
 
@@ -51,7 +51,8 @@ This repository contains a Python synthesizer and its accompanying tests.
 1. Install dependencies with `uv sync`.
 2. Ensure the system package `portaudio19-dev` is installed.
 3. Run the linter using `uv run ruff check .` and fix issues when possible.
-4. Execute the tests: `uv run pytest`.
+4. Execute the tests with `PYNPUT_BACKEND=dummy` and `QT_QPA_PLATFORM=offscreen`:
+   `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest`.
 
 ## Project Structure
 
