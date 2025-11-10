@@ -1,5 +1,5 @@
 [project]
-name = "qwerty-synth"
+name = "qwertysynth"
 version = "0.1.0"
 description = "A minimalist real-time synthesizer with QWERTY keyboard input"
 readme = "README.md"
@@ -19,6 +19,12 @@ dependencies = [
     "sounddevice>=0.5.1",
     "soundfile>=0.13.1",
 ]
+
+[project.scripts]
+qwertysynth = "qwerty_synth.entry:main"
+
+[tool.uv]
+package = true
 
 [dependency-groups]
 dev = [
