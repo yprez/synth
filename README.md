@@ -98,6 +98,10 @@ uv run pytest
 
 ## TODO
 
+* Auto-save/restore session on exit
+* Step sequencer improvements (full screen mode, save/load patterns, longer patterns, more editing options)
+* MIDI file loop function
+* More command line options
 * Additional waveform types (FM synthesis, wavetables)
 * More filter types (comb, formant filters)
 * MIDI input enhancements (sustain pedal, pitch bend, MIDI learn, etc.)
