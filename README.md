@@ -84,8 +84,10 @@ Note: MIDI controller input and MIDI file playback are separate features that ca
 Run the test suite to verify everything is working correctly:
 
 ```bash
-uv run pytest
+PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest
 ```
+
+The environment variables enable headless mode for running tests without a display or X11 server.
 
 ## Usage tips
 
