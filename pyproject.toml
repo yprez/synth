@@ -23,6 +23,9 @@ dependencies = [
 [project.scripts]
 qwertysynth = "qwerty_synth.entry:main"
 
+[tool.uv]
+package = true
+
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
