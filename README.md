@@ -46,7 +46,13 @@ uv sync
 
 ## Running
 
-Run the synth with:
+Run the synth with the packaged GUI entry script:
+
+```bash
+uv run qwertysynth
+```
+
+You can also continue using the legacy entry point if you prefer:
 
 ```bash
 uv run python main.py
@@ -57,7 +63,7 @@ Then press keys on the keyboard to play or use the GUI controls. Press ESC to qu
 ## Command line options
 
 ```bash
-uv run python main.py [OPTIONS]
+uv run qwertysynth [OPTIONS]
 ```
 
 - `--midi FILE` - Load MIDI file on startup
@@ -66,7 +72,7 @@ uv run python main.py [OPTIONS]
 
 Example:
 ```bash
-uv run python main.py --midi song.mid --play --patch "Bass"
+uv run qwertysynth --midi song.mid --play --patch "Bass"
 ```
 
 ## Input methods
