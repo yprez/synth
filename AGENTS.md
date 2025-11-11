@@ -107,6 +107,62 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Commit messages should have a concise title; add a body for complicated commits if needed
 - Never add co-authorship attribution or AI-generated markers to commit messages
 
+## Code Review Guidelines
+
+### Before reviewing
+- Check out the branch and run `uv sync` to install dependencies
+- Run the full test suite to ensure all tests pass
+- Run the linter to check for style issues
+- Test the changes manually if they affect user-facing functionality
+
+### Code quality checks
+- Verify naming follows conventions (snake_case for variables/functions, PascalCase for classes)
+- Check that functions are focused and do one thing clearly
+- Ensure error handling uses specific exceptions, not bare except clauses
+- Verify thread safety for code modifying shared resources
+- Confirm type hints are present for function parameters and return values
+- Check line length does not exceed 100 characters
+- Ensure blank lines contain no whitespace
+
+### Documentation checks
+- Verify all public classes and functions have docstrings
+- Check docstrings use Google style format
+- Ensure docstrings explain what and why, not just how
+- Confirm complex syntax has clarifying inline comments
+
+### Architecture and design
+- Check imports follow the pattern: stdlib, third-party, local modules
+- Verify orchestrator functions are placed before functions they call
+- Ensure dataclasses use slots when appropriate
+- Check for use of PEP 585 built-in generic types (list[str] not typing.List[str])
+- Verify explicit module imports are used (import math, not from math import ceil)
+- Look for opportunities to use modern Python features (dataclasses with slots, pattern matching, type aliases)
+
+### Testing requirements
+- Verify new functionality has corresponding test coverage
+- Check that tests are meaningful and test behavior, not implementation
+- Ensure tests follow existing naming conventions
+- Confirm tests run with required environment variables (PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen)
+
+### Security and safety
+- Check for potential security vulnerabilities (injection, unsafe file operations)
+- Verify input validation for user-provided data
+- Ensure sensitive operations have appropriate error handling
+- Look for potential race conditions in threaded code
+
+### Git and commit quality
+- Verify commits are on a feature/fix branch, not main
+- Check commit messages are clear and descriptive
+- Ensure commits are logically grouped
+- Confirm no unnecessary files or changes are included
+
+### Providing feedback
+- Be specific about issues and suggest concrete improvements
+- Distinguish between critical issues (bugs, security) and suggestions (style, optimization)
+- Reference specific file paths when discussing code locations
+- Question assumptions and verify correctness rather than blindly approving
+- Offer to discuss alternative approaches for complex changes
+
 ## Documentation Standards
 
 - Never include line numbers or line counts in documentation
