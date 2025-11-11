@@ -1,5 +1,13 @@
 """Comprehensive unit tests for the controller functionality."""
 
+import pytest
+
+# Skip entire module if sounddevice/PortAudio is not available
+try:
+    import sounddevice
+except OSError:
+    pytest.skip("PortAudio library not found", allow_module_level=True)
+
 import time
 from unittest.mock import patch, MagicMock
 import threading

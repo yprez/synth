@@ -11,6 +11,22 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from qwerty_synth import config
 
 
+def is_portaudio_available():
+    """Check if PortAudio library is available."""
+    try:
+        import sounddevice
+        return True
+    except OSError:
+        return False
+
+
+# Create a pytest marker for tests requiring PortAudio
+requires_portaudio = pytest.mark.skipif(
+    not is_portaudio_available(),
+    reason="PortAudio library not found (install portaudio19-dev system package)"
+)
+
+
 @pytest.fixture(autouse=True)
 def reset_config():
     """Reset configuration to default values before each test."""
@@ -157,6 +173,8 @@ def noise():
 @pytest.fixture
 def mock_oscillator():
     """Create a mock oscillator for testing."""
+    if not is_portaudio_available():
+        pytest.skip("PortAudio library not found")
     from qwerty_synth.synth import Oscillator
     return Oscillator(440.0, 'sine')
 

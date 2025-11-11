@@ -1,8 +1,15 @@
 """Integration tests covering keyboard translator to controller flows."""
 
+import pytest
+
+# Skip entire module if sounddevice/PortAudio is not available
+try:
+    import sounddevice
+except OSError:
+    pytest.skip("PortAudio library not found", allow_module_level=True)
+
 from unittest.mock import Mock
 
-import pytest
 from pynput.keyboard import Key, KeyCode
 
 from qwerty_synth import config, controller
