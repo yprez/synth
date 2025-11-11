@@ -1,6 +1,13 @@
 """Tests for arpeggiator functionality."""
 
 import pytest
+
+# Skip entire module if sounddevice/PortAudio is not available
+try:
+    import sounddevice
+except OSError:
+    pytest.skip("PortAudio library not found", allow_module_level=True)
+
 from unittest.mock import patch
 from PyQt5.QtWidgets import QApplication
 

@@ -1,7 +1,14 @@
 """Integration test for MIDI controller → controller flow."""
 
-from unittest.mock import Mock, MagicMock, patch
 import pytest
+
+# Skip entire module if sounddevice/PortAudio is not available
+try:
+    import sounddevice
+except OSError:
+    pytest.skip("PortAudio library not found", allow_module_level=True)
+
+from unittest.mock import Mock, MagicMock, patch
 
 from qwerty_synth import config, controller
 from qwerty_synth.midi_input import MidiPortTranslator

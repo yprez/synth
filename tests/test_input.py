@@ -1,9 +1,15 @@
 """Integration tests covering keyboard events routed through the controller."""
 
+import pytest
+
+# Skip entire module if sounddevice/PortAudio is not available
+try:
+    import sounddevice
+except OSError:
+    pytest.skip("PortAudio library not found", allow_module_level=True)
+
 from types import SimpleNamespace
 from unittest.mock import Mock, patch, call
-
-import pytest
 
 from qwerty_synth import config, controller
 from qwerty_synth.keyboard_midi import MidiEvent
