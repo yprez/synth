@@ -2,11 +2,27 @@
 
 This repository contains a Python synthesizer and its accompanying tests.
 
+## Critical rules
+
+**NEVER commit without running checks.** All tests and lints must pass.
+
+| Changed | Run |
+|---------|-----|
+| `.py` | `PYNPUT_BACKEND=dummy QT_QPA_PLATFORM=offscreen uv run pytest && uv run ruff check .` |
+
+**NEVER add AI attribution.** No "Generated with Claude", no "Co-Authored-By: Claude", no emojis.
+
+---
+
 ## General guidelines
 
 - When suggesting changes to a file, prefer breaking them into smaller chunks
 - Never tell the user "you're absolutely right" or similar affirmations. Assume the user might be wrong and double-check their assumptions before proceeding
 - Before addressing big features or complicated bugs, discuss the approach first and consider creating a plan
+- Act autonomously on reversible changes; ask before architectural changes or breaking the audio pipeline
+- **Progressive rigor:** Apply lightweight process for small tasks (simple fixes, minor tweaks), full discipline for complex tasks (new features, refactors, audio pipeline changes). Always run tests and lint, but adjust planning/documentation depth to match task complexity.
+- **Explicit assumptions:** State assumptions clearly before proceeding with implementation. If requirements are ambiguous, ask targeted questions rather than guessing.
+- **No silent failures:** Surface errors explicitly - never skip or ignore test failures, linting errors, or runtime exceptions. Fix all issues before finishing.
 
 ## Commands
 - Build/Install: `uv sync`
@@ -31,6 +47,7 @@ This repository contains a Python synthesizer and its accompanying tests.
 - Write docstrings for module-level and all public classes/functions
 - Use Google style docstrings starting immediately after opening quotes
 - Explain briefly what the function does and why
+- Comments should explain **why** (design decisions, audio constraints), not what the code does
 - Use clarifying inline comments for complex syntax
 
 ### Code quality
